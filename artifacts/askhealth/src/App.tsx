@@ -2,7 +2,7 @@ import { Switch, Route, Router as WouterRouter, Link, useLocation, Redirect } fr
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from '@clerk/react';
 import { shadcn } from '@clerk/themes';
 import { useGetCurrentUser } from "@workspace/api-client-react";
@@ -246,16 +246,75 @@ function Landing() {
 }
 
 function AdminGate({ children }: { children: React.ReactNode }) {
-  const { data: user, isLoading } = useGetCurrentUser();
+  const { data: user, isLoading, refetch } = useGetCurrentUser();
+  const [bootstrapping, setBootstrapping] = React.useState(false);
+  const [bootstrapStatus, setBootstrapStatus] = React.useState<{ adminExists: boolean } | null>(null);
+  const [bootstrapError, setBootstrapError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!isLoading && user && user.role !== "admin") {
+      fetch("/api/admin/bootstrap/status")
+        .then(r => r.json())
+        .then(setBootstrapStatus)
+        .catch(() => {});
+    }
+  }, [isLoading, user]);
+
+  const handleBootstrap = async () => {
+    setBootstrapping(true);
+    setBootstrapError(null);
+    try {
+      const res = await fetch("/api/admin/bootstrap", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        await refetch();
+      } else {
+        setBootstrapError(data.error ?? "Failed to claim admin access.");
+      }
+    } catch {
+      setBootstrapError("Network error. Please try again.");
+    } finally {
+      setBootstrapping(false);
+    }
+  };
+
   if (isLoading) return <div className="flex items-center justify-center h-screen text-slate-400">Loading...</div>;
-  if (user?.role !== "admin") return (
-    <div className="flex flex-col items-center justify-center h-screen gap-4">
-      <div className="text-6xl">🚫</div>
-      <h2 className="text-xl font-bold text-slate-700">Access Denied</h2>
-      <p className="text-slate-500">You need admin privileges to access this page.</p>
-      <Link href="/chat"><button className="px-4 py-2 bg-primary text-white rounded-lg text-sm">Go to Chat</button></Link>
-    </div>
-  );
+
+  if (user?.role !== "admin") {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4 text-center">
+        <div className="text-6xl">🔒</div>
+        <h2 className="text-xl font-bold text-slate-700">Admin Access Required</h2>
+        <p className="text-slate-500 max-w-sm">You need admin privileges to access this page.</p>
+
+        {bootstrapStatus && !bootstrapStatus.adminExists && (
+          <div className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-xl max-w-sm">
+            <p className="text-sm text-slate-700 font-medium mb-1">No admin set up yet</p>
+            <p className="text-xs text-slate-500 mb-3">You can claim the first admin seat since no admin account exists.</p>
+            {bootstrapError && <p className="text-xs text-red-500 mb-2">{bootstrapError}</p>}
+            <button
+              onClick={handleBootstrap}
+              disabled={bootstrapping}
+              className="w-full px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-60"
+            >
+              {bootstrapping ? "Claiming…" : "Claim Admin Access"}
+            </button>
+          </div>
+        )}
+
+        {bootstrapStatus?.adminExists && (
+          <p className="text-xs text-slate-400 max-w-sm">An admin already exists. Contact them to grant you access.</p>
+        )}
+
+        <Link href="/communities">
+          <button className="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 mt-2">
+            Back to Communities
+          </button>
+        </Link>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 }
 

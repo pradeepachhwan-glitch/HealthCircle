@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { consentsTable } from "@workspace/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -7,7 +8,9 @@ import { requireAuth, getOrCreateUser } from "../lib/auth";
 const router = Router();
 
 router.post("/consents", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const { consentTypes } = req.body as { consentTypes: ("post_health_data" | "ai_assistance")[] };
@@ -25,7 +28,9 @@ router.post("/consents", requireAuth, async (req, res) => {
 });
 
 router.get("/consents/check", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const consents = await db.select()

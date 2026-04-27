@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
 import { useClerk } from "@clerk/react";
-import { Search, User, Shield, LogOut, Menu, Activity } from "lucide-react";
+import { Home, MessageCircle, Users, Search, User, Shield, LogOut, Menu, Activity, CalendarDays, Stethoscope } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -27,18 +27,28 @@ function SidebarContent() {
   const { signOut } = useClerk();
 
   const navItems = [
-    { href: "/communities", icon: Home, label: "Communities" },
+    { href: "/communities", icon: Users, label: "Communities" },
+    { href: "/chat", icon: MessageCircle, label: "Ask Yukti AI" },
+    { href: "/providers", icon: Stethoscope, label: "Find Doctors" },
+    { href: "/appointments", icon: CalendarDays, label: "Appointments" },
     { href: "/search", icon: Search, label: "Search" },
     { href: "/profile", icon: User, label: "Profile" },
   ];
 
-  if (user?.role === "admin") {
+  if (user?.role === "admin" || user?.role === "moderator") {
     navItems.push({ href: "/admin", icon: Shield, label: "Admin" });
   }
 
+  const isActive = (href: string) => {
+    if (href === "/communities") {
+      return location === "/communities" || location.startsWith("/communities/");
+    }
+    return location.startsWith(href);
+  };
+
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border text-sidebar-foreground">
-      <div className="p-6">
+      <div className="p-6 flex-1 overflow-y-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-8 h-8 rounded bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold">
             <Activity className="w-5 h-5" />
@@ -46,39 +56,51 @@ function SidebarContent() {
           <span className="font-bold text-lg tracking-tight">AskHealth AI</span>
         </div>
 
-        {credits && (
-          <div className="mb-8 p-4 rounded-xl bg-sidebar-accent/50 border border-sidebar-border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-sidebar-accent-foreground">Level {credits.level}</span>
-              <span className="text-xs text-sidebar-accent-foreground/70">{credits.healthCredits} HC</span>
+        {/* User + Level Card */}
+        {user && (
+          <div className="mb-6 p-4 rounded-xl bg-sidebar-accent/50 border border-sidebar-border">
+            <div className="flex items-center gap-3 mb-3">
+              <UserAvatar name={user.displayName} url={user.avatarUrl} className="w-8 h-8 text-xs" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate">{user.displayName}</div>
+                <div className="text-xs text-sidebar-accent-foreground/70 capitalize">{user.role}</div>
+              </div>
             </div>
-            <Progress value={credits.progressPercent} className="h-1.5 mb-2 bg-sidebar-border" />
-            <div className="text-xs text-sidebar-accent-foreground/70">{credits.creditsToNextLevel} to next level</div>
+            {credits && (
+              <>
+                <div className="flex items-center justify-between mb-1.5 text-xs">
+                  <span className="text-sidebar-accent-foreground font-medium">Level {credits.level}</span>
+                  <span className="text-sidebar-accent-foreground/70">{credits.healthCredits} HC</span>
+                </div>
+                <Progress value={credits.progressPercent} className="h-1.5 bg-sidebar-border" />
+                <div className="text-[10px] text-sidebar-accent-foreground/60 mt-1">{credits.creditsToNextLevel} HC to next level</div>
+              </>
+            )}
           </div>
         )}
 
-        <nav className="space-y-1">
+        <nav className="space-y-0.5">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <div className={`flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer transition-colors ${
-                location.startsWith(item.href) && (item.href !== "/communities" || location === "/communities" || location.startsWith("/communities/"))
+                isActive(item.href)
                   ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               }`}>
-                <item.icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span className="text-sm">{item.label}</span>
               </div>
             </Link>
           ))}
         </nav>
       </div>
 
-      <div className="mt-auto p-6">
+      <div className="p-4 border-t border-sidebar-border">
         <button
           onClick={() => signOut()}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer w-full text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer w-full text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-sm"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="w-4 h-4" />
           <span>Sign Out</span>
         </button>
       </div>
@@ -87,8 +109,6 @@ function SidebarContent() {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
-
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar */}
@@ -115,7 +135,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 md:pl-64 pt-14 md:pt-0 pb-16 md:pb-0">
+      <div className="flex-1 md:pl-64 pt-14 md:pt-0 pb-20 md:pb-0">
         <main className="h-full">
           {children}
         </main>
