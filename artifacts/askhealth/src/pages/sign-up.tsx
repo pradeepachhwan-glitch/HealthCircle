@@ -92,7 +92,7 @@ export default function SignUpPage() {
         } catch {
           // Non-fatal — user data still created via getOrCreateUser on next request
         }
-        setLocation("/");
+        window.location.assign(`${basePath}/communities`);
       } else {
         setError("Verification incomplete. Please try again.");
       }
@@ -313,7 +313,10 @@ export default function SignUpPage() {
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">
-          By creating an account you agree to HealthCircle's Terms & Privacy Policy.
+          By creating an account you agree to HealthCircle's{" "}
+          <Link href={`${basePath}/terms`} className="text-primary hover:underline">Terms</Link>
+          {" "}&amp;{" "}
+          <Link href={`${basePath}/privacy`} className="text-primary hover:underline">Privacy Policy</Link>.
         </p>
       </div>
     </div>

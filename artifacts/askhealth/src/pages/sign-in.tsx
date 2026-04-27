@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSignIn } from "@clerk/react";
+import { useSignIn, useAuth, useClerk } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { Eye, EyeOff, Loader2, HeartPulse } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ async function lookupEmail(identifier: string): Promise<string> {
 
 export default function SignInPage() {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { isSignedIn } = useAuth();
+  const { signOut } = useClerk();
   const [, setLocation] = useLocation();
 
   const [identifier, setIdentifier] = useState("");
@@ -28,17 +30,26 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function goToApp() {
+    window.location.assign(`${basePath}/communities`);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isLoaded || !signIn) return;
     setLoading(true);
     setError(null);
     try {
+      if (isSignedIn) {
+        // Already signed in (stale session). Sign out first so credentials apply cleanly.
+        await signOut({ redirectUrl: `${basePath}/sign-in` });
+      }
       const email = await lookupEmail(identifier.trim());
       const result = await signIn.create({ identifier: email, password });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        setLocation("/");
+        // Hard navigation to ensure Clerk session cookie is read fresh by all components.
+        window.location.assign(`${basePath}/communities`);
       } else {
         setError("Sign-in could not be completed. Please try again.");
       }
@@ -176,7 +187,10 @@ export default function SignInPage() {
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">
-          By signing in you agree to HealthCircle's Terms & Privacy Policy.
+          By signing in you agree to HealthCircle's{" "}
+          <Link href={`${basePath}/terms`} className="text-primary hover:underline">Terms</Link>
+          {" "}&amp;{" "}
+          <Link href={`${basePath}/privacy`} className="text-primary hover:underline">Privacy Policy</Link>.
         </p>
       </div>
     </div>

@@ -1,5 +1,4 @@
 import { Router } from "express";
-import crypto from "node:crypto";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import {
@@ -9,27 +8,29 @@ import {
 } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
-import { logger } from "../lib/logger";
 
 const router = Router();
 
-function isRazorpayConfigured() {
-  return Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+const UPI_VPA = "9278347143@upi";
+const UPI_PAYEE_NAME = "HealthCircle";
+
+function buildUpiLink(amountInr: number, note: string, txnRef: string): string {
+  const params = new URLSearchParams({
+    pa: UPI_VPA,
+    pn: UPI_PAYEE_NAME,
+    am: String(amountInr.toFixed(2)),
+    cu: "INR",
+    tn: note,
+    tr: txnRef,
+  });
+  return `upi://pay?${params.toString()}`;
 }
 
-router.get("/payments/razorpay/config", requireAuth, async (_req, res) => {
-  res.json({
-    enabled: isRazorpayConfigured(),
-    keyId: process.env.RAZORPAY_KEY_ID ?? null,
-  });
+router.get("/payments/upi/config", requireAuth, (_req, res) => {
+  res.json({ enabled: true, provider: "upi", upiId: UPI_VPA, payeeName: UPI_PAYEE_NAME });
 });
 
-router.post("/payments/razorpay/order", requireAuth, async (req, res) => {
-  if (!isRazorpayConfigured()) {
-    res.status(503).json({ error: "Payments are not configured. Please contact support." });
-    return;
-  }
-
+router.post("/payments/upi/initiate", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
@@ -50,116 +51,85 @@ router.post("/payments/razorpay/order", requireAuth, async (req, res) => {
     return;
   }
 
-  // Check for existing paid access
-  const [existing] = await db
+  const [existingMembership] = await db
     .select()
     .from(communityMembersTable)
     .where(and(eq(communityMembersTable.userId, user.id), eq(communityMembersTable.communityId, communityId)));
-  if (existing?.hasPremiumAccess) {
+  if (existingMembership?.hasPremiumAccess) {
     res.status(409).json({ error: "You already have premium access to this community", alreadyPaid: true });
     return;
   }
 
-  const amountPaise = community.premiumPriceInr * 100;
+  const txnRef = `HC${user.id}C${communityId}T${Date.now()}`;
+  const note = `${community.name} Premium`.slice(0, 80);
 
-  // Create order with Razorpay
-  const auth = Buffer.from(
-    `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`,
-  ).toString("base64");
-
-  const orderResp = await fetch("https://api.razorpay.com/v1/orders", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Basic ${auth}`,
-    },
-    body: JSON.stringify({
-      amount: amountPaise,
+  const [payment] = await db
+    .insert(paymentsTable)
+    .values({
+      userId: user.id,
+      communityId,
+      provider: "upi",
+      purpose,
+      amountInr: community.premiumPriceInr,
       currency: "INR",
-      receipt: `hc_${user.id}_${communityId}_${Date.now()}`,
-      notes: { userId: user.id, communityId, purpose },
-    }),
-  });
-
-  if (!orderResp.ok) {
-    const errBody = await orderResp.text();
-    logger.error({ status: orderResp.status, body: errBody }, "Razorpay order creation failed");
-    res.status(502).json({ error: "Could not create payment order. Please try again." });
-    return;
-  }
-
-  const order = (await orderResp.json()) as { id: string; amount: number; currency: string };
-
-  await db.insert(paymentsTable).values({
-    userId: user.id,
-    communityId,
-    provider: "razorpay",
-    purpose,
-    amountInr: community.premiumPriceInr,
-    currency: "INR",
-    status: "created",
-    providerOrderId: order.id,
-    notes: { receipt: `hc_${user.id}_${communityId}_${Date.now()}` },
-  });
+      status: "created",
+      providerOrderId: txnRef,
+      notes: { upiId: UPI_VPA, communityName: community.name },
+    })
+    .returning();
 
   res.json({
-    orderId: order.id,
-    amount: order.amount,
-    currency: order.currency,
-    keyId: process.env.RAZORPAY_KEY_ID,
-    communityName: community.name,
+    paymentId: payment.id,
+    upiId: UPI_VPA,
+    payeeName: UPI_PAYEE_NAME,
     amountInr: community.premiumPriceInr,
+    txnRef,
+    note,
+    upiLink: buildUpiLink(community.premiumPriceInr, note, txnRef),
+    communityName: community.name,
   });
 });
 
-router.post("/payments/razorpay/verify", requireAuth, async (req, res) => {
-  if (!isRazorpayConfigured()) {
-    res.status(503).json({ error: "Payments are not configured." });
-    return;
-  }
-
+router.post("/payments/upi/confirm", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
 
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body as {
-    razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string;
-  };
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-    res.status(400).json({ error: "Missing payment confirmation fields" });
+  const { paymentId, utr } = req.body as { paymentId?: number; utr?: string };
+  if (!paymentId || !utr || utr.trim().length < 6) {
+    res.status(400).json({ error: "paymentId and a valid UTR / transaction reference are required" });
     return;
   }
 
-  const expectedSig = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET as string)
-    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-    .digest("hex");
-
-  if (expectedSig !== razorpay_signature) {
-    await db
-      .update(paymentsTable)
-      .set({ status: "failed", providerPaymentId: razorpay_payment_id, providerSignature: razorpay_signature })
-      .where(eq(paymentsTable.providerOrderId, razorpay_order_id));
-    res.status(400).json({ error: "Payment verification failed. Signature mismatch." });
+  const cleanUtr = utr.trim().replace(/\s+/g, "").toUpperCase();
+  if (cleanUtr.length > 32 || !/^[A-Z0-9]+$/.test(cleanUtr)) {
+    res.status(400).json({ error: "UTR must be 6-32 alphanumeric characters" });
     return;
   }
 
   const [payment] = await db
     .select()
     .from(paymentsTable)
-    .where(eq(paymentsTable.providerOrderId, razorpay_order_id));
+    .where(eq(paymentsTable.id, paymentId));
   if (!payment || payment.userId !== user.id) {
-    res.status(404).json({ error: "Payment record not found" });
+    res.status(404).json({ error: "Payment not found" });
+    return;
+  }
+  if (payment.status === "paid") {
+    res.json({ success: true, paymentId: payment.id, alreadyConfirmed: true });
     return;
   }
 
   await db
     .update(paymentsTable)
-    .set({ status: "paid", providerPaymentId: razorpay_payment_id, providerSignature: razorpay_signature })
+    .set({
+      status: "paid",
+      providerPaymentId: cleanUtr,
+      notes: { ...(payment.notes as Record<string, unknown> | null ?? {}), utr: cleanUtr, confirmedAt: new Date().toISOString() },
+    })
     .where(eq(paymentsTable.id, payment.id));
 
   if (payment.communityId) {
-    // Upsert community member with premium access
     const [existing] = await db
       .select()
       .from(communityMembersTable)
@@ -167,7 +137,7 @@ router.post("/payments/razorpay/verify", requireAuth, async (req, res) => {
     if (existing) {
       await db
         .update(communityMembersTable)
-        .set({ hasPremiumAccess: true, premiumPaymentId: razorpay_payment_id })
+        .set({ hasPremiumAccess: true, premiumPaymentId: cleanUtr })
         .where(eq(communityMembersTable.id, existing.id));
     } else {
       await db
@@ -176,13 +146,13 @@ router.post("/payments/razorpay/verify", requireAuth, async (req, res) => {
           userId: user.id,
           communityId: payment.communityId,
           hasPremiumAccess: true,
-          premiumPaymentId: razorpay_payment_id,
+          premiumPaymentId: cleanUtr,
         })
         .onConflictDoNothing();
     }
   }
 
-  res.json({ success: true, paymentId: payment.id });
+  res.json({ success: true, paymentId: payment.id, utr: cleanUtr });
 });
 
 export default router;

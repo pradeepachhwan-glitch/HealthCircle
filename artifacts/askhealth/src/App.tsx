@@ -30,6 +30,8 @@ import AppointmentsPage from "@/pages/appointments";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import CustomSignIn from "@/pages/sign-in";
 import CustomSignUp from "@/pages/sign-up";
+import TermsPage from "@/pages/terms";
+import PrivacyPage from "@/pages/privacy";
 import ForgotPassword from "@/pages/forgot-password";
 import MedPro from "@/pages/medpro";
 import { useUser } from "@clerk/react";
@@ -724,6 +726,8 @@ function ClerkProviderWithRoutes() {
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
           <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/terms" component={TermsPage} />
+          <Route path="/privacy" component={PrivacyPage} />
           <Route path="/sso-callback">
             <AuthenticateWithRedirectCallback
               signInForceRedirectUrl={`${basePath}/`}

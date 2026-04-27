@@ -66,27 +66,17 @@ export default function Community() {
   const requiresPaymentToJoin = isPremium && premiumPriceInr > 0 && !hasPremiumAccess;
   const [paymentLoading, setPaymentLoading] = useState(false);
 
-  function loadRazorpayScript(): Promise<boolean> {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) { resolve(true); return; }
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  }
+  const [upiPayment, setUpiPayment] = useState<{
+    paymentId: number; upiId: string; upiLink: string; amountInr: number; txnRef: string; payeeName: string;
+  } | null>(null);
+  const [utrInput, setUtrInput] = useState("");
+  const [confirmingUtr, setConfirmingUtr] = useState(false);
 
   async function handlePremiumUnlock() {
     if (!community) return;
     setPaymentLoading(true);
     try {
-      const ok = await loadRazorpayScript();
-      if (!ok) {
-        toast.error("Could not load payment gateway. Check your internet connection.");
-        return;
-      }
-      const orderRes = await fetch(`${API_BASE}/payments/razorpay/order`, {
+      const orderRes = await fetch(`${API_BASE}/payments/upi/initiate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -94,52 +84,52 @@ export default function Community() {
       });
       if (!orderRes.ok) {
         const body = await orderRes.json().catch(() => ({}));
-        throw new Error((body as any).error ?? "Could not create payment order");
+        throw new Error((body as any).error ?? "Could not start payment");
       }
       const order = await orderRes.json();
-      const rzp = new (window as any).Razorpay({
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: "HealthCircle",
-        description: `${community.name} — Premium membership`,
-        order_id: order.orderId,
-        prefill: order.prefill ?? {},
-        theme: { color: "#0d9488" },
-        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          try {
-            const verifyRes = await fetch(`${API_BASE}/payments/razorpay/verify`, {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-            if (!verifyRes.ok) throw new Error("Payment verification failed");
-            queryClient.invalidateQueries({ queryKey: getGetCommunityQueryKey(communityId) });
-            toast.success("Premium unlocked! Welcome to the inner circle.");
-          } catch {
-            toast.error("Payment received but verification failed. Please contact support.");
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            toast.message("Payment cancelled");
-          },
-        },
-      });
-      rzp.on("payment.failed", (resp: { error: { description: string } }) => {
-        toast.error(resp?.error?.description ?? "Payment failed");
-      });
-      rzp.open();
+      setUpiPayment(order);
+      setUtrInput("");
     } catch (err: any) {
       toast.error(err?.message ?? "Could not start payment");
     } finally {
       setPaymentLoading(false);
     }
+  }
+
+  async function handleConfirmUtr() {
+    if (!upiPayment) return;
+    if (utrInput.trim().length < 6) {
+      toast.error("Please enter a valid UTR / transaction reference (min 6 characters).");
+      return;
+    }
+    setConfirmingUtr(true);
+    try {
+      const r = await fetch(`${API_BASE}/payments/upi/confirm`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId: upiPayment.paymentId, utr: utrInput.trim() }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error((body as any).error ?? "Could not confirm payment");
+      }
+      queryClient.invalidateQueries({ queryKey: getGetCommunityQueryKey(communityId) });
+      toast.success("Premium unlocked! Welcome to the inner circle.");
+      setUpiPayment(null);
+      setUtrInput("");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not confirm payment");
+    } finally {
+      setConfirmingUtr(false);
+    }
+  }
+
+  function copyToClipboard(text: string, label: string) {
+    navigator.clipboard?.writeText(text).then(
+      () => toast.success(`${label} copied`),
+      () => toast.error(`Could not copy ${label}`),
+    );
   }
 
   const { data: communityAIPrompts } = useQuery<{ suggestedQuestions: string[] }>({
@@ -494,6 +484,74 @@ export default function Community() {
             <Button variant="outline" onClick={() => setIsPostOpen(false)}>Cancel</Button>
             <Button onClick={handleCreatePost} disabled={createPost.isPending || !postTitle.trim() || !postContent.trim()}>
               {createPost.isPending ? "Posting..." : "Post Question"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* UPI Payment Dialog */}
+      <Dialog open={!!upiPayment} onOpenChange={(open) => { if (!open) { setUpiPayment(null); setUtrInput(""); } }}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>Pay ₹{upiPayment?.amountInr} via UPI</DialogTitle>
+          </DialogHeader>
+          {upiPayment && (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-slate-50 dark:bg-slate-900 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs text-slate-500">Pay to</p>
+                    <p className="font-mono text-sm font-semibold">{upiPayment.upiId}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{upiPayment.payeeName}</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(upiPayment.upiId, "UPI ID")}>
+                    Copy
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t pt-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Amount</p>
+                    <p className="text-xl font-bold">₹{upiPayment.amountInr}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Reference</p>
+                    <p className="font-mono text-[11px] break-all">{upiPayment.txnRef}</p>
+                  </div>
+                </div>
+              </div>
+
+              <a
+                href={upiPayment.upiLink}
+                className="block w-full rounded-md bg-primary text-primary-foreground text-center font-semibold py-2.5 hover:opacity-90 transition"
+              >
+                Open UPI app to pay
+              </a>
+              <p className="text-[11px] text-slate-500 text-center -mt-2">
+                Works on mobile. On desktop, send ₹{upiPayment.amountInr} to <span className="font-mono">{upiPayment.upiId}</span> from any UPI app (GPay, PhonePe, Paytm, BHIM).
+              </p>
+
+              <div className="border-t pt-3 space-y-2">
+                <label className="text-sm font-medium">After paying, enter your UTR / Transaction Ref</label>
+                <input
+                  type="text"
+                  value={utrInput}
+                  onChange={(e) => setUtrInput(e.target.value)}
+                  placeholder="e.g. 412334567890"
+                  className="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm font-mono"
+                  autoCapitalize="characters"
+                />
+                <p className="text-[11px] text-slate-500">
+                  You'll find this 12-digit number in your UPI app's payment receipt or SMS confirmation.
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setUpiPayment(null); setUtrInput(""); }} disabled={confirmingUtr}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmUtr} disabled={confirmingUtr || utrInput.trim().length < 6}>
+              {confirmingUtr ? "Confirming..." : "I've paid — Unlock"}
             </Button>
           </DialogFooter>
         </DialogContent>
