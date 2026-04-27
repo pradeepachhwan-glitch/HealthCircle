@@ -15,6 +15,9 @@ import Profile from "@/pages/profile";
 import Search from "@/pages/search";
 import Admin from "@/pages/admin";
 import Broadcast from "@/pages/broadcast";
+import ChatPage from "@/pages/chat";
+import ProvidersPage from "@/pages/providers";
+import AppointmentsPage from "@/pages/appointments";
 
 const queryClient = new QueryClient();
 
@@ -97,29 +100,72 @@ function SignUpPage() {
   );
 }
 
+const FEATURES = [
+  { icon: "💬", title: "AI Health Chat", desc: "WhatsApp-style chat with Yukti, your AI health assistant" },
+  { icon: "🔍", title: "Smart Search", desc: "Intent-aware search for symptoms, treatments, and doctors" },
+  { icon: "👨‍⚕️", title: "Find Doctors", desc: "Browse specialists and book appointments instantly" },
+  { icon: "🏥", title: "Hospital Network", desc: "Access top hospitals across India with ratings & specialties" },
+  { icon: "🏆", title: "Community", desc: "Clinical communities for healthcare professionals" },
+  { icon: "🔒", title: "Private & Secure", desc: "Your health data stays private and encrypted" },
+];
+
 function Landing() {
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-slate-50">
-      <header className="px-6 py-4 flex items-center justify-between bg-white border-b">
+    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-slate-50 to-white">
+      <header className="px-6 py-4 flex items-center justify-between bg-white/80 backdrop-blur border-b sticky top-0 z-10">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-primary text-white flex items-center justify-center font-bold">AH</div>
+          <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm">AH</div>
           <span className="font-bold text-lg text-slate-900">AskHealth AI</span>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <Link href="/sign-in" className="text-sm font-medium px-4 py-2 hover:text-primary transition-colors text-slate-600">Sign In</Link>
-          <Link href="/sign-up" className="text-sm font-medium px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">Get Started</Link>
+          <Link href="/sign-up" className="text-sm font-medium px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Get Started Free</Link>
         </div>
       </header>
-      <main className="flex-1 flex flex-col items-center justify-center text-center px-4 py-20">
-        <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 max-w-3xl tracking-tight mb-6">
-          The Clinical Community for <span className="text-primary">Healthcare Professionals</span>
-        </h1>
-        <p className="text-xl text-slate-600 max-w-2xl mb-10 leading-relaxed">
-          Connect with peers, share insights, and discuss clinical practices in a secure, organized environment designed for focus and clarity.
-        </p>
-        <Link href="/sign-up" className="px-8 py-4 bg-slate-900 text-white rounded-lg font-medium text-lg hover:bg-slate-800 transition-all shadow-sm">
-          Join AskHealth AI
-        </Link>
+
+      <main className="flex-1">
+        <section className="max-w-4xl mx-auto text-center px-4 pt-20 pb-16">
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-4 py-1.5 rounded-full mb-6">
+            <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            Mayo Clinic-level AI guidance • Multi-language • India-first
+          </div>
+          <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6 leading-tight">
+            Your Personal<br /><span className="text-primary">Health Super App</span>
+          </h1>
+          <p className="text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Chat with Yukti AI about your symptoms, find trusted doctors, book appointments, and connect with healthcare professionals — all in one place.
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Link href="/sign-up" className="px-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-md hover:shadow-lg">
+              Start Chatting Free →
+            </Link>
+            <Link href="/sign-in" className="px-8 py-4 bg-white text-slate-900 rounded-xl font-semibold text-lg border border-slate-200 hover:bg-slate-50 transition-all">
+              Sign In
+            </Link>
+          </div>
+        </section>
+
+        <section className="max-w-5xl mx-auto px-4 pb-20">
+          <div className="grid md:grid-cols-3 gap-5">
+            {FEATURES.map(f => (
+              <div key={f.title} className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-primary/30 hover:shadow-md transition-all">
+                <div className="text-3xl mb-3">{f.icon}</div>
+                <h3 className="font-semibold text-slate-900 mb-1">{f.title}</h3>
+                <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-slate-900 text-white py-16 px-4">
+          <div className="max-w-2xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-4">Join thousands of users getting better healthcare</h2>
+            <p className="text-slate-400 mb-8">Free to start. No credit card required. Available in English & Hindi.</p>
+            <Link href="/sign-up" className="inline-block px-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 transition-all">
+              Get Started — It's Free
+            </Link>
+          </div>
+        </section>
       </main>
     </div>
   );
@@ -127,8 +173,15 @@ function Landing() {
 
 function AdminGate({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading } = useGetCurrentUser();
-  if (isLoading) return <div>Loading...</div>;
-  if (user?.role !== "admin") return <div>403 Forbidden</div>;
+  if (isLoading) return <div className="flex items-center justify-center h-screen text-slate-400">Loading...</div>;
+  if (user?.role !== "admin") return (
+    <div className="flex flex-col items-center justify-center h-screen gap-4">
+      <div className="text-6xl">🚫</div>
+      <h2 className="text-xl font-bold text-slate-700">Access Denied</h2>
+      <p className="text-slate-500">You need admin privileges to access this page.</p>
+      <Link href="/chat"><button className="px-4 py-2 bg-primary text-white rounded-lg text-sm">Go to Chat</button></Link>
+    </div>
+  );
   return <>{children}</>;
 }
 
@@ -140,10 +193,7 @@ function ClerkQueryClientCacheInvalidator() {
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
-      if (
-        prevUserIdRef.current !== undefined &&
-        prevUserIdRef.current !== userId
-      ) {
+      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
         queryClient.clear();
       }
       prevUserIdRef.current = userId;
@@ -158,7 +208,7 @@ function HomeRedirect() {
   return (
     <>
       <Show when="signed-in">
-        <Redirect to="/communities" />
+        <Redirect to="/chat" />
       </Show>
       <Show when="signed-out">
         <Landing />
@@ -199,53 +249,47 @@ function ClerkProviderWithRoutes() {
           <Route path="/" component={HomeRedirect} />
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
-          
+
+          <Route path="/chat">
+            <ProtectedRoute><ChatPage /></ProtectedRoute>
+          </Route>
+
+          <Route path="/providers">
+            <ProtectedRoute><ProvidersPage /></ProtectedRoute>
+          </Route>
+
+          <Route path="/appointments">
+            <ProtectedRoute><AppointmentsPage /></ProtectedRoute>
+          </Route>
+
           <Route path="/communities">
-            <ProtectedRoute>
-              <Communities />
-            </ProtectedRoute>
+            <ProtectedRoute><Communities /></ProtectedRoute>
           </Route>
 
           <Route path="/communities/:communityId">
-            <ProtectedRoute>
-              <Community />
-            </ProtectedRoute>
+            <ProtectedRoute><Community /></ProtectedRoute>
           </Route>
 
           <Route path="/communities/:communityId/post/:postId">
-            <ProtectedRoute>
-              <PostDetail />
-            </ProtectedRoute>
+            <ProtectedRoute><PostDetail /></ProtectedRoute>
           </Route>
 
           <Route path="/search">
-            <ProtectedRoute>
-              <Search />
-            </ProtectedRoute>
+            <ProtectedRoute><Search /></ProtectedRoute>
           </Route>
 
           <Route path="/profile">
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
+            <ProtectedRoute><Profile /></ProtectedRoute>
           </Route>
 
           <Route path="/admin">
-            <ProtectedRoute>
-              <AdminGate>
-                <Admin />
-              </AdminGate>
-            </ProtectedRoute>
+            <ProtectedRoute><AdminGate><Admin /></AdminGate></ProtectedRoute>
           </Route>
 
           <Route path="/admin/broadcast">
-            <ProtectedRoute>
-              <AdminGate>
-                <Broadcast />
-              </AdminGate>
-            </ProtectedRoute>
+            <ProtectedRoute><AdminGate><Broadcast /></AdminGate></ProtectedRoute>
           </Route>
-          
+
           <Route component={NotFound} />
         </Switch>
       </QueryClientProvider>

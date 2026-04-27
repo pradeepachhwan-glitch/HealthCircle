@@ -1,0 +1,90 @@
+-- USERS
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT,
+  phone TEXT UNIQUE,
+  email TEXT UNIQUE,
+  role TEXT CHECK (role IN ('patient','doctor','admin')) DEFAULT 'patient',
+  language TEXT DEFAULT 'en',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- DOCTORS
+CREATE TABLE doctors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  specialty TEXT,
+  experience_years INT,
+  consultation_fee NUMERIC,
+  rating NUMERIC DEFAULT 0,
+  location TEXT,
+  available BOOLEAN DEFAULT TRUE
+);
+
+-- HOSPITALS
+CREATE TABLE hospitals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT,
+  location TEXT,
+  specialties TEXT[],
+  rating NUMERIC DEFAULT 0
+);
+
+-- APPOINTMENTS
+CREATE TABLE appointments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id UUID REFERENCES users(id),
+  doctor_id UUID REFERENCES doctors(id),
+  hospital_id UUID REFERENCES hospitals(id),
+  appointment_time TIMESTAMP,
+  status TEXT CHECK (status IN ('booked','completed','cancelled')) DEFAULT 'booked',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CHAT MESSAGES
+CREATE TABLE chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  message TEXT,
+  response JSONB,
+  intent TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- MEDICAL REPORTS
+CREATE TABLE reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  file_url TEXT,
+  report_type TEXT,
+  ai_summary JSONB,
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- SEARCH LOGS (SEO + Analytics)
+CREATE TABLE search_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  query TEXT,
+  intent TEXT,
+  clicked_result TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- PROVIDER RANKING CONTROL (ADMIN GODMODE)
+CREATE TABLE provider_rankings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id UUID,
+  provider_type TEXT CHECK (provider_type IN ('doctor','hospital')),
+  boost_score NUMERIC DEFAULT 0,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- AUDIT LOG (CRITICAL FOR HEALTHCARE)
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action TEXT,
+  performed_by UUID,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

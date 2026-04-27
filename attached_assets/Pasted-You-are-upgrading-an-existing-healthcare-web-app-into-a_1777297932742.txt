@@ -1,0 +1,193 @@
+You are upgrading an existing healthcare web app into a production-grade platform called "Ask Health".
+
+DO NOT PATCH. DO NOT MODIFY PARTIALLY.
+RESTRUCTURE the application into a scalable, modular, full-stack system.
+
+-----------------------------------
+🎯 PRODUCT GOAL
+-----------------------------------
+Create a WhatsApp-like healthcare super app:
+- Single chat interface
+- Works for any user globally
+- Supports multi-language + voice
+- Acts like a Google search engine for healthcare
+- Provides Mayo Clinic-level trusted responses
+- Has a powerful Admin “Godmode” backend
+
+-----------------------------------
+🧱 ARCHITECTURE (MANDATORY)
+-----------------------------------
+Frontend: React (modular components, mobile-first)
+Backend: Node.js + Express
+Database: PostgreSQL (NOT localStorage)
+AI Layer: OpenAI API (structured prompting)
+Search Layer: Internal indexed search + ranking engine
+
+Folder structure MUST be:
+
+/client
+  /components
+  /pages
+  /chat
+  /services
+/server
+  /routes
+  /controllers
+  /services
+  /middleware
+  /ai
+/db
+  schema.sql
+
+-----------------------------------
+🧠 CORE FEATURE 1: CHAT-FIRST UI
+-----------------------------------
+Replace ALL existing UI with:
+
+- Single chat screen (like WhatsApp)
+- Input supports:
+  - Text
+  - Voice (mock if needed)
+  - File upload (reports/images)
+
+Chat must:
+- Persist messages in DB
+- Show typing/loading states
+- Render structured responses:
+  - Summary
+  - Risk level (low/medium/high)
+  - Suggested actions
+
+-----------------------------------
+🔍 CORE FEATURE 2: HEALTH SEARCH ENGINE
+-----------------------------------
+Build a backend service:
+
+/server/services/searchEngine.js
+
+Function:
+- Accept user query
+- Classify intent:
+  - symptom
+  - treatment
+  - doctor
+  - lab
+  - general health
+
+Return structured JSON:
+{
+  intent: "",
+  summary: "",
+  risk_level: "",
+  recommendations: [],
+  providers: [],
+  articles: []
+}
+
+-----------------------------------
+🤖 CORE FEATURE 3: AI MEDICAL RESPONSE ENGINE
+-----------------------------------
+Create:
+
+/server/ai/healthAssistant.js
+
+Rules:
+- NO hallucinations
+- Always structured output
+- Include disclaimer
+- Use evidence-based tone
+
+Prompt template must:
+- Ask clarifying questions if needed
+- Provide safe triage
+- Never give dangerous advice
+
+-----------------------------------
+🏥 CORE FEATURE 4: PROVIDER SYSTEM
+-----------------------------------
+Create database tables:
+
+users
+doctors
+hospitals
+appointments
+reports
+chat_messages
+
+APIs:
+- GET /doctors (filtered by location, specialty)
+- POST /appointments
+- GET /reports
+
+-----------------------------------
+🌍 CORE FEATURE 5: MULTI-LANGUAGE
+-----------------------------------
+- Auto-detect user language
+- Translate responses (use API or mock)
+- Support Hindi + English minimum
+
+-----------------------------------
+🛠 CORE FEATURE 6: ADMIN GODMODE
+-----------------------------------
+Create admin panel:
+
+/admin
+
+Features:
+- View all users
+- View chats
+- Override AI responses
+- Manage doctors/hospitals
+- Control rankings (search boost)
+
+-----------------------------------
+📊 CORE FEATURE 7: ANALYTICS
+-----------------------------------
+Track:
+- User queries
+- Conversion (chat → booking)
+- Drop-offs
+
+Store in DB.
+
+-----------------------------------
+🔐 SECURITY (MANDATORY)
+-----------------------------------
+- JWT authentication
+- Role-based access (user/admin)
+- Basic input validation
+
+-----------------------------------
+🎨 UI RULES
+-----------------------------------
+- Minimal
+- Clean
+- Mobile-first
+- NO clutter
+- Feels like WhatsApp
+
+-----------------------------------
+🚫 STRICT RULES
+-----------------------------------
+- Do NOT keep old UI
+- Do NOT use dummy static data
+- Do NOT store critical data in frontend
+- Do NOT skip backend logic
+
+-----------------------------------
+✅ FINAL OUTPUT
+-----------------------------------
+- Fully runnable app
+- Seed data included
+- README with setup steps
+- .env example file
+
+-----------------------------------
+
+Start by:
+1. Refactoring backend
+2. Designing database schema
+3. Then rebuild frontend chat UI
+4. Then integrate AI + search
+
+DO NOT STOP midway.
