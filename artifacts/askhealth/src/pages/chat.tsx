@@ -221,6 +221,7 @@ export default function ChatPage() {
   const [quotaModalOpen, setQuotaModalOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const communityContext = getCommunityFromUrl();
 
@@ -603,7 +604,16 @@ export default function ChatPage() {
                 <MessageBubble
                   key={msg.id}
                   message={msg}
-                  onFollowUp={(q) => handleSend(q)}
+                  onFollowUp={(q) => {
+                    setInput(q);
+                    requestAnimationFrame(() => {
+                      const el = messageInputRef.current;
+                      if (!el) return;
+                      el.focus();
+                      const len = el.value.length;
+                      el.setSelectionRange(len, len);
+                    });
+                  }}
                   showDoctorButton={idx === lastAiMsgIdx}
                   consultationRequested={consultationRequested}
                   onRequestDoctor={activeSessionId ? () => requestConsultation.mutate(activeSessionId) : undefined}
@@ -657,6 +667,7 @@ export default function ChatPage() {
                 {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
               <Input
+                ref={messageInputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
