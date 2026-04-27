@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
-import { db, usersTable } from "@workspace/db";
-import { eq, desc, count } from "drizzle-orm";
+import { db, usersTable, postsTable, commentsTable, communityMembersTable, communitiesTable } from "@workspace/db";
+import { eq, desc, count, and } from "drizzle-orm";
 import { requireAuth, requireAdmin, getOrCreateUser } from "../lib/auth";
 
 const router = Router();
@@ -33,6 +33,46 @@ router.patch("/users/me", requireAuth, async (req, res) => {
   const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.clerkId, clerkId)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toProfile(updated));
+});
+
+router.get("/users/me/posts", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+
+  const posts = await db
+    .select({ post: postsTable, community: communitiesTable })
+    .from(postsTable)
+    .innerJoin(communitiesTable, eq(postsTable.communityId, communitiesTable.id))
+    .where(eq(postsTable.authorId, user.id))
+    .orderBy(desc(postsTable.createdAt))
+    .limit(20);
+
+  res.json(posts.map(({ post, community }) => ({
+    ...post, communityName: community.name, communitySlug: community.slug,
+    communityIcon: community.iconEmoji, communityId: community.id,
+  })));
+});
+
+router.get("/users/me/communities", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+
+  const memberships = await db
+    .select({ community: communitiesTable, member: communityMembersTable })
+    .from(communityMembersTable)
+    .innerJoin(communitiesTable, eq(communityMembersTable.communityId, communitiesTable.id))
+    .where(and(eq(communityMembersTable.userId, user.id), eq(communitiesTable.isArchived, false)))
+    .orderBy(desc(communityMembersTable.joinedAt));
+
+  const result = await Promise.all(memberships.map(async ({ community }) => {
+    const [postRes] = await db.select({ count: count() }).from(postsTable).where(eq(postsTable.communityId, community.id));
+    const [memberRes] = await db.select({ count: count() }).from(communityMembersTable).where(eq(communityMembersTable.communityId, community.id));
+    return { ...community, postCount: Number(postRes?.count ?? 0), memberCount: Number(memberRes?.count ?? 0), isMember: true };
+  }));
+
+  res.json(result);
 });
 
 // Bootstrap: promotes calling user to admin if NO admin exists yet

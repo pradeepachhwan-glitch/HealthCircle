@@ -1,6 +1,7 @@
 import { Switch, Route, Router as WouterRouter, Link, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import React, { useEffect, useRef } from "react";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk } from '@clerk/react';
@@ -461,6 +462,7 @@ function App() {
         <ClerkProviderWithRoutes />
       </WouterRouter>
       <Toaster />
+      <SonnerToaster position="top-right" richColors closeButton />
     </TooltipProvider>
   );
 }

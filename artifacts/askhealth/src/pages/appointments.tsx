@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import { ArrowLeft, Calendar, Clock, MapPin, Stethoscope, Building2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Layout } from "@/components/Layout";
+import { Calendar, Clock, MapPin, Stethoscope, Building2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -112,64 +113,57 @@ export default function AppointmentsPage() {
   const past = appointments.filter(a => a.status !== "booked" || new Date(a.appointmentTime) < new Date());
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link href="/providers">
-              <Button variant="ghost" size="icon" className="w-8 h-8">
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">My Appointments</h1>
-              <p className="text-sm text-slate-500">{appointments.length} total appointment{appointments.length !== 1 ? "s" : ""}</p>
-            </div>
-            <Link href="/providers" className="ml-auto">
-              <Button size="sm" className="bg-primary hover:bg-primary/90 text-xs">
-                <Calendar className="w-3.5 h-3.5 mr-1" /> Book New
-              </Button>
-            </Link>
+    <Layout>
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">My Appointments</h1>
+            <p className="text-sm text-slate-500 mt-0.5">{appointments.length} total appointment{appointments.length !== 1 ? "s" : ""}</p>
           </div>
+          <Link href="/providers">
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-xs">
+              <Calendar className="w-3.5 h-3.5 mr-1" /> Book New
+            </Button>
+          </Link>
+        </div>
+
+        <div className="space-y-6">
+          {isLoading && <div className="text-center py-12 text-slate-400">Loading appointments...</div>}
+
+          {!isLoading && appointments.length === 0 && (
+            <div className="text-center py-16">
+              <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+              <h3 className="font-semibold text-slate-700 mb-2">No appointments yet</h3>
+              <p className="text-slate-400 text-sm mb-6">Book your first appointment with a doctor</p>
+              <Link href="/providers">
+                <Button className="bg-primary hover:bg-primary/90">Find a Doctor</Button>
+              </Link>
+            </div>
+          )}
+
+          {upcoming.length > 0 && (
+            <div>
+              <h2 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-blue-500" /> Upcoming ({upcoming.length})
+              </h2>
+              <div className="space-y-3">
+                {upcoming.map(a => <AppointmentCard key={a.id} appointment={a} />)}
+              </div>
+            </div>
+          )}
+
+          {past.length > 0 && (
+            <div>
+              <h2 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-slate-400" /> Past ({past.length})
+              </h2>
+              <div className="space-y-3">
+                {past.map(a => <AppointmentCard key={a.id} appointment={a} />)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {isLoading && <div className="text-center py-12 text-slate-400">Loading appointments...</div>}
-
-        {!isLoading && appointments.length === 0 && (
-          <div className="text-center py-16">
-            <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-            <h3 className="font-semibold text-slate-700 mb-2">No appointments yet</h3>
-            <p className="text-slate-400 text-sm mb-6">Book your first appointment with a doctor</p>
-            <Link href="/providers">
-              <Button className="bg-primary hover:bg-primary/90">Find a Doctor</Button>
-            </Link>
-          </div>
-        )}
-
-        {upcoming.length > 0 && (
-          <div>
-            <h2 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-blue-500" /> Upcoming ({upcoming.length})
-            </h2>
-            <div className="space-y-3">
-              {upcoming.map(a => <AppointmentCard key={a.id} appointment={a} />)}
-            </div>
-          </div>
-        )}
-
-        {past.length > 0 && (
-          <div>
-            <h2 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-slate-400" /> Past ({past.length})
-            </h2>
-            <div className="space-y-3">
-              {past.map(a => <AppointmentCard key={a.id} appointment={a} />)}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    </Layout>
   );
 }

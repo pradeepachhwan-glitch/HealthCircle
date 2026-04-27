@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   useGetCommunity, useListPosts, useGetCommunityStats, useGetLeaderboard,
-  getListPostsQueryKey, useCreatePost,
+  getListPostsQueryKey, useCreatePost, getGetCommunityQueryKey,
 } from "@workspace/api-client-react";
 import { Link, useRoute, useLocation } from "wouter";
 import { Layout, UserAvatar } from "@/components/Layout";
@@ -37,10 +37,13 @@ export default function Community() {
   const { data: leaderboard } = useGetLeaderboard({ period: "weekly" });
 
   const createPost = useCreatePost();
+  const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+
   const joinCommunity = useMutation({
     mutationFn: async ({ communityId, isCurrentlyMember }: { communityId: number; isCurrentlyMember: boolean }) => {
-      const res = await fetch(`/api/communities/${communityId}/join`, {
+      const res = await fetch(`${API_BASE}/communities/${communityId}/join`, {
         method: isCurrentlyMember ? "DELETE" : "POST",
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update membership");
       return res.json();
@@ -74,7 +77,7 @@ export default function Community() {
   const handleJoin = () => {
     joinCommunity.mutate({ communityId, isCurrentlyMember: isMember }, {
       onSuccess: (data) => {
-        queryClient.invalidateQueries({ queryKey: ["community", communityId] });
+        queryClient.invalidateQueries({ queryKey: getGetCommunityQueryKey(communityId) });
         toast.success(data?.isMember ? "Joined community!" : "Left community");
       },
       onError: () => toast.error("Failed to update membership"),

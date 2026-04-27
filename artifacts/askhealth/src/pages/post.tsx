@@ -32,6 +32,8 @@ const riskConfig = {
   emergency: { label: "Emergency", color: "text-red-600", bg: "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800", icon: AlertTriangle, iconColor: "text-red-500" },
 };
 
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+
 export default function PostDetail() {
   const [, params] = useRoute("/communities/:communityId/post/:postId");
   const [, navigate] = useLocation();
@@ -57,7 +59,7 @@ export default function PostDetail() {
     let attempts = 0;
     const fetchSummary = async () => {
       try {
-        const res = await fetch(`/api/posts/${postId}/ai-summary`);
+        const res = await fetch(`${API_BASE}/posts/${postId}/ai-summary`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json() as AiSummary;
           setAiSummary(data);
