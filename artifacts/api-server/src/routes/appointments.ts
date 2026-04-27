@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { appointmentsTable, doctorsTable, hospitalsTable } from "@workspace/db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -7,8 +8,9 @@ import { requireAuth, requireAdmin, getOrCreateUser } from "../lib/auth";
 const router = Router();
 
 router.get("/appointments", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
 
   const appointments = await db
     .select({
@@ -39,8 +41,9 @@ router.get("/appointments", requireAuth, async (req, res) => {
 });
 
 router.post("/appointments", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
 
   const { doctorId, hospitalId, appointmentTime, notes } = req.body;
   if (!appointmentTime) {
@@ -62,8 +65,9 @@ router.post("/appointments", requireAuth, async (req, res) => {
 });
 
 router.patch("/appointments/:appointmentId/cancel", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
 
   const [updated] = await db
     .update(appointmentsTable)

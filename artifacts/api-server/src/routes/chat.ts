@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import { healthChatSessionsTable, healthChatMessagesTable } from "@workspace/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -9,8 +10,9 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 router.get("/chat/sessions", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
 
   const sessions = await db
     .select()
@@ -23,8 +25,9 @@ router.get("/chat/sessions", requireAuth, async (req, res) => {
 });
 
 router.post("/chat/sessions", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
 
   const [session] = await db
     .insert(healthChatSessionsTable)
@@ -35,8 +38,9 @@ router.post("/chat/sessions", requireAuth, async (req, res) => {
 });
 
 router.get("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
 
   const sessionId = parseInt(req.params.sessionId);
   const [session] = await db
@@ -58,8 +62,9 @@ router.get("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) =
 });
 
 router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
 
   const sessionId = parseInt(req.params.sessionId);
   const { message } = req.body;
@@ -125,8 +130,9 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
 });
 
 router.delete("/chat/sessions/:sessionId", requireAuth, async (req, res) => {
-  const user = await getOrCreateUser(req);
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
 
   const sessionId = parseInt(req.params.sessionId);
   const [session] = await db

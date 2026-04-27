@@ -1,0 +1,197 @@
+1️⃣ REACT HOMEPAGE (PRODUCTION-READY STRUCTURE)
+
+Use this as your base component (clean, scalable, mobile-first):
+
+import React from "react";
+
+const communities = [
+  { name: "Mind Space", desc: "Talk, share, heal" },
+  { name: "Sugar Care", desc: "Manage diabetes better" },
+  { name: "Mom Journey", desc: "Pregnancy to parenting" },
+  { name: "Work Reset", desc: "Beat stress & burnout" },
+  { name: "Fit Life", desc: "Fitness your way" },
+  { name: "Heart Circle", desc: "Care for your heart" },
+];
+
+const trending = [
+  "Why do I feel anxious at night?",
+  "PCOS weight gain solutions?",
+  "Chest pain after gym?",
+];
+
+export default function Home() {
+  return (
+    <div className="p-4 max-w-5xl mx-auto">
+
+      {/* HERO */}
+      <div className="text-center py-10">
+        <h1 className="text-3xl font-bold">
+          Ask. Share. Learn. Act on your health.
+        </h1>
+        <p className="mt-3 text-gray-600">
+          Join communities, ask real questions, get AI clarity, and take the right next step.
+        </p>
+
+        <div className="mt-6 flex justify-center gap-3">
+          <button className="bg-green-600 text-white px-5 py-2 rounded-xl">
+            Join a Community
+          </button>
+          <button className="border px-5 py-2 rounded-xl">
+            Ask a Question
+          </button>
+        </div>
+      </div>
+
+      {/* COMMUNITIES */}
+      <h2 className="text-xl font-semibold mb-4">Explore Communities</h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {communities.map((c, i) => (
+          <div key={i} className="border p-4 rounded-xl">
+            <h3 className="font-semibold">{c.name}</h3>
+            <p className="text-sm text-gray-500">{c.desc}</p>
+            <button className="mt-2 text-green-600">Join</button>
+          </div>
+        ))}
+      </div>
+
+      {/* TRENDING */}
+      <h2 className="text-xl font-semibold mt-8 mb-4">Trending Questions</h2>
+      <div className="space-y-3">
+        {trending.map((q, i) => (
+          <div key={i} className="border p-3 rounded-xl">
+            {q}
+          </div>
+        ))}
+      </div>
+
+      {/* HOW IT WORKS */}
+      <div className="mt-10 text-center">
+        <h2 className="text-xl font-semibold mb-4">How it works</h2>
+        <p className="text-gray-600">
+          Join → Ask → Get clarity → Take action
+        </p>
+      </div>
+    </div>
+  );
+}
+2️⃣ HIGH-CONVERSION COPY (USE THIS EXACTLY)
+HERO
+
+Headline:
+
+Ask. Share. Learn. Act on your health.
+
+Subtext:
+
+Join trusted health communities, ask real questions, get AI-backed clarity, and take the right next step—without confusion.
+
+CTA BUTTONS
+Primary: Join a Community
+Secondary: Ask a Question
+COMMUNITY SECTION
+
+Title:
+
+Explore Communities that Understand You
+
+Subtext:
+
+Real people. Real experiences. Backed by AI clarity.
+
+TRENDING SECTION
+
+Title:
+
+What people are asking right now
+
+HOW IT WORKS
+Join a community
+Ask your question
+Get answers + AI clarity
+Take action if needed
+TRUST BLOCK (ADD THIS BELOW)
+
+Your health data is private.
+AI guidance is safe, structured, and not a replacement for doctors.
+
+3️⃣ FIRST-TIME USER ONBOARDING FLOW (CRITICAL)
+🎯 Goal
+
+Get user to:
+
+Join ≥1 community
+Ask ≥1 question
+STEP-BY-STEP FLOW
+Step 1: Welcome Screen
+
+“What brings you here today?”
+
+Options:
+
+I have a health concern
+I want to explore
+I’m managing a condition
+Step 2: Interest Selection
+
+Show 6–8 communities:
+
+Mind Space
+Sugar Care
+Mom Journey
+Fit Life
+Work Reset
+Heart Circle
+
+👉 User selects 2–3
+
+Step 3: Consent (MANDATORY)
+
+Checkbox:
+
+I agree to share health information
+I understand AI is not a diagnosis
+
+[ Continue ]
+
+Step 4: First Action Trigger
+
+“Ask your first question”
+
+Input box:
+
+“Describe what you’re experiencing…”
+
+👉 Pre-fill suggestions:
+
+“I feel tired all the time”
+“Irregular periods”
+Step 5: Smart Routing
+
+System:
+
+Auto-selects community
+Posts question
+Shows thread
+Step 6: Instant Value
+
+Immediately show:
+
+AI summary
+1–2 existing similar threads
+
+Prompt:
+
+“Follow this discussion?”
+
+🔥 KEY METRIC
+
+Success =
+User joins community + posts question in first session
+
+🧠 FINAL PRODUCT SHAPE
+
+You now have:
+
+UI (clean + scalable)
+Messaging (clear positioning)
+Onboarding (conversion-focused)

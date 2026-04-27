@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getAuth } from "@clerk/express";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { runHealthSearch } from "../lib/searchEngine";
 import { logger } from "../lib/logger";
@@ -12,7 +13,8 @@ router.get("/health-search", requireAuth, async (req, res) => {
   }
 
   try {
-    const user = await getOrCreateUser(req);
+    const { userId: clerkId } = getAuth(req);
+    const user = clerkId ? await getOrCreateUser(clerkId) : null;
     const result = await runHealthSearch(q, user?.id, typeof language === "string" ? language : "en");
     res.json(result);
   } catch (err) {

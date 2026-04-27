@@ -64,7 +64,7 @@ export async function getHealthAssistantResponse(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       messages,
       max_tokens: 800,
       response_format: { type: "json_object" },

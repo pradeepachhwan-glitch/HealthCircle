@@ -36,7 +36,7 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages,
         max_tokens: 600,
       }),
