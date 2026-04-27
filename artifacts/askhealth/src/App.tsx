@@ -9,7 +9,15 @@ import { ContactModal, type ContactChannel } from "@/components/ContactModal";
 import React, { useEffect, useRef, useState } from "react";
 import { ClerkProvider, Show, useClerk, AuthenticateWithRedirectCallback } from '@clerk/react';
 import { shadcn } from '@clerk/themes';
-import { useGetCurrentUser } from "@workspace/api-client-react";
+import { useGetCurrentUser, setExtraHeadersGetter } from "@workspace/api-client-react";
+
+// Forward the admin bypass token (stored in localStorage by the admin page)
+// on every generated-client request as `x-admin-token`.
+setExtraHeadersGetter(() => {
+  if (typeof window === "undefined") return null;
+  const t = window.localStorage.getItem("healthcircle:adminToken");
+  return t ? { "x-admin-token": t } : null;
+});
 
 import mindSpaceImg from "@/assets/community-mind-space.png";
 import sugarCareImg from "@/assets/community-sugar-care.png";

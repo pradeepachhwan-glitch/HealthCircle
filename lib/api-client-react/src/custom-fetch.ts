@@ -17,6 +17,19 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _extraHeadersGetter: (() => Record<string, string> | null | undefined) | null = null;
+
+/**
+ * Register a getter that returns extra headers attached to every request.
+ * Useful for app-wide tokens such as an admin bypass header.  Returns
+ * `null`/`undefined` to skip header injection for the current request.
+ * Pass `null` to clear the getter.
+ */
+export function setExtraHeadersGetter(
+  getter: (() => Record<string, string> | null | undefined) | null,
+): void {
+  _extraHeadersGetter = getter;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -347,6 +360,22 @@ export async function customFetch<T = unknown>(
 
   if (responseType === "json" && !headers.has("accept")) {
     headers.set("accept", DEFAULT_JSON_ACCEPT);
+  }
+
+  // Inject any extra app-wide headers (e.g. admin bypass token) before
+  // sending. Caller-provided headers take precedence — we only set keys
+  // that have not already been set.
+  if (_extraHeadersGetter) {
+    try {
+      const extra = _extraHeadersGetter();
+      if (extra) {
+        for (const [k, v] of Object.entries(extra)) {
+          if (v && !headers.has(k)) headers.set(k, v);
+        }
+      }
+    } catch {
+      // ignore – extra headers are best-effort
+    }
   }
 
   // Attach bearer token when an auth getter is configured and no

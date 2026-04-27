@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGetAdminStats, useListUsers, getListUsersQueryKey, useBanUser } from "@workspace/api-client-react";
 import { Layout, UserAvatar } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,23 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+
+const ADMIN_TOKEN_KEY = "healthcircle:adminToken";
+
+function getAdminToken(): string {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
+}
+
+function adminHeaders(extra?: Record<string, string>): Record<string, string> {
+  const t = getAdminToken();
+  return { ...(extra ?? {}), ...(t ? { "x-admin-token": t } : {}) };
+}
+
+function adminFetch(input: string, init: RequestInit = {}) {
+  const headers = adminHeaders(init.headers as Record<string, string> | undefined);
+  return fetch(input, { credentials: "include", ...init, headers });
+}
 
 function roleBadge(role: string) {
   const map: Record<string, string> = {
@@ -72,36 +89,51 @@ export default function Admin() {
   const [communityMembersDialog, setCommunityMembersDialog] = useState<{ id: number; name: string } | null>(null);
   const [aiFilter, setAiFilter] = useState<"pending" | "approved" | "rejected" | "edited">("pending");
 
+  // Admin token (server secret) — pasted by the operator to unlock the dashboard
+  // when their Clerk user is not yet promoted to admin role in the DB.
+  const [adminToken, setAdminToken] = useState<string>(() => getAdminToken());
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
+  const [tokenInput, setTokenInput] = useState("");
+  function saveAdminToken(value: string) {
+    const trimmed = value.trim();
+    if (trimmed) window.localStorage.setItem(ADMIN_TOKEN_KEY, trimmed);
+    else window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+    setAdminToken(trimmed);
+    setTokenDialogOpen(false);
+    setTokenInput("");
+    queryClient.invalidateQueries();
+    toast.success(trimmed ? "Admin token saved — re-loading data" : "Admin token cleared");
+  }
+
   const { data: communities, isLoading: commLoading } = useQuery({
     queryKey: ["admin-communities"],
-    queryFn: () => fetch(`${API_BASE}/admin/communities`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => adminFetch(`${API_BASE}/admin/communities`).then(r => r.json()),
   });
 
   const { data: allPosts, isLoading: postsLoading, refetch: refetchPosts } = useQuery({
     queryKey: ["admin-posts"],
-    queryFn: () => fetch(`${API_BASE}/admin/posts`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => adminFetch(`${API_BASE}/admin/posts`).then(r => r.json()),
   });
 
   const { data: aiSummaries, isLoading: aiLoading, refetch: refetchAI } = useQuery({
     queryKey: ["admin-ai-summaries", aiFilter],
-    queryFn: () => fetch(`${API_BASE}/admin/ai-summaries?status=${aiFilter}`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => adminFetch(`${API_BASE}/admin/ai-summaries?status=${aiFilter}`).then(r => r.json()),
   });
 
   const { data: communityMembers, isLoading: membersLoading, refetch: refetchMembers } = useQuery({
     queryKey: ["admin-community-members", communityMembersDialog?.id],
     queryFn: () =>
       communityMembersDialog
-        ? fetch(`${API_BASE}/admin/communities/${communityMembersDialog.id}/members`, { credentials: "include" }).then(r => r.json())
+        ? adminFetch(`${API_BASE}/admin/communities/${communityMembersDialog.id}/members`).then(r => r.json())
         : Promise.resolve([]),
     enabled: !!communityMembersDialog,
   });
 
   const updateRole = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) =>
-      fetch(`${API_BASE}/users/${userId}/role`, {
+      adminFetch(`${API_BASE}/users/${userId}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ role }),
       }).then(r => r.json()),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() }); toast.success("Role updated"); },
@@ -110,10 +142,9 @@ export default function Admin() {
 
   const verifyPro = useMutation({
     mutationFn: ({ userId, isVerifiedPro }: { userId: string; isVerifiedPro: boolean }) =>
-      fetch(`${API_BASE}/admin/users/${userId}/verify-pro`, {
+      adminFetch(`${API_BASE}/admin/users/${userId}/verify-pro`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ isVerifiedPro }),
       }).then(r => r.json()),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() }); toast.success("Verification updated"); },
@@ -121,10 +152,9 @@ export default function Admin() {
 
   const awardCredits = useMutation({
     mutationFn: ({ userId, amount, reason }: { userId: string; amount: number; reason: string }) =>
-      fetch(`${API_BASE}/admin/credits/award`, {
+      adminFetch(`${API_BASE}/admin/credits/award`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ userId, amount, reason }),
       }).then(r => r.json()),
     onSuccess: () => {
@@ -137,19 +167,17 @@ export default function Admin() {
 
   const removeMember = useMutation({
     mutationFn: ({ communityId, userId }: { communityId: number; userId: string }) =>
-      fetch(`${API_BASE}/admin/communities/${communityId}/members/${userId}`, {
+      adminFetch(`${API_BASE}/admin/communities/${communityId}/members/${userId}`, {
         method: "DELETE",
-        credentials: "include",
       }).then(r => r.json()),
     onSuccess: () => { refetchMembers(); toast.success("Member removed"); },
   });
 
   const moderatePost = useMutation({
     mutationFn: ({ postId, action }: { postId: number; action: Record<string, boolean> }) =>
-      fetch(`${API_BASE}/admin/posts/${postId}`, {
+      adminFetch(`${API_BASE}/admin/posts/${postId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(action),
       }).then(r => r.json()),
     onSuccess: () => { refetchPosts(); toast.success("Post updated"); },
@@ -157,16 +185,15 @@ export default function Admin() {
 
   const deletePost = useMutation({
     mutationFn: (postId: number) =>
-      fetch(`${API_BASE}/admin/posts/${postId}`, { method: "DELETE", credentials: "include" }).then(r => r.json()),
+      adminFetch(`${API_BASE}/admin/posts/${postId}`, { method: "DELETE" }).then(r => r.json()),
     onSuccess: () => { refetchPosts(); toast.success("Post deleted"); },
   });
 
   const archiveCommunity = useMutation({
     mutationFn: ({ id, isArchived }: { id: number; isArchived: boolean }) =>
-      fetch(`${API_BASE}/admin/communities/${id}`, {
+      adminFetch(`${API_BASE}/admin/communities/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ isArchived }),
       }).then(r => r.json()),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-communities"] }); toast.success("Community updated"); },
@@ -190,12 +217,51 @@ export default function Admin() {
             </div>
             <p className="text-muted-foreground text-sm">Full platform visibility and control</p>
           </div>
-          <Link href="/admin/broadcast">
-            <Button className="shrink-0 gap-2 bg-red-500 hover:bg-red-600 text-white">
-              <Radio className="w-4 h-4" /> Broadcast
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={() => { setTokenInput(""); setTokenDialogOpen(true); }}
+              title={adminToken ? "Admin token is set — click to update or clear" : "Enter admin token to unlock"}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              {adminToken ? "Token ✓" : "Enter Admin Token"}
             </Button>
-          </Link>
+            <Link href="/admin/broadcast">
+              <Button className="shrink-0 gap-2 bg-red-500 hover:bg-red-600 text-white">
+                <Radio className="w-4 h-4" /> Broadcast
+              </Button>
+            </Link>
+          </div>
         </div>
+
+        <Dialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Admin Token</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Paste the server-side admin token to unlock the dashboard. The token is stored only in your
+              browser (localStorage) and sent with every admin API call as <code>x-admin-token</code>.
+            </p>
+            <Input
+              type="password"
+              autoFocus
+              placeholder="Paste admin token…"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveAdminToken(tokenInput); }}
+            />
+            <div className="flex justify-between gap-2 pt-2">
+              <Button variant="ghost" onClick={() => saveAdminToken("")}>Clear token</Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setTokenDialogOpen(false)}>Cancel</Button>
+                <Button onClick={() => saveAdminToken(tokenInput)}>Save</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-1 p-1">

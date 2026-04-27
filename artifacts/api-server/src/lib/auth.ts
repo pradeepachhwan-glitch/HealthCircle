@@ -2,6 +2,18 @@ import { Request, Response, NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { timingSafeEqual } from "node:crypto";
+
+function safeStringEqual(a: string, b: string): boolean {
+  // Constant-time string compare. Reject on length mismatch first so we never
+  // call timingSafeEqual on differently-sized buffers.
+  if (a.length === 0 || a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const { userId } = getAuth(req);
@@ -44,7 +56,34 @@ export async function getOrCreateUser(clerkId: string, userData?: { displayName?
 }
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  // Server-secret bypass: if a valid x-admin-token header is presented, treat
+  // the caller as admin regardless of Clerk role. Useful for bootstrapping or
+  // recovering admin access without poking the DB. Header-only on purpose —
+  // we deliberately do not accept the token via query string to avoid leaking
+  // it to browser history, referrers, and proxy/access logs.
+  const provided = (req.header("x-admin-token") ?? "").trim();
+  const expected = (process.env.ADMIN_TOKEN ?? "").trim();
+  const tokenOk = expected.length > 0 && safeStringEqual(provided, expected);
+
   const { userId } = getAuth(req);
+
+  if (tokenOk) {
+    // If the caller is also signed in, auto-promote their DB record to admin
+    // so the normal Clerk-based path works on subsequent requests too.
+    if (userId) {
+      try {
+        const users = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
+        if (users.length && users[0].role !== "admin") {
+          await db.update(usersTable).set({ role: "admin" }).where(eq(usersTable.clerkId, userId));
+        }
+      } catch {
+        // non-fatal: still allow the request through
+      }
+    }
+    next();
+    return;
+  }
+
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const users = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
   if (!users.length || users[0].role !== "admin") {
