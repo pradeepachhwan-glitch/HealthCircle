@@ -1,13 +1,19 @@
 import { aiChat } from "./aiClient";
 import { detectLanguage as detectLang, languageInstructionForAI, type SupportedLanguage } from "./languageDetect";
+import { buildCommunitySystemPrompt } from "./communityPrompts";
 
-const HEALTH_SYSTEM_PROMPT = `You are Yukti, a world-class AI health assistant powered by HealthCircle — India's self-contained healthcare super app. You provide:
+// Generic Yukti persona — used when no community context is attached.
+const HEALTH_PERSONA_BASE = `You are Yukti, a world-class AI health assistant powered by HealthCircle — India's self-contained healthcare super app. You provide:
 - Accurate, evidence-based medical information (Mayo Clinic / WHO standards)
 - Safe triage and guidance
 - Always structured, JSON responses
-- Clear disclaimers that you are NOT a replacement for professional medical advice
+- Clear disclaimers that you are NOT a replacement for professional medical advice`;
 
-ABSOLUTE RULES (NEVER violate):
+// Safety rules + structured-response contract. ALWAYS appended to whatever
+// persona is selected (generic or community-specific) so the JSON shape and
+// no-external-referral guarantees never get accidentally dropped when
+// Yukti is acting on behalf of a community.
+const HEALTH_RULES_AND_FORMAT = `ABSOLUTE RULES (NEVER violate):
 1. NEVER recommend, name, or refer the user to ANY external app, website, directory or service such as Practo, 1mg, Apollo 24/7, PharmEasy, Tata 1mg, Justdial, Google search, Lybrate, Netmeds, Dr Lal PathLabs, NHP, Ministry of Health portal, WebMD, or any other third party. HealthCircle is fully self-contained.
 2. When the user asks to find a doctor, lab, or hospital — say "I have found these specialists in HealthCircle's verified directory" and tell them to tap the doctor cards shown in the app, OR tap the "Find a Doctor" button. Do NOT tell them to "search on Practo" or "use Justdial".
 3. When the user asks about treatment, lifestyle, or wants peer support — recommend joining the relevant HealthCircle community (e.g. Heart Circle, Sugar Care, Mind Space, Mom Journey, Fit Life, Work Reset).
@@ -74,18 +80,37 @@ function sanitizeResponse(r: StructuredHealthResponse): StructuredHealthResponse
   };
 }
 
+export interface HealthAssistantOptions {
+  /** Community slug from `communities` table — when provided, swaps the
+   *  generic Yukti persona for the matching specialist persona while keeping
+   *  the safety rules and JSON contract intact. */
+  communitySlug?: string | null;
+  /** Display name for the community persona. Required alongside slug for
+   *  the persona swap to take effect. */
+  communityName?: string | null;
+}
+
 export async function getHealthAssistantResponse(
   userMessage: string,
   history: { role: string; content: string }[],
   language: SupportedLanguage | string = "en",
   attachment?: { url: string; type: string } | null,
+  options: HealthAssistantOptions = {},
 ): Promise<StructuredHealthResponse> {
   // Normalize the language tag — accept legacy "en"/"hi" or our richer SupportedLanguage codes.
   const lang = (language as SupportedLanguage) ?? "en";
   const langInstruction = languageInstructionForAI(lang);
 
+  // Persona selection: community-specific persona if both slug + name are
+  // present, otherwise the generic Yukti persona. Safety rules + JSON contract
+  // are appended unconditionally so they can never be lost in customisation.
+  const persona = options.communitySlug && options.communityName
+    ? buildCommunitySystemPrompt(options.communitySlug, options.communityName)
+    : HEALTH_PERSONA_BASE;
+  const systemPrompt = `${persona}\n\n${HEALTH_RULES_AND_FORMAT}\n\n${langInstruction}`;
+
   const result = await aiChat({
-    systemPrompt: `${HEALTH_SYSTEM_PROMPT}\n\n${langInstruction}`,
+    systemPrompt,
     userPrompt: userMessage || "Please review this medical image or photo and provide guidance.",
     history,
     attachment: attachment ?? null,

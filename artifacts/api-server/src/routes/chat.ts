@@ -9,6 +9,7 @@ import { detectLanguage } from "../lib/languageDetect";
 import { detectEmergency, buildEmergencyResponse } from "../lib/emergencyDetect";
 import { checkQuota, consumeQuota } from "../lib/quota";
 import { logger } from "../lib/logger";
+import { getCommunityAIConfig } from "../lib/communityPrompts";
 
 const router = Router();
 
@@ -32,9 +33,30 @@ router.post("/chat/sessions", requireAuth, async (req, res) => {
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
 
+  // Optional community context — when the user opens Yukti from a specific
+  // community card we persist slug + name on the session so every assistant
+  // turn picks up the matching specialist persona.
+  //
+  // SECURITY: client-supplied community values feed straight into the AI's
+  // system prompt, so we ONLY honour slugs that exist in the server-side
+  // allow-list (COMMUNITY_AI_CONFIGS). The display name is taken from the
+  // server-side config — the client-supplied name is ignored to prevent
+  // prompt-injection via a crafted communityName payload.
+  const body = (req.body ?? {}) as { communitySlug?: unknown };
+  const rawSlug = typeof body.communitySlug === "string" ? body.communitySlug.trim().toLowerCase() : "";
+  const cfg = rawSlug ? getCommunityAIConfig(rawSlug) : null;
+  const communitySlug = cfg?.slug ?? null;
+  const communityName = cfg?.name ?? null;
+
   const [session] = await db
     .insert(healthChatSessionsTable)
-    .values({ userId: user.id, title: "New Chat", language: "en" })
+    .values({
+      userId: user.id,
+      title: communityName ? `${communityName} chat` : "New Chat",
+      language: "en",
+      communitySlug,
+      communityName,
+    })
     .returning();
 
   res.json(session);
@@ -160,6 +182,10 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
       history.slice(0, -1),
       language,
       attachment?.url && attachment?.type ? { url: attachment.url, type: attachment.type } : null,
+      {
+        communitySlug: session.communitySlug,
+        communityName: session.communityName,
+      },
     );
     // Only count successful AI calls toward quota.
     await consumeQuota(user.id);

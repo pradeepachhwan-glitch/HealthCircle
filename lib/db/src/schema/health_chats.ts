@@ -8,6 +8,12 @@ export const healthChatSessionsTable = pgTable("health_chat_sessions", {
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   title: text("title").notNull().default("New Chat"),
   language: text("language").notNull().default("en"),
+  // Optional community context — when a session is opened from a specific
+  // HealthCircle community ("Heart Circle", "Mind Space", etc.) we store
+  // the slug + display name so every message in the session uses the matching
+  // Yukti specialist persona without re-passing it from the client.
+  communitySlug: text("community_slug"),
+  communityName: text("community_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -379,7 +379,15 @@ export default function ChatPage() {
 
   const createSession = useMutation({
     mutationFn: async () => {
-      const r = await fetch(`${API_BASE}/chat/sessions`, { method: "POST", credentials: "include" });
+      // If the chat was opened from a community card, pin the session to that
+      // community so every Yukti reply uses the matching specialist persona.
+      const ctx = getCommunityFromUrl();
+      const r = await fetch(`${API_BASE}/chat/sessions`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ctx ? { communitySlug: ctx.slug, communityName: ctx.name } : {}),
+      });
       if (r.status === 401) { const e = new Error("Unauthorized"); (e as any).status = 401; throw e; }
       if (!r.ok) throw new Error("Failed to create chat session");
       return r.json() as Promise<ChatSession>;
