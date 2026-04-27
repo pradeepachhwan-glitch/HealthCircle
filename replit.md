@@ -195,6 +195,11 @@ Admin promotes users via the GODMODE dashboard Users tab. Medical pros are verif
 - **Frontend** (`components/QuotaExhaustedModal.tsx`, mounted in `pages/chat.tsx`): on a 429 from send-message, the modal shows current usage, the limit hit, the reset time, and a CTA "Subscribe to three month plan" → opens the existing UPI flow (link / copy UPI ID + reference / paste UTR). On confirm, modal closes and quota query is invalidated.
 - **Known limitation (pre-existing)**: UPI confirm trusts the user-supplied UTR (no provider verification yet). Same trust model as the existing community-premium flow; should be replaced with a provider webhook before scaling.
 
+## Public Yukti Demo on Landing Page (Apr 2026)
+- **Backend**: `POST /api/public/ask` (no auth) in `routes/publicAi.ts`. Calls `getHealthAssistantResponse` and returns `{ reply, summary, recommendations[≤3], risk_level, emergency }`. Length-validated (3–500 chars). Emergency triggers short-circuit to the fixed 108/AASRA response.
+- **Rate limit**: `publicAiRateLimiter` in `middleware/rateLimiter.ts` — 5 req/hour per IP (IPv6-safe key). Wired in `app.ts` on `/api/public` BEFORE the general limiter.
+- **Frontend**: `components/LandingYuktiDemo.tsx` mounted in the hero section of `<Landing>` in `App.tsx`. Single input + Ask button + 3 sample chips. After one successful answer the widget swaps to a card showing the question, Yukti's reply with bullet recommendations, an emergency banner if applicable, and a gradient CTA card with "Create free account" → `/sign-up` and "Sign in" → `/sign-in`. Client enforces one question per page-load (`used` state).
+
 ## Key Commands
 - `pnpm --filter @workspace/db run push` — Push DB schema changes
 - `pnpm --filter @workspace/db run seed-providers` — Re-seed doctors/hospitals

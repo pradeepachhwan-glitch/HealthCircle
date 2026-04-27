@@ -5,7 +5,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { generalRateLimiter, aiRateLimiter, adminRateLimiter, authRateLimiter } from "./middleware/rateLimiter";
+import { generalRateLimiter, aiRateLimiter, adminRateLimiter, authRateLimiter, publicAiRateLimiter } from "./middleware/rateLimiter";
 
 const app: Express = express();
 
@@ -43,6 +43,7 @@ app.use(clerkMiddleware());
 app.use("/api/chat", aiRateLimiter);
 app.use("/api/ai", aiRateLimiter);
 app.use("/api/health-search", aiRateLimiter);
+app.use("/api/public", publicAiRateLimiter);
 app.use("/api/admin", adminRateLimiter);
 app.use("/api/auth", authRateLimiter);
 app.use("/api", generalRateLimiter);

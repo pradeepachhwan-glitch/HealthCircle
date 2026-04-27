@@ -16,6 +16,7 @@ import consentsRouter from "./consents";
 import medproRouter from "./medpro";
 import paymentsRouter from "./payments";
 import uploadsRouter from "./uploads";
+import publicAiRouter from "./publicAi";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(consentsRouter);
 router.use(medproRouter);
 router.use(paymentsRouter);
 router.use(uploadsRouter);
+router.use(publicAiRouter);
 
 export default router;

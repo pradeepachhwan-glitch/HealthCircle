@@ -74,6 +74,23 @@ export const adminRateLimiter = rateLimit({
   },
 });
 
+// Public, unauthenticated AI demo on the landing page. Keep this VERY tight
+// since there's no user behind the call to attribute spend to. 5 req per hour
+// per IP (a real human only ever needs 1 — the rest is anti-abuse headroom).
+export const publicAiRateLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: keyByIp,
+  handler: (_req, res) => {
+    res.status(429).json({
+      error: "rate_limited",
+      message: "Too many demo questions from this device. Please sign up to continue asking Yukti.",
+      retryAfter: 60 * 60,
+    });
+  },
+});
+
 // Auth-adjacent endpoints (sign-in, password reset lookup, etc.) — keep tight to
 // thwart brute force / enumeration. 20 req per minute per IP.
 export const authRateLimiter = rateLimit({

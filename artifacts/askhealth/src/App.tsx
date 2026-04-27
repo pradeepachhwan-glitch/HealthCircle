@@ -30,6 +30,7 @@ import ChatPage from "@/pages/chat";
 import ProvidersPage from "@/pages/providers";
 import AppointmentsPage from "@/pages/appointments";
 import OnboardingFlow from "@/components/OnboardingFlow";
+import { LandingYuktiDemo } from "@/components/LandingYuktiDemo";
 import CustomSignIn from "@/pages/sign-in";
 import CustomSignUp from "@/pages/sign-up";
 import TermsPage from "@/pages/terms";
@@ -232,6 +233,8 @@ function Landing() {
               </Link>
             </div>
             <p className="text-xs text-slate-400 mt-5">Free forever. No credit card needed.</p>
+
+            <LandingYuktiDemo />
           </div>
         </section>
 
