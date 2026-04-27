@@ -127,6 +127,7 @@ export type UserProfileRole =
 export const UserProfileRole = {
   admin: "admin",
   moderator: "moderator",
+  medical_professional: "medical_professional",
   member: "member",
 } as const;
 
@@ -143,6 +144,9 @@ export interface UserProfile {
   level: number;
   weeklyCredits: number;
   createdAt: string;
+  specialty?: string | null;
+  registrationNumber?: string | null;
+  isVerifiedPro?: boolean;
 }
 
 export interface UpdateUserBody {
@@ -158,6 +162,7 @@ export type UpdateUserRoleBodyRole =
 export const UpdateUserRoleBodyRole = {
   admin: "admin",
   moderator: "moderator",
+  medical_professional: "medical_professional",
   member: "member",
 } as const;
 

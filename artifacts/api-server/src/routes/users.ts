@@ -12,6 +12,9 @@ function toProfile(u: typeof usersTable.$inferSelect) {
     email: u.email, avatarUrl: u.avatarUrl, role: u.role,
     isBanned: u.isBanned, healthCredits: u.healthCredits,
     level: u.level, weeklyCredits: u.weeklyCredits, createdAt: u.createdAt,
+    specialty: u.specialty ?? null,
+    registrationNumber: u.registrationNumber ?? null,
+    isVerifiedPro: u.isVerifiedPro ?? false,
   };
 }
 
@@ -25,10 +28,12 @@ router.get("/users/me", requireAuth, async (req, res) => {
 router.patch("/users/me", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const { displayName, avatarUrl } = req.body;
+  const { displayName, avatarUrl, specialty, registrationNumber } = req.body;
   const updates: Record<string, unknown> = {};
   if (displayName !== undefined) updates.displayName = displayName;
   if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+  if (specialty !== undefined) updates.specialty = specialty;
+  if (registrationNumber !== undefined) updates.registrationNumber = registrationNumber;
 
   const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.clerkId, clerkId)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
@@ -113,6 +118,8 @@ router.get("/users/:userId", requireAuth, async (req, res) => {
 router.patch("/users/:userId/role", requireAdmin, async (req, res) => {
   const clerkId = req.params.userId;
   const { role } = req.body;
+  const validRoles = ["admin", "moderator", "medical_professional", "member"];
+  if (!validRoles.includes(role)) { res.status(400).json({ error: `role must be one of ${validRoles.join(", ")}` }); return; }
   const [updated] = await db.update(usersTable).set({ role }).where(eq(usersTable.clerkId, clerkId)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toProfile(updated));

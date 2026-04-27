@@ -36,6 +36,10 @@ function SidebarContent() {
     { href: "/profile", icon: User, label: "Profile" },
   ];
 
+  if (user?.role === "medical_professional" || user?.role === "admin") {
+    navItems.push({ href: "/medpro", icon: Stethoscope, label: "Med Pro Portal" });
+  }
+
   if (user?.role === "admin" || user?.role === "moderator") {
     navItems.push({ href: "/admin", icon: Shield, label: "Admin" });
   }

@@ -18,7 +18,7 @@ export async function getOrCreateUser(clerkId: string, userData?: { displayName?
 
   const [created] = await db.insert(usersTable).values({
     clerkId,
-    displayName: userData?.displayName ?? "Healthcare Professional",
+    displayName: userData?.displayName ?? "Healthcare Member",
     email: userData?.email ?? `${clerkId}@healthcircle.ai`,
     avatarUrl: userData?.avatarUrl ?? null,
     role: "member",
@@ -32,10 +32,7 @@ export async function getOrCreateUser(clerkId: string, userData?: { displayName?
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const users = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
   if (!users.length || users[0].role !== "admin") {
     res.status(403).json({ error: "Forbidden: Admin access required" });
@@ -44,12 +41,20 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
   next();
 }
 
-export async function requireModeratorOrAdmin(req: Request, res: Response, next: NextFunction) {
+export async function requireMedPro(req: Request, res: Response, next: NextFunction) {
   const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const users = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
+  if (!users.length || (users[0].role !== "medical_professional" && users[0].role !== "admin")) {
+    res.status(403).json({ error: "Forbidden: Medical Professional access required" });
     return;
   }
+  next();
+}
+
+export async function requireModeratorOrAdmin(req: Request, res: Response, next: NextFunction) {
+  const { userId } = getAuth(req);
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const users = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
   if (!users.length || (users[0].role !== "admin" && users[0].role !== "moderator")) {
     res.status(403).json({ error: "Forbidden: Moderator or Admin access required" });

@@ -2,6 +2,7 @@ import { integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { postsTable } from "./posts";
+import { usersTable } from "./users";
 
 export const aiSummariesTable = pgTable("ai_summaries", {
   id: serial("id").primaryKey(),
@@ -12,6 +13,11 @@ export const aiSummariesTable = pgTable("ai_summaries", {
   whenToSeeDoctor: text("when_to_see_doctor").notNull(),
   disclaimer: text("disclaimer").notNull(),
   fullResponse: jsonb("full_response"),
+  status: text("status", { enum: ["pending", "approved", "rejected", "edited"] }).notNull().default("pending"),
+  validatedById: integer("validated_by_id").references(() => usersTable.id),
+  validatedAt: timestamp("validated_at", { withTimezone: true }),
+  editedContent: text("edited_content"),
+  validationNote: text("validation_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

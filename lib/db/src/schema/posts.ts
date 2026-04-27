@@ -13,6 +13,8 @@ export const postsTable = pgTable("posts", {
   imageUrl: text("image_url"),
   isPinned: boolean("is_pinned").notNull().default(false),
   isBroadcast: boolean("is_broadcast").notNull().default(false),
+  isModerated: boolean("is_moderated").notNull().default(false),
+  isExpertAnswered: boolean("is_expert_answered").notNull().default(false),
   upvoteCount: integer("upvote_count").notNull().default(0),
   commentCount: integer("comment_count").notNull().default(0),
   viewCount: integer("view_count").notNull().default(0),

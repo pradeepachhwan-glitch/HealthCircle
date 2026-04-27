@@ -21,6 +21,7 @@ import ChatPage from "@/pages/chat";
 import ProvidersPage from "@/pages/providers";
 import AppointmentsPage from "@/pages/appointments";
 import OnboardingFlow from "@/components/OnboardingFlow";
+import MedPro from "@/pages/medpro";
 import { useUser } from "@clerk/react";
 
 const queryClient = new QueryClient();
@@ -319,6 +320,24 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function MedProGate({ children }: { children: React.ReactNode }) {
+  const { data: user, isLoading } = useGetCurrentUser();
+  if (isLoading) return <div className="flex items-center justify-center h-screen text-slate-400">Loading…</div>;
+  if (user?.role !== "medical_professional" && user?.role !== "admin") {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4 text-center">
+        <div className="text-6xl">🩺</div>
+        <h2 className="text-xl font-bold text-slate-700">Medical Professional Access Required</h2>
+        <p className="text-slate-500 max-w-sm">This portal is only available to verified Medical Professionals. Contact an admin to upgrade your account.</p>
+        <Link href="/communities">
+          <button className="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 mt-2">Back to Communities</button>
+        </Link>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const queryClient = useQueryClient();
@@ -436,6 +455,10 @@ function ClerkProviderWithRoutes() {
 
           <Route path="/profile">
             <ProtectedRoute><Profile /></ProtectedRoute>
+          </Route>
+
+          <Route path="/medpro">
+            <ProtectedRoute><MedProGate><MedPro /></MedProGate></ProtectedRoute>
           </Route>
 
           <Route path="/admin">

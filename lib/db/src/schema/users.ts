@@ -2,17 +2,23 @@ import { pgTable, text, integer, boolean, timestamp, serial } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+export const USER_ROLES = ["admin", "moderator", "medical_professional", "member"] as const;
+export type UserRole = typeof USER_ROLES[number];
+
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   clerkId: text("clerk_id").notNull().unique(),
   displayName: text("display_name").notNull(),
   email: text("email").notNull().unique(),
   avatarUrl: text("avatar_url"),
-  role: text("role", { enum: ["admin", "moderator", "member"] }).notNull().default("member"),
+  role: text("role", { enum: USER_ROLES }).notNull().default("member"),
   isBanned: boolean("is_banned").notNull().default(false),
   healthCredits: integer("health_credits").notNull().default(0),
   weeklyCredits: integer("weekly_credits").notNull().default(0),
   level: integer("level").notNull().default(1),
+  specialty: text("specialty"),
+  registrationNumber: text("registration_number"),
+  isVerifiedPro: boolean("is_verified_pro").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

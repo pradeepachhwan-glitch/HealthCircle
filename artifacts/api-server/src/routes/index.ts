@@ -13,6 +13,7 @@ import providersRouter from "./providers";
 import appointmentsRouter from "./appointments";
 import healthSearchRouter from "./healthSearch";
 import consentsRouter from "./consents";
+import medproRouter from "./medpro";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(providersRouter);
 router.use(appointmentsRouter);
 router.use(healthSearchRouter);
 router.use(consentsRouter);
+router.use(medproRouter);
 
 export default router;

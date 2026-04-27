@@ -42,13 +42,24 @@ API Gateway (Node.js / Express)
 Database (PostgreSQL via Drizzle ORM)
 ```
 
+## User Roles
+
+| Role | Access |
+|------|--------|
+| `member` | Communities, posts, comments, appointments, chat |
+| `moderator` | Member + admin panel access |
+| `medical_professional` | Member + Medical Pro Portal (AI validation, expert responses). See `/medpro` |
+| `admin` | Full GODMODE — all above + user management, community control, post moderation, credits |
+
+Admin promotes users via the GODMODE dashboard Users tab. Medical pros are verified via "Verify Professional" button.
+
 ## Database Schema
 
 ### Core
-- `users` — Clerk-linked profiles, roles, gamification (health_credits, level)
-- `communities`, `community_members`, `posts` (viewCount added), `post_upvotes`, `comments`, `achievements`
+- `users` — Clerk-linked profiles, roles (`admin/moderator/medical_professional/member`), gamification (health_credits, level), `specialty`, `registrationNumber`, `isVerifiedPro`
+- `communities`, `community_members`, `posts` (`isModerated`, `isExpertAnswered` flags), `post_upvotes`, `comments`, `achievements`
 - `consents` — user consent records (post_health_data, ai_assistance)
-- `ai_summaries` — per-post AI summaries (whatItCouldBe, riskLevel, whatToDo, whenToSeeDoctor, disclaimer)
+- `ai_summaries` — per-post AI summaries with validation workflow (`status`: pending/approved/rejected/edited, `validatedById`, `editedContent`, `validationNote`)
 
 ### Health Super App
 - `doctors` — specialist profiles (specialty, fee, rating, location, languages, available)
