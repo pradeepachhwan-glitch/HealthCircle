@@ -1,0 +1,298 @@
+Below is a **Figma-level UI system translated to dev-ready structure** for your **HealthCircle** app. This is not generic styling—this is a **scalable design system** you can enforce across Replit.
+
+---
+
+# 🎯 1️⃣ DESIGN SYSTEM FOUNDATION (TOKENS)
+
+Use this as your **single source of truth**
+
+## 🎨 COLORS
+
+```js
+// tailwind.config.js (extend)
+colors: {
+  primary: "#16A34A",        // Green (health/action)
+  primarySoft: "#DCFCE7",
+
+  secondary: "#2563EB",      // Blue (trust)
+  secondarySoft: "#DBEAFE",
+
+  bg: "#F9FAFB",             // App background
+  surface: "#FFFFFF",        // Cards
+
+  textPrimary: "#111827",
+  textSecondary: "#6B7280",
+
+  border: "#E5E7EB",
+
+  success: "#22C55E",
+  warning: "#F59E0B",
+  danger: "#EF4444"
+}
+```
+
+---
+
+## 🔤 TYPOGRAPHY
+
+```js
+fontFamily: {
+  sans: ["Inter", "sans-serif"]
+}
+```
+
+### Scale (STRICT)
+
+| Type    | Size      | Weight        |
+| ------- | --------- | ------------- |
+| H1      | text-4xl  | font-bold     |
+| H2      | text-2xl  | font-semibold |
+| H3      | text-lg   | font-semibold |
+| Body    | text-base | font-normal   |
+| Caption | text-sm   | text-gray-500 |
+
+---
+
+## 📏 SPACING SYSTEM
+
+Use **8pt grid**
+
+* 8 / 16 / 24 / 32 / 48 / 64
+
+---
+
+## 🔲 BORDER + SHADOW
+
+```js
+borderRadius: {
+  xl: "16px",
+  "2xl": "20px"
+}
+
+boxShadow: {
+  card: "0 4px 12px rgba(0,0,0,0.05)",
+  hover: "0 8px 20px rgba(0,0,0,0.08)"
+}
+```
+
+---
+
+# 🧱 2️⃣ CORE COMPONENT SYSTEM
+
+---
+
+## 🔘 BUTTON SYSTEM
+
+### Primary
+
+```jsx
+<button className="bg-primary text-white px-6 py-3 rounded-xl shadow-card hover:shadow-hover transition">
+  Join Community
+</button>
+```
+
+---
+
+### Secondary
+
+```jsx
+<button className="border border-gray-300 px-6 py-3 rounded-xl hover:bg-gray-50">
+  Ask Question
+</button>
+```
+
+---
+
+## 🧩 CARD SYSTEM (CRITICAL)
+
+### Base Card
+
+```jsx
+<div className="bg-white rounded-2xl shadow-card p-5 hover:shadow-hover transition">
+  {children}
+</div>
+```
+
+---
+
+## 🧠 COMMUNITY CARD
+
+```jsx
+<div className="bg-white rounded-2xl shadow-card p-5 hover:shadow-hover transition cursor-pointer">
+  <div className="text-2xl mb-2">🧠</div>
+  <h3 className="font-semibold text-lg">Mind Space</h3>
+  <p className="text-sm text-gray-500">Talk, share, heal</p>
+
+  <div className="mt-3 text-xs text-gray-400">
+    12k members • 120 active
+  </div>
+</div>
+```
+
+---
+
+## 💬 QUESTION CARD
+
+```jsx
+<div className="bg-white rounded-xl border p-4 hover:shadow-md cursor-pointer">
+  <p className="text-sm font-medium">
+    Why do I feel anxious at night?
+  </p>
+
+  <div className="mt-2 flex gap-2">
+    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+      Anxiety
+    </span>
+  </div>
+</div>
+```
+
+---
+
+## 🧠 AI SUMMARY BOX (SIGNATURE ELEMENT)
+
+```jsx
+<div className="bg-primarySoft border border-green-200 rounded-xl p-4">
+  <p className="font-semibold text-sm">AI Summary</p>
+
+  <ul className="text-sm mt-2 space-y-1">
+    <li>• Possible cause: stress/anxiety</li>
+    <li>• Risk: Medium</li>
+    <li>• Try relaxation & routine</li>
+    <li>• See doctor if persistent</li>
+  </ul>
+</div>
+```
+
+---
+
+# 🧭 3️⃣ PAGE STRUCTURE SYSTEM
+
+---
+
+## 🟢 HERO SECTION
+
+```jsx
+<section className="text-center py-16 bg-gradient-to-b from-white to-gray-50">
+  <h1 className="text-4xl font-bold">
+    Ask. Share. Learn. Act on your health.
+  </h1>
+
+  <p className="text-gray-600 mt-4 max-w-xl mx-auto">
+    Join communities, ask questions, get AI clarity, and take action.
+  </p>
+
+  <div className="mt-6 flex justify-center gap-4">
+    <PrimaryButton />
+    <SecondaryButton />
+  </div>
+</section>
+```
+
+---
+
+## 🟡 COMMUNITY GRID
+
+```jsx
+<section className="max-w-6xl mx-auto px-4 py-10">
+  <h2 className="text-2xl font-semibold mb-6">
+    Explore Communities
+  </h2>
+
+  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+    <CommunityCard />
+  </div>
+</section>
+```
+
+---
+
+## 🔵 TRENDING SECTION
+
+```jsx
+<section className="bg-gray-50 py-10">
+  <div className="max-w-4xl mx-auto">
+    <h2 className="text-xl font-semibold mb-4">
+      What people are asking
+    </h2>
+
+    <div className="space-y-3">
+      <QuestionCard />
+    </div>
+  </div>
+</section>
+```
+
+---
+
+## ⚫ TRUST BLOCK
+
+```jsx
+<section className="bg-gray-900 text-white py-12 text-center">
+  <p className="text-lg font-medium">
+    Your health data is private.
+  </p>
+  <p className="text-gray-400 mt-2">
+    AI guidance is safe and not a replacement for doctors.
+  </p>
+</section>
+```
+
+---
+
+# ✨ 4️⃣ INTERACTION SYSTEM
+
+### Apply everywhere:
+
+```css
+transition: all 0.2s ease;
+```
+
+### Hover behaviors:
+
+* Cards → lift (`shadow-hover`)
+* Buttons → slight scale + darker
+* Links → underline or color shift
+
+---
+
+# 📱 5️⃣ MOBILE RULES (NON-NEGOTIABLE)
+
+* Use `px-4` always
+* Stack everything
+* Buttons full width
+* Reduce H1 → `text-3xl`
+
+---
+
+# 🧠 6️⃣ DESIGN PRINCIPLES (FOLLOW STRICTLY)
+
+1. **Less clutter = more trust**
+2. **Spacing > colors**
+3. **One primary action per screen**
+4. **Soft UI, not aggressive**
+5. **Readable > fancy**
+
+---
+
+# 🔥 FINAL RESULT YOU SHOULD SEE
+
+After applying:
+
+* Feels like **modern SaaS**
+* Calm like healthcare app
+* Clean like **top-tier product**
+* Not like a template
+
+---
+
+# 🚀 NEXT STEP
+
+If you want to go even deeper:
+
+* Full **thread page UI (most critical screen)**
+* Or **design system as reusable component library (production scale)**
+* Or **dark mode + accessibility system**
+
+Just say:
+👉 “thread UI” or “component library”

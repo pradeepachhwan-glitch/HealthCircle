@@ -1,0 +1,115 @@
+Upgrade the entire UI to a modern, clean, high-quality SaaS product design.
+
+DO NOT change functionality.
+ONLY improve UI/UX, layout, spacing, typography, and visual hierarchy.
+
+-----------------------------------
+🎯 DESIGN GOAL
+-----------------------------------
+Make the app feel like:
+- Premium
+- Calm
+- Healthcare-safe
+- Mobile-first
+- As simple as WhatsApp, as polished as a top SaaS app
+
+-----------------------------------
+🎨 DESIGN SYSTEM (MANDATORY)
+-----------------------------------
+
+1. TYPOGRAPHY
+- Use modern font (Inter or Poppins)
+- Strong hierarchy:
+  - H1: bold, large
+  - H2: medium
+  - Body: light, readable
+- Increase line spacing
+
+2. SPACING
+- Add proper padding (min 16px mobile, 24–32px desktop)
+- Increase vertical spacing between sections
+- Avoid cramped layout
+
+3. COLORS
+Primary: Green (#16A34A or similar)
+Secondary: Blue (#2563EB)
+Background: Very light grey (#F9FAFB)
+Text: Dark grey (#111827)
+
+- Add soft gradients (very subtle)
+- Use color only for actions and highlights
+
+-----------------------------------
+🧱 COMPONENT UPGRADES
+-----------------------------------
+
+1. HERO SECTION
+- Center align
+- Increase whitespace
+- Add subtle gradient background
+- Make CTA buttons bigger and rounded (pill style)
+- Add shadow for depth
+
+2. COMMUNITY CARDS
+- Add:
+  - Soft shadow
+  - Hover effect (scale + shadow)
+  - Rounded corners (xl)
+- Improve icon size and alignment
+- Add “Members” or “Active now” indicator
+
+3. TRENDING QUESTIONS
+- Convert into:
+  - Clean cards
+  - Add hover highlight
+  - Add tags (e.g., Anxiety, PCOS)
+
+4. HOW IT WORKS
+- Convert into horizontal stepper
+- Add icons + numbers
+- Improve spacing
+
+5. FOOTER / TRUST BLOCK
+- Make darker section
+- Add contrast
+- Improve readability
+
+-----------------------------------
+✨ MICRO INTERACTIONS
+-----------------------------------
+- Button hover → slight scale + darker shade
+- Cards hover → lift effect
+- Smooth transitions (0.2s ease)
+
+-----------------------------------
+📱 MOBILE OPTIMIZATION
+-----------------------------------
+- Stack all sections vertically
+- Full-width buttons
+- Reduce text size slightly
+- Ensure thumb-friendly spacing
+
+-----------------------------------
+🔲 LAYOUT IMPROVEMENTS
+-----------------------------------
+- Max width container (1100–1200px)
+- Center content
+- Use grid system properly
+
+-----------------------------------
+🚫 DO NOT
+-----------------------------------
+- Do not add unnecessary animations
+- Do not clutter UI
+- Do not change content structure
+
+-----------------------------------
+✅ OUTPUT
+-----------------------------------
+- Updated React components
+- Clean Tailwind or CSS styling
+- Production-quality UI
+
+Start with:
+1. Global styles (typography, colors)
+2. Then homepage components

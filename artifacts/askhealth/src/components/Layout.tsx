@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
 import { useClerk } from "@clerk/react";
-import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope } from "lucide-react";
+import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -97,7 +97,15 @@ function SidebarContent() {
         </nav>
       </div>
 
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-1">
+        <div className="flex gap-1 mb-1">
+          <a href="/#about" className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-xs flex-1">
+            <Info className="w-3.5 h-3.5" /> About
+          </a>
+          <a href="/#support" className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-xs flex-1">
+            <HelpCircle className="w-3.5 h-3.5" /> Support
+          </a>
+        </div>
         <button
           onClick={() => signOut()}
           className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer w-full text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-sm"
@@ -120,9 +128,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4 z-50">
-        <div className="flex items-center gap-2 text-sidebar-foreground">
-          <HealthCircleLogo size="sm" animate={false} />
-        </div>
+        <Link href="/">
+          <div className="flex items-center gap-2 text-sidebar-foreground cursor-pointer">
+            <HealthCircleLogo size="sm" animate={false} />
+          </div>
+        </Link>
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:bg-sidebar-accent">

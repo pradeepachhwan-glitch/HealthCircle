@@ -140,20 +140,60 @@ const HOW_IT_WORKS = [
 ];
 
 function Landing() {
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+  const scrollTo = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    setMobileMenuOpen(false);
+  };
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-white">
       {/* Header */}
-      <header className="px-6 py-4 flex items-center justify-between bg-white/80 backdrop-blur border-b sticky top-0 z-10">
-        <HealthCircleLogo size="sm" animate={false} />
-        <div className="flex gap-3">
+      <header className="px-4 md:px-6 py-4 flex items-center justify-between bg-white/90 backdrop-blur border-b sticky top-0 z-20">
+        <button onClick={() => scrollTo("hero")} className="cursor-pointer">
+          <HealthCircleLogo size="sm" animate={false} />
+        </button>
+
+        {/* Desktop Nav */}
+        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
+          <button onClick={() => scrollTo("solutions")} className="hover:text-primary transition-colors">Solutions</button>
+          <button onClick={() => scrollTo("for-doctors")} className="hover:text-primary transition-colors">For Doctors</button>
+          <button onClick={() => scrollTo("about")} className="hover:text-primary transition-colors">About</button>
+          <button onClick={() => scrollTo("support")} className="hover:text-primary transition-colors">Support</button>
+        </nav>
+
+        <div className="hidden md:flex gap-3">
           <Link href="/sign-in" className="text-sm font-medium px-4 py-2 hover:text-primary transition-colors text-slate-600">Sign In</Link>
           <Link href="/sign-up" className="text-sm font-medium px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Get Started Free</Link>
         </div>
+
+        {/* Mobile Menu Button */}
+        <button onClick={() => setMobileMenuOpen(v => !v)} className="md:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {mobileMenuOpen ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></> : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>}
+          </svg>
+        </button>
       </header>
 
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed top-[61px] left-0 right-0 z-10 bg-white border-b shadow-lg p-4 space-y-2">
+          {[["solutions", "Solutions"], ["for-doctors", "For Doctors"], ["about", "About"], ["support", "Support"]].map(([id, label]) => (
+            <button key={id} onClick={() => scrollTo(id)} className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors">
+              {label}
+            </button>
+          ))}
+          <div className="pt-2 border-t flex gap-2">
+            <Link href="/sign-in" className="flex-1 text-center text-sm font-medium px-4 py-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50">Sign In</Link>
+            <Link href="/sign-up" className="flex-1 text-center text-sm font-medium px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Get Started</Link>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1">
-        {/* HERO — Community-first */}
-        <section className="max-w-4xl mx-auto text-center px-4 pt-16 pb-14">
+        {/* HERO */}
+        <section id="hero" className="max-w-4xl mx-auto text-center px-4 pt-16 pb-14">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-4 py-1.5 rounded-full mb-6">
             <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
             AI Health Guidance • Multi-language • India-first
@@ -237,22 +277,192 @@ function Landing() {
           </div>
         </section>
 
-        {/* TRUST BLOCK */}
-        <section className="bg-slate-900 text-white py-14 px-4">
+        {/* SOLUTIONS */}
+        <section id="solutions" className="bg-slate-50 border-y border-slate-100 py-16 px-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">Everything you need for smarter healthcare</h2>
+              <p className="text-slate-500 max-w-2xl mx-auto">HealthCircle combines AI, community wisdom, and professional expertise into one seamless platform.</p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6">
+              {[
+                { icon: "🤖", title: "Yukti AI Health Assistant", desc: "Get instant, evidence-based answers to your health questions. Yukti understands symptoms, flags risk levels, and suggests when to see a doctor — in English and Hindi." },
+                { icon: "👥", title: "Trusted Health Communities", desc: "20+ specialized communities for diabetes, heart health, mental wellness, pregnancy, and more. Share experiences with people who truly understand." },
+                { icon: "🩺", title: "Doctor Network & Booking", desc: "Find verified doctors and hospitals. Book appointments directly, view availability, fees, and specialties — all from one place." },
+                { icon: "🏆", title: "Gamified Health Journey", desc: "Earn Health Credits for contributions. Level up, earn badges, and climb leaderboards while improving your health knowledge." },
+                { icon: "🔒", title: "Privacy-First Design", desc: "Your health data stays private. We use enterprise-grade security and never sell your information. Share only what you choose." },
+                { icon: "🌐", title: "Multi-language Support", desc: "Available in English and Hindi. More languages coming soon — because healthcare guidance should reach everyone." },
+              ].map(s => (
+                <div key={s.title} className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-primary/30 hover:shadow-md transition-all">
+                  <div className="text-3xl mb-4">{s.icon}</div>
+                  <h3 className="font-bold text-slate-900 mb-2">{s.title}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* FOR DOCTORS */}
+        <section id="for-doctors" className="py-16 px-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 text-sm font-semibold px-3 py-1 rounded-full mb-4">🩺 For Medical Professionals</div>
+                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">A dedicated portal built for healthcare providers</h2>
+                <p className="text-slate-600 mb-6 leading-relaxed">HealthCircle's MedPro Portal gives doctors and medical professionals a powerful workspace to review urgent cases, respond to patient questions, and validate AI summaries.</p>
+                <ul className="space-y-3">
+                  {[
+                    "Urgent case alerts — high-risk AI flags delivered directly to you",
+                    "Patient consultation requests — respond with clinical notes",
+                    "AI Summary validation — review and approve AI-generated health summaries",
+                    "Community moderation — maintain quality across health communities",
+                    "Verified professional badge — build trust with your community",
+                  ].map(f => (
+                    <li key={f} className="flex items-start gap-3 text-sm text-slate-700">
+                      <span className="text-primary font-bold mt-0.5">✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-8">
+                  <Link href="/sign-up" className="inline-block px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors">
+                    Join as a Medical Professional →
+                  </Link>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-8 border border-emerald-100">
+                <div className="space-y-4">
+                  {[
+                    { label: "Urgent Cases", value: "Real-time alerts", icon: "🚨" },
+                    { label: "Patient Requests", value: "Direct consultations", icon: "👤" },
+                    { label: "AI Validation", value: "Quality control", icon: "🤖" },
+                    { label: "Expert Response", value: "Community impact", icon: "💬" },
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center gap-4 bg-white rounded-xl p-4 border border-emerald-100">
+                      <div className="text-2xl">{item.icon}</div>
+                      <div>
+                        <div className="font-semibold text-slate-900 text-sm">{item.label}</div>
+                        <div className="text-xs text-slate-500">{item.value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ABOUT */}
+        <section id="about" className="bg-slate-900 text-white py-16 px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold mb-4">About HealthCircle</h2>
+                <p className="text-slate-300 leading-relaxed mb-4">
+                  HealthCircle is India's first AI-powered healthcare super app — built for real people navigating real health challenges. We combine community wisdom, AI clarity, and professional expertise to help you make confident health decisions.
+                </p>
+                <p className="text-slate-300 leading-relaxed mb-6">
+                  Founded on the belief that quality healthcare guidance should be accessible to everyone, HealthCircle bridges the gap between patients and professionals — in their language, on their schedule.
+                </p>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  {[["20+", "Communities"], ["Yukti AI", "Health Assistant"], ["Hindi + English", "Languages"]].map(([val, lbl]) => (
+                    <div key={lbl} className="text-center">
+                      <div className="text-xl font-extrabold text-primary">{val}</div>
+                      <div className="text-xs text-slate-400 mt-1">{lbl}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-4">
+                {[
+                  { icon: "🎯", title: "Our Mission", desc: "Make trustworthy health guidance accessible to every Indian family — regardless of location, language, or income." },
+                  { icon: "👁️", title: "Our Vision", desc: "A world where no one makes a critical health decision alone or in the dark." },
+                  { icon: "💙", title: "Our Values", desc: "Empathy, accuracy, privacy, and accessibility — in every feature we build." },
+                ].map(v => (
+                  <div key={v.title} className="bg-slate-800 rounded-xl p-5 border border-slate-700">
+                    <div className="text-xl mb-2">{v.icon}</div>
+                    <div className="font-semibold text-white mb-1">{v.title}</div>
+                    <p className="text-sm text-slate-400 leading-relaxed">{v.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SUPPORT / CONTACT */}
+        <section id="support" className="py-16 px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">We're here to help</h2>
+              <p className="text-slate-500">Have a question, feedback, or need support? Reach out — we respond within 24 hours.</p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6 mb-12">
+              {[
+                { icon: "📧", title: "Email Support", desc: "For general inquiries, account help, or technical issues.", link: "mailto:support@healthcircle.in", linkLabel: "support@healthcircle.in" },
+                { icon: "🤝", title: "Partnerships", desc: "Hospitals, clinics, health brands — let's build together.", link: "mailto:partners@healthcircle.in", linkLabel: "partners@healthcircle.in" },
+                { icon: "🩺", title: "Doctor Onboarding", desc: "Join as a verified medical professional and help thousands.", link: "/sign-up", linkLabel: "Apply for MedPro access" },
+              ].map(c => (
+                <div key={c.title} className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:border-primary/30 hover:shadow-md transition-all">
+                  <div className="text-3xl mb-4">{c.icon}</div>
+                  <h3 className="font-bold text-slate-900 mb-2">{c.title}</h3>
+                  <p className="text-sm text-slate-500 mb-4 leading-relaxed">{c.desc}</p>
+                  <a href={c.link} className="text-sm text-primary font-medium hover:underline">{c.linkLabel}</a>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 text-center">
+              <h3 className="font-bold text-slate-900 mb-2">Frequently Asked Questions</h3>
+              <div className="space-y-3 text-left max-w-2xl mx-auto mt-4">
+                {[
+                  ["Is HealthCircle free?", "Yes, joining and participating is completely free. No credit card required."],
+                  ["Is the AI a replacement for doctors?", "No. Yukti AI provides guidance and clarity, but always recommends seeing a doctor for serious concerns."],
+                  ["Is my health data private?", "Absolutely. Your data is encrypted and never sold to third parties."],
+                  ["Can I ask questions in Hindi?", "Yes, Yukti AI responds in both English and Hindi based on your preference."],
+                  ["How do I become a verified doctor?", "Sign up, then contact us at support@healthcircle.in to get verified as a Medical Professional."],
+                ].map(([q, a]) => (
+                  <div key={q} className="bg-white rounded-xl p-4 border border-slate-200">
+                    <div className="font-semibold text-slate-900 text-sm mb-1">{q}</div>
+                    <p className="text-sm text-slate-500">{a}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* TRUST BLOCK / CTA */}
+        <section className="bg-primary text-white py-14 px-4">
           <div className="max-w-2xl mx-auto text-center">
             <div className="text-3xl mb-4">🔒</div>
             <h2 className="text-2xl font-bold mb-3">Your health data is private.</h2>
-            <p className="text-slate-300 text-base mb-2">
+            <p className="text-primary-foreground/80 text-base mb-2">
               AI guidance is safe, structured, and not a replacement for doctors.
             </p>
-            <p className="text-slate-400 text-sm mb-8">
+            <p className="text-primary-foreground/60 text-sm mb-8">
               Free to join. No credit card needed. Available in English & Hindi.
             </p>
-            <Link href="/sign-up" className="inline-block px-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 transition-all">
+            <Link href="/sign-up" className="inline-block px-8 py-4 bg-white text-primary rounded-xl font-semibold text-lg hover:bg-white/90 transition-all">
               Get Started — It's Free
             </Link>
           </div>
         </section>
+
+        {/* Footer */}
+        <footer className="bg-slate-50 border-t border-slate-100 py-8 px-4">
+          <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <HealthCircleLogo size="sm" animate={false} />
+            <div className="flex flex-wrap gap-4 text-sm text-slate-500">
+              <button onClick={() => scrollTo("about")} className="hover:text-primary transition-colors">About</button>
+              <button onClick={() => scrollTo("solutions")} className="hover:text-primary transition-colors">Solutions</button>
+              <button onClick={() => scrollTo("for-doctors")} className="hover:text-primary transition-colors">For Doctors</button>
+              <button onClick={() => scrollTo("support")} className="hover:text-primary transition-colors">Support</button>
+              <a href="mailto:support@healthcircle.in" className="hover:text-primary transition-colors">Contact</a>
+            </div>
+            <p className="text-xs text-slate-400">© 2025 HealthCircle. India-first healthcare.</p>
+          </div>
+        </footer>
       </main>
     </div>
   );

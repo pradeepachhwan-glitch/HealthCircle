@@ -191,10 +191,15 @@ export default function Communities() {
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
         {isError && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-4">
-            <p className="text-sm text-amber-800">Your session has expired. Please sign in again to continue.</p>
-            <Button size="sm" className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white" onClick={handleSessionExpired}>
-              Sign in again
-            </Button>
+            <p className="text-sm text-amber-800">Unable to load communities. Please refresh the page or sign in again.</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button size="sm" variant="outline" className="text-amber-700 border-amber-300 hover:bg-amber-100" onClick={() => window.location.reload()}>
+                Refresh
+              </Button>
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={handleSessionExpired}>
+                Sign in again
+              </Button>
+            </div>
           </div>
         )}
         <div className="mb-8">
