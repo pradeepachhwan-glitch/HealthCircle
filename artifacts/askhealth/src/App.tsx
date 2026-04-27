@@ -72,7 +72,7 @@ const clerkAppearance = {
     logoImageUrl: `${window.location.origin}${basePath}/favicon.svg`,
   },
   variables: {
-    colorPrimary: "hsl(174, 84%, 31%)",
+    colorPrimary: "hsl(224, 76%, 48%)",
     colorForeground: "hsl(222, 47%, 11%)",
     colorMutedForeground: "hsl(215.4, 16.3%, 46.9%)",
     colorDanger: "hsl(0, 84.2%, 60.2%)",
@@ -168,7 +168,7 @@ function Landing() {
         </nav>
         <div className="hidden md:flex items-center gap-3">
           <Link href="/sign-in" className="text-sm font-medium px-5 py-2.5 text-slate-600 hover:text-primary transition-colors duration-200 rounded-xl hover:bg-slate-50">Sign In</Link>
-          <Link href="/sign-up" className="text-sm font-semibold px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-px">Get Started Free</Link>
+          <Link href="/sign-up" className="text-sm font-semibold px-6 py-2.5 bg-ai-gradient text-white rounded-xl shadow-card hover:shadow-hover-lift hover:-translate-y-px transition-default">Get Started Free</Link>
         </div>
         <button onClick={() => setMobileMenuOpen(v => !v)} className="md:hidden p-2.5 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -194,7 +194,7 @@ function Landing() {
 
       <main className="flex-1">
         {/* ── HERO ── */}
-        <section id="hero" className="relative overflow-hidden bg-gradient-to-b from-white via-emerald-50/40 to-white">
+        <section id="hero" className="relative overflow-hidden bg-gradient-to-b from-white via-indigo-50/40 to-white">
           <div className="max-w-4xl mx-auto text-center px-4 pt-24 pb-20 md:pt-32 md:pb-28">
             <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-semibold px-4 py-2 rounded-full mb-8 border border-primary/20">
               <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
@@ -343,7 +343,7 @@ function Landing() {
                   </Link>
                 </div>
               </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-8 border border-emerald-100 shadow-sm">
+              <div className="bg-gradient-to-br from-indigo-50 to-cyan-50 rounded-2xl p-8 border border-indigo-100 shadow-sm">
                 <div className="space-y-4">
                   {[
                     { label: "Urgent Cases", value: "Real-time alerts for high-risk patients", icon: "🚨" },
@@ -351,7 +351,7 @@ function Landing() {
                     { label: "AI Validation", value: "Quality control on summaries", icon: "🤖" },
                     { label: "Expert Responses", value: "Measurable community impact", icon: "💬" },
                   ].map(item => (
-                    <div key={item.label} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-emerald-100 shadow-sm hover:shadow-md transition-all duration-200">
+                    <div key={item.label} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-indigo-100 shadow-sm hover:shadow-md transition-all duration-200">
                       <div className="text-2xl w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center flex-shrink-0">{item.icon}</div>
                       <div>
                         <div className="font-semibold text-slate-900 text-sm">{item.label}</div>

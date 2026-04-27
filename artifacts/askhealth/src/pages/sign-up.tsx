@@ -116,7 +116,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-cyan-50 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/">
@@ -261,7 +261,7 @@ export default function SignUpPage() {
           ) : (
             <form onSubmit={handleVerify} className="space-y-5">
               <div className="flex justify-center mb-2">
-                <div className="w-14 h-14 bg-teal-50 rounded-2xl flex items-center justify-center">
+                <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center">
                   <CheckCircle className="w-7 h-7 text-primary" />
                 </div>
               </div>

@@ -76,69 +76,79 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  /* Deep Navy: 222 47% 11% (#0F172A)
-     Teal: 174 84% 31% (#0D9488)
-     Clinical White: 0 0% 100% (#FFFFFF), Slate 50: 210 40% 98% (#F8FAFC) */
+  /* HealthCircle Design System
+     Primary Blue: 217 91% 60% (#2563EB)  Indigo: 239 84% 67% (#6366F1)
+     Cyan: 188 85% 53% (#22D3EE)          Violet: 258 90% 66% (#8B5CF6)
+     Gray-900: 222 47% 11% (#0F172A)      Gray-50: 210 40% 98% (#F8FAFC) */
 
-  --background: 210 40% 98%; 
+  --background: 210 40% 98%;
   --foreground: 222 47% 11%;
-  
+
   --border: 214 32% 91%;
-  
+
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
   --card-border: 214 32% 91%;
-  
+
   --sidebar: 222 47% 11%;
   --sidebar-foreground: 210 40% 98%;
   --sidebar-border: 217 24% 27%;
-  --sidebar-primary: 174 84% 31%;
+  --sidebar-primary: 224 76% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 215 25% 27%;
   --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 174 84% 31%;
-  
+  --sidebar-ring: 239 84% 67%;
+
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
   --popover-border: 214 32% 91%;
-  
-  --primary: 174 84% 31%;
+
+  --primary: 224 76% 48%;
   --primary-foreground: 0 0% 100%;
-  
+
   --secondary: 214 32% 91%;
   --secondary-foreground: 222 47% 11%;
-  
+
   --muted: 210 40% 96.1%;
   --muted-foreground: 215.4 16.3% 46.9%;
-  
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  
+
+  --accent: 239 84% 67%;
+  --accent-foreground: 0 0% 100%;
+
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
-  
+
   --input: 214.3 31.8% 91.4%;
-  --ring: 174 84% 31%;
-  
-  --chart-1: 174 84% 31%;
-  --chart-2: 222 47% 11%;
-  --chart-3: 199 89% 48%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  --ring: 239 84% 67%;
 
-  --app-font-sans: 'Inter', sans-serif;
+  --chart-1: 224 76% 48%;
+  --chart-2: 239 84% 67%;
+  --chart-3: 188 85% 53%;
+  --chart-4: 258 90% 66%;
+  --chart-5: 142 71% 45%;
+
+  /* Brand accent vars (raw hex for utility classes) */
+  --hc-indigo: #6366F1;
+  --hc-cyan: #22D3EE;
+  --hc-violet: #8B5CF6;
+  --hc-success: #22C55E;
+  --hc-warning: #F59E0B;
+  --hc-error: #EF4444;
+
+  --app-font-sans: 'Inter', system-ui, -apple-system, 'SF Pro Text', 'Poppins', sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
-  --radius: 0.5rem;
+  --app-font-mono: 'SF Mono', Menlo, monospace;
+  --radius: 1rem;
 
-  --shadow-2xs: 0px 2px 0px 0px hsl(222 47% 11% / 0.05);
-  --shadow-xs: 0px 2px 0px 0px hsl(222 47% 11% / 0.05);
-  --shadow-sm: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 1px 2px -1px hsl(222 47% 11% / 0.05);
-  --shadow: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 1px 2px -1px hsl(222 47% 11% / 0.05);
-  --shadow-md: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 2px 4px -1px hsl(222 47% 11% / 0.05);
-  --shadow-lg: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 4px 6px -1px hsl(222 47% 11% / 0.05);
-  --shadow-xl: 0px 2px 0px 0px hsl(222 47% 11% / 0.05), 0px 8px 10px -1px hsl(222 47% 11% / 0.05);
-  --shadow-2xl: 0px 2px 0px 0px hsl(222 47% 11% / 0.05);
+  /* Shadows per spec: card-default + hover-lift + ai-glow */
+  --shadow-2xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-xs:  0 2px 4px 0 rgba(15, 23, 42, 0.04);
+  --shadow-sm:  0 2px 6px 0 rgba(15, 23, 42, 0.05);
+  --shadow:     0 4px 12px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md:  0 4px 12px 0 rgba(15, 23, 42, 0.06);
+  --shadow-lg:  0 8px 20px 0 rgba(15, 23, 42, 0.08);
+  --shadow-xl:  0 12px 28px 0 rgba(15, 23, 42, 0.10);
+  --shadow-2xl: 0 20px 40px 0 rgba(15, 23, 42, 0.12);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -172,39 +182,39 @@
   --sidebar: 222 47% 11%;
   --sidebar-foreground: 210 40% 98%;
   --sidebar-border: 217.2 32.6% 17.5%;
-  --sidebar-primary: 174 84% 31%;
+  --sidebar-primary: 224 76% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 215 25% 27%;
   --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 174 84% 31%;
-  
+  --sidebar-ring: 239 84% 67%;
+
   --popover: 222.2 84% 4.9%;
   --popover-foreground: 210 40% 98%;
   --popover-border: 217.2 32.6% 17.5%;
-  
-  --primary: 174 84% 31%;
+
+  --primary: 224 76% 48%;
   --primary-foreground: 0 0% 100%;
-  
+
   --secondary: 217.2 32.6% 17.5%;
   --secondary-foreground: 210 40% 98%;
-  
+
   --muted: 217.2 32.6% 17.5%;
   --muted-foreground: 215 20.2% 65.1%;
-  
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  
+
+  --accent: 239 84% 67%;
+  --accent-foreground: 0 0% 100%;
+
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 210 40% 98%;
-  
+
   --input: 217.2 32.6% 17.5%;
-  --ring: 174 84% 31%;
-  
-  --chart-1: 174 84% 31%;
-  --chart-2: 210 40% 98%;
-  --chart-3: 199 89% 48%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  --ring: 239 84% 67%;
+
+  --chart-1: 224 76% 48%;
+  --chart-2: 239 84% 67%;
+  --chart-3: 188 85% 53%;
+  --chart-4: 258 90% 66%;
+  --chart-5: 142 71% 45%;
 
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.2);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.2);
@@ -227,6 +237,43 @@
 }
 
 @layer utilities {
+  /* HealthCircle: AI gradient surfaces */
+  .bg-ai-gradient {
+    background-image: linear-gradient(135deg, #2563EB 0%, #6366F1 50%, #22D3EE 100%);
+  }
+  .bg-ai-gradient-soft {
+    background-image: linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(99,102,241,0.06) 50%, rgba(34,211,238,0.06) 100%);
+  }
+  .bg-ai-soft {
+    background-color: rgba(99,102,241,0.05);
+  }
+  .text-ai-gradient {
+    background-image: linear-gradient(135deg, #2563EB 0%, #6366F1 60%, #22D3EE 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .border-ai-indigo {
+    border-color: var(--hc-indigo);
+  }
+  .shadow-card {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  }
+  .shadow-hover-lift {
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  }
+  .shadow-ai-glow {
+    box-shadow: 0 0 24px rgba(34, 211, 238, 0.30);
+  }
+  .hover\:shadow-hover-lift:hover {
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  }
+  .transition-default {
+    transition-property: transform, box-shadow, background-color, border-color, color, opacity;
+    transition-duration: 220ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }

@@ -591,12 +591,12 @@ export default function ChatPage() {
         <div className="bg-white border-t border-slate-200 p-4">
           <div className="max-w-3xl mx-auto">
             {pendingAttachment && (
-              <div className="flex items-center gap-3 mb-2 p-2.5 bg-teal-50 border border-teal-200 rounded-xl">
+              <div className="flex items-center gap-3 mb-2 p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl">
                 {pendingAttachment.type.startsWith("image/") ? (
-                  <img src={pendingAttachment.url} alt={pendingAttachment.name} className="w-12 h-12 object-cover rounded-md border border-teal-200" />
+                  <img src={pendingAttachment.url} alt={pendingAttachment.name} className="w-12 h-12 object-cover rounded-md border border-indigo-200" />
                 ) : (
-                  <div className="w-12 h-12 bg-white rounded-md border border-teal-200 flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-teal-600" />
+                  <div className="w-12 h-12 bg-white rounded-md border border-indigo-200 flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-primary" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">

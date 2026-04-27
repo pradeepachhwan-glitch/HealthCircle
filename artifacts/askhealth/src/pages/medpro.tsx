@@ -432,7 +432,7 @@ export default function MedPro() {
                   <Card key={c.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white text-xl">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white text-xl">
                           {c.iconEmoji || "🏥"}
                         </div>
                         <div className="flex-1 min-w-0">
