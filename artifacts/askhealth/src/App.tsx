@@ -9,6 +9,13 @@ import { ClerkProvider, SignIn, SignUp, Show, useClerk } from '@clerk/react';
 import { shadcn } from '@clerk/themes';
 import { useGetCurrentUser } from "@workspace/api-client-react";
 
+import mindSpaceImg from "@/assets/community-mind-space.png";
+import sugarCareImg from "@/assets/community-sugar-care.png";
+import momJourneyImg from "@/assets/community-mom-journey.png";
+import workResetImg from "@/assets/community-work-reset.png";
+import fitLifeImg from "@/assets/community-fit-life.png";
+import heartCircleImg from "@/assets/community-heart-circle.png";
+
 import NotFound from "@/pages/not-found";
 import Communities from "@/pages/communities";
 import Community from "@/pages/community";
@@ -117,12 +124,12 @@ function SignUpPage() {
 }
 
 const COMMUNITIES_PREVIEW = [
-  { emoji: "🧠", name: "Mind Space", desc: "Talk, share, heal", slug: "mental-wellness" },
-  { emoji: "🩸", name: "Sugar Care", desc: "Manage diabetes better", slug: "diabetes-care" },
-  { emoji: "🤰", name: "Mom Journey", desc: "Pregnancy to parenting", slug: "pregnancy-motherhood" },
-  { emoji: "💼", name: "Work Reset", desc: "Beat stress & burnout", slug: "work-stress-burnout" },
-  { emoji: "🏃", name: "Fit Life", desc: "Fitness your way", slug: "weight-loss-fitness" },
-  { emoji: "❤️", name: "Heart Circle", desc: "Care for your heart", slug: "heart-health" },
+  { img: mindSpaceImg, name: "Mind Space", desc: "Talk, share, heal", tag: "Mental Wellness", slug: "mental-wellness", accent: "from-teal-50 to-cyan-50" },
+  { img: sugarCareImg, name: "Sugar Care", desc: "Manage diabetes better", tag: "Diabetes", slug: "diabetes-care", accent: "from-rose-50 to-orange-50" },
+  { img: momJourneyImg, name: "Mom Journey", desc: "Pregnancy to parenting", tag: "Motherhood", slug: "pregnancy-motherhood", accent: "from-pink-50 to-purple-50" },
+  { img: workResetImg, name: "Work Reset", desc: "Beat stress & burnout", tag: "Work Wellness", slug: "work-stress-burnout", accent: "from-blue-50 to-sky-50" },
+  { img: fitLifeImg, name: "Fit Life", desc: "Fitness your way", tag: "Fitness", slug: "weight-loss-fitness", accent: "from-green-50 to-emerald-50" },
+  { img: heartCircleImg, name: "Heart Circle", desc: "Care for your heart", tag: "Cardiology", slug: "heart-health", accent: "from-red-50 to-rose-50" },
 ];
 
 const TRENDING_QUESTIONS = [
@@ -148,112 +155,117 @@ function Landing() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-white">
-      {/* Header */}
-      <header className="px-4 md:px-6 py-4 flex items-center justify-between bg-white/90 backdrop-blur border-b sticky top-0 z-20">
+    <div className="min-h-[100dvh] flex flex-col bg-white font-sans">
+      {/* Sticky Header */}
+      <header className="px-4 md:px-8 py-4 flex items-center justify-between bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-20 shadow-sm">
         <button onClick={() => scrollTo("hero")} className="cursor-pointer">
           <HealthCircleLogo size="sm" animate={false} />
         </button>
-
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-          <button onClick={() => scrollTo("solutions")} className="hover:text-primary transition-colors">Solutions</button>
-          <button onClick={() => scrollTo("for-doctors")} className="hover:text-primary transition-colors">For Doctors</button>
-          <button onClick={() => scrollTo("about")} className="hover:text-primary transition-colors">About</button>
-          <button onClick={() => scrollTo("support")} className="hover:text-primary transition-colors">Support</button>
+        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-500">
+          {[["solutions","Solutions"],["for-doctors","For Doctors"],["about","About"],["support","Support"]].map(([id,label]) => (
+            <button key={id} onClick={() => scrollTo(id)} className="hover:text-primary transition-colors duration-200 relative group">
+              {label}
+              <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-primary rounded-full transition-all duration-200 group-hover:w-full" />
+            </button>
+          ))}
         </nav>
-
-        <div className="hidden md:flex gap-3">
-          <Link href="/sign-in" className="text-sm font-medium px-4 py-2 hover:text-primary transition-colors text-slate-600">Sign In</Link>
-          <Link href="/sign-up" className="text-sm font-medium px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Get Started Free</Link>
+        <div className="hidden md:flex items-center gap-3">
+          <Link href="/sign-in" className="text-sm font-medium px-5 py-2.5 text-slate-600 hover:text-primary transition-colors duration-200 rounded-xl hover:bg-slate-50">Sign In</Link>
+          <Link href="/sign-up" className="text-sm font-semibold px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-px">Get Started Free</Link>
         </div>
-
-        {/* Mobile Menu Button */}
-        <button onClick={() => setMobileMenuOpen(v => !v)} className="md:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700">
+        <button onClick={() => setMobileMenuOpen(v => !v)} className="md:hidden p-2.5 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             {mobileMenuOpen ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></> : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>}
           </svg>
         </button>
       </header>
 
-      {/* Mobile Menu */}
+      {/* Mobile Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed top-[61px] left-0 right-0 z-10 bg-white border-b shadow-lg p-4 space-y-2">
-          {[["solutions", "Solutions"], ["for-doctors", "For Doctors"], ["about", "About"], ["support", "Support"]].map(([id, label]) => (
-            <button key={id} onClick={() => scrollTo(id)} className="w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors">
+        <div className="md:hidden fixed top-[65px] left-0 right-0 z-10 bg-white border-b border-slate-100 shadow-xl rounded-b-2xl p-5 space-y-1">
+          {[["solutions","Solutions"],["for-doctors","For Doctors"],["about","About"],["support","Support"]].map(([id,label]) => (
+            <button key={id} onClick={() => scrollTo(id)} className="w-full text-left px-4 py-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-primary transition-all duration-200">
               {label}
             </button>
           ))}
-          <div className="pt-2 border-t flex gap-2">
-            <Link href="/sign-in" className="flex-1 text-center text-sm font-medium px-4 py-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50">Sign In</Link>
-            <Link href="/sign-up" className="flex-1 text-center text-sm font-medium px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Get Started</Link>
+          <div className="pt-3 border-t border-slate-100 flex gap-2">
+            <Link href="/sign-in" className="flex-1 text-center text-sm font-medium px-4 py-2.5 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors">Sign In</Link>
+            <Link href="/sign-up" className="flex-1 text-center text-sm font-semibold px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors">Get Started</Link>
           </div>
         </div>
       )}
 
       <main className="flex-1">
-        {/* HERO */}
-        <section id="hero" className="max-w-4xl mx-auto text-center px-4 pt-16 pb-14">
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-4 py-1.5 rounded-full mb-6">
-            <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-            AI Health Guidance • Multi-language • India-first
-          </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-5 leading-tight">
-            Ask. Share. Learn.<br />
-            <span className="text-primary">Act on your health.</span>
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8 leading-relaxed">
-            Join trusted health communities, ask real questions, get AI-backed clarity, and take the right next step — without confusion.
-          </p>
-          <div className="flex flex-wrap gap-3 justify-center">
-            <Link href="/sign-up" className="px-7 py-3.5 bg-primary text-white rounded-xl font-semibold text-base hover:bg-primary/90 transition-all shadow-md hover:shadow-lg">
-              Join a Community
-            </Link>
-            <Link href="/sign-up" className="px-7 py-3.5 bg-white text-slate-900 rounded-xl font-semibold text-base border border-slate-200 hover:bg-slate-50 transition-all">
-              Ask a Question
-            </Link>
+        {/* ── HERO ── */}
+        <section id="hero" className="relative overflow-hidden bg-gradient-to-b from-white via-emerald-50/40 to-white">
+          <div className="max-w-4xl mx-auto text-center px-4 pt-24 pb-20 md:pt-32 md:pb-28">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-semibold px-4 py-2 rounded-full mb-8 border border-primary/20">
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+              AI Health Guidance • Multi-language • India-first
+            </div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 tracking-tight mb-6 leading-[1.1]">
+              Ask. Share. Learn.<br />
+              <span className="text-primary">Act on your health.</span>
+            </h1>
+            <p className="text-lg md:text-xl text-slate-500 max-w-xl mx-auto mb-10 leading-relaxed">
+              Join trusted health communities, get AI-backed clarity, and take confident next steps — without confusion.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/sign-up" className="px-8 py-3.5 bg-primary text-white rounded-xl font-semibold text-base hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                Join a Community
+              </Link>
+              <Link href="/sign-up" className="px-8 py-3.5 bg-white text-slate-800 rounded-xl font-semibold text-base border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 hover:-translate-y-0.5">
+                Ask a Question
+              </Link>
+            </div>
+            <p className="text-xs text-slate-400 mt-5">Free forever. No credit card needed.</p>
           </div>
         </section>
 
-        {/* COMMUNITIES GRID */}
-        <section className="max-w-5xl mx-auto px-4 pb-16">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-900">Explore Communities that Understand You</h2>
-            <p className="text-slate-500 mt-1">Real people. Real experiences. Backed by AI clarity.</p>
+        {/* ── COMMUNITIES GRID ── */}
+        <section className="max-w-6xl mx-auto px-4 py-20 md:py-24">
+          <div className="mb-10">
+            <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">Explore Communities that Understand You</h2>
+            <p className="text-slate-500 mt-2 text-base">Real people. Real experiences. Backed by AI clarity.</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
             {COMMUNITIES_PREVIEW.map(c => (
               <Link key={c.slug} href="/sign-up">
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
-                  <div className="text-3xl mb-3">{c.emoji}</div>
-                  <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-primary transition-colors">{c.name}</h3>
-                  <p className="text-sm text-slate-500 mb-3">{c.desc}</p>
-                  <span className="text-xs font-semibold text-primary">Join →</span>
+                <div className="group bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 cursor-pointer">
+                  <div className={`bg-gradient-to-br ${c.accent} h-32 flex items-center justify-center overflow-hidden`}>
+                    <img src={c.img} alt={c.name} className="h-24 w-24 object-contain group-hover:scale-105 transition-transform duration-300" />
+                  </div>
+                  <div className="p-5">
+                    <span className="inline-block text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-2">{c.tag}</span>
+                    <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-primary transition-colors">{c.name}</h3>
+                    <p className="text-sm text-slate-500">{c.desc}</p>
+                    <span className="inline-block mt-3 text-xs font-semibold text-primary group-hover:gap-2 transition-all">Join →</span>
+                  </div>
                 </div>
               </Link>
             ))}
           </div>
-          <div className="text-center mt-6">
-            <Link href="/sign-up" className="text-sm text-primary font-medium hover:underline">
+          <div className="text-center mt-8">
+            <Link href="/sign-up" className="inline-flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline underline-offset-2 transition-all">
               See all 20 communities →
             </Link>
           </div>
         </section>
 
-        {/* TRENDING QUESTIONS */}
-        <section className="bg-slate-50 border-y border-slate-100 py-14 px-4">
+        {/* ── TRENDING QUESTIONS ── */}
+        <section className="bg-slate-50 border-y border-slate-100 py-20 md:py-24 px-4">
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">What people are asking right now</h2>
-            <p className="text-slate-500 mb-6 text-sm">Real questions from real users — answered by the community and Yukti AI.</p>
+            <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-2">What people are asking right now</h2>
+            <p className="text-slate-500 mb-8">Real questions — answered by the community and Yukti AI.</p>
             <div className="space-y-3">
               {TRENDING_QUESTIONS.map((item, i) => (
                 <Link key={i} href="/sign-up">
-                  <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer flex items-center justify-between gap-4 group">
+                  <div className="bg-white border border-slate-200 rounded-2xl px-6 py-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex items-center justify-between gap-4 group">
                     <div>
-                      <p className="text-slate-900 font-medium group-hover:text-primary transition-colors">{item.q}</p>
-                      <p className="text-xs text-slate-400 mt-1">{item.community}</p>
+                      <p className="text-slate-900 font-semibold text-sm group-hover:text-primary transition-colors">{item.q}</p>
+                      <p className="text-xs text-slate-400 mt-1.5">{item.community}</p>
                     </div>
-                    <div className="shrink-0 text-xs text-slate-400 font-medium">{item.replies} replies</div>
+                    <div className="shrink-0 text-xs bg-slate-100 text-slate-500 font-medium px-2.5 py-1 rounded-full">{item.replies} replies</div>
                   </div>
                 </Link>
               ))}
@@ -261,41 +273,44 @@ function Landing() {
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
-        <section className="max-w-4xl mx-auto px-4 py-16">
-          <h2 className="text-2xl font-bold text-slate-900 text-center mb-10">How it works</h2>
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {HOW_IT_WORKS.map(item => (
-              <div key={item.step} className="text-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-extrabold text-lg flex items-center justify-center mx-auto mb-4">
+        {/* ── HOW IT WORKS ── */}
+        <section className="max-w-5xl mx-auto px-4 py-20 md:py-24">
+          <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 text-center mb-14">How it works</h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8">
+            {HOW_IT_WORKS.map((item, idx) => (
+              <div key={item.step} className="text-center group">
+                <div className="relative w-14 h-14 rounded-2xl bg-primary/10 text-primary font-bold text-xl flex items-center justify-center mx-auto mb-5 shadow-sm group-hover:bg-primary group-hover:text-white transition-all duration-300">
                   {item.step}
+                  {idx < HOW_IT_WORKS.length - 1 && (
+                    <div className="hidden md:block absolute left-full top-1/2 w-full h-px bg-slate-200 -translate-y-1/2 ml-4" />
+                  )}
                 </div>
-                <h3 className="font-semibold text-slate-900 mb-1">{item.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+                <h3 className="font-semibold text-slate-900 mb-2">{item.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed max-w-[180px] mx-auto">{item.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* SOLUTIONS */}
-        <section id="solutions" className="bg-slate-50 border-y border-slate-100 py-16 px-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">Everything you need for smarter healthcare</h2>
-              <p className="text-slate-500 max-w-2xl mx-auto">HealthCircle combines AI, community wisdom, and professional expertise into one seamless platform.</p>
+        {/* ── SOLUTIONS ── */}
+        <section id="solutions" className="bg-slate-50 border-y border-slate-100 py-20 md:py-24 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-14">
+              <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-3">Everything you need for smarter healthcare</h2>
+              <p className="text-slate-500 max-w-lg mx-auto">AI, community wisdom, and professional expertise — in one seamless platform.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { icon: "🤖", title: "Yukti AI Health Assistant", desc: "Get instant, evidence-based answers to your health questions. Yukti understands symptoms, flags risk levels, and suggests when to see a doctor — in English and Hindi." },
-                { icon: "👥", title: "Trusted Health Communities", desc: "20+ specialized communities for diabetes, heart health, mental wellness, pregnancy, and more. Share experiences with people who truly understand." },
-                { icon: "🩺", title: "Doctor Network & Booking", desc: "Find verified doctors and hospitals. Book appointments directly, view availability, fees, and specialties — all from one place." },
-                { icon: "🏆", title: "Gamified Health Journey", desc: "Earn Health Credits for contributions. Level up, earn badges, and climb leaderboards while improving your health knowledge." },
-                { icon: "🔒", title: "Privacy-First Design", desc: "Your health data stays private. We use enterprise-grade security and never sell your information. Share only what you choose." },
-                { icon: "🌐", title: "Multi-language Support", desc: "Available in English and Hindi. More languages coming soon — because healthcare guidance should reach everyone." },
+                { icon: "🤖", title: "Yukti AI Assistant", desc: "Instant, evidence-based answers. Yukti understands symptoms, flags risk levels, and guides next steps — in English and Hindi." },
+                { icon: "👥", title: "Health Communities", desc: "20+ specialised communities — diabetes, heart, mental wellness, pregnancy. Share with people who truly understand." },
+                { icon: "🩺", title: "Doctor Network", desc: "Find verified doctors and book appointments. View availability, fees, and specialties — all from one place." },
+                { icon: "🏆", title: "Gamified Journey", desc: "Earn Health Credits, level up, earn badges, and climb leaderboards while improving your health knowledge." },
+                { icon: "🔒", title: "Privacy-First", desc: "Your health data stays private. Enterprise-grade security. We never sell your information." },
+                { icon: "🌐", title: "Multi-language", desc: "English and Hindi today, more languages coming — because healthcare guidance should reach everyone." },
               ].map(s => (
-                <div key={s.title} className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-primary/30 hover:shadow-md transition-all">
-                  <div className="text-3xl mb-4">{s.icon}</div>
-                  <h3 className="font-bold text-slate-900 mb-2">{s.title}</h3>
+                <div key={s.title} className="group bg-white rounded-2xl p-7 border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                  <div className="text-3xl mb-5 w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">{s.icon}</div>
+                  <h3 className="font-semibold text-slate-900 mb-2">{s.title}</h3>
                   <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
                 </div>
               ))}
@@ -303,46 +318,47 @@ function Landing() {
           </div>
         </section>
 
-        {/* FOR DOCTORS */}
-        <section id="for-doctors" className="py-16 px-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
+        {/* ── FOR DOCTORS ── */}
+        <section id="for-doctors" className="py-20 md:py-28 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-16 items-center">
               <div>
-                <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 text-sm font-semibold px-3 py-1 rounded-full mb-4">🩺 For Medical Professionals</div>
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">A dedicated portal built for healthcare providers</h2>
-                <p className="text-slate-600 mb-6 leading-relaxed">HealthCircle's MedPro Portal gives doctors and medical professionals a powerful workspace to review urgent cases, respond to patient questions, and validate AI summaries.</p>
-                <ul className="space-y-3">
+                <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">🩺 For Medical Professionals</div>
+                <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-4 leading-tight">A dedicated portal built for healthcare providers</h2>
+                <p className="text-slate-500 mb-7 leading-relaxed max-w-md">HealthCircle's MedPro Portal gives doctors a powerful workspace to review urgent cases, respond to patients, and validate AI summaries.</p>
+                <ul className="space-y-3.5">
                   {[
-                    "Urgent case alerts — high-risk AI flags delivered directly to you",
-                    "Patient consultation requests — respond with clinical notes",
-                    "AI Summary validation — review and approve AI-generated health summaries",
-                    "Community moderation — maintain quality across health communities",
-                    "Verified professional badge — build trust with your community",
+                    "Urgent case alerts — high-risk AI flags delivered directly",
+                    "Patient consultation requests with clinical note responses",
+                    "AI Summary validation — review and approve health summaries",
+                    "Community moderation across health communities",
+                    "Verified professional badge to build community trust",
                   ].map(f => (
                     <li key={f} className="flex items-start gap-3 text-sm text-slate-700">
-                      <span className="text-primary font-bold mt-0.5">✓</span> {f}
+                      <span className="flex-shrink-0 w-5 h-5 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+                      {f}
                     </li>
                   ))}
                 </ul>
-                <div className="mt-8">
-                  <Link href="/sign-up" className="inline-block px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-colors">
+                <div className="mt-9">
+                  <Link href="/sign-up" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5">
                     Join as a Medical Professional →
                   </Link>
                 </div>
               </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-8 border border-emerald-100">
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-8 border border-emerald-100 shadow-sm">
                 <div className="space-y-4">
                   {[
-                    { label: "Urgent Cases", value: "Real-time alerts", icon: "🚨" },
-                    { label: "Patient Requests", value: "Direct consultations", icon: "👤" },
-                    { label: "AI Validation", value: "Quality control", icon: "🤖" },
-                    { label: "Expert Response", value: "Community impact", icon: "💬" },
+                    { label: "Urgent Cases", value: "Real-time alerts for high-risk patients", icon: "🚨" },
+                    { label: "Patient Requests", value: "Direct consultation messaging", icon: "👤" },
+                    { label: "AI Validation", value: "Quality control on summaries", icon: "🤖" },
+                    { label: "Expert Responses", value: "Measurable community impact", icon: "💬" },
                   ].map(item => (
-                    <div key={item.label} className="flex items-center gap-4 bg-white rounded-xl p-4 border border-emerald-100">
-                      <div className="text-2xl">{item.icon}</div>
+                    <div key={item.label} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-emerald-100 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="text-2xl w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center flex-shrink-0">{item.icon}</div>
                       <div>
                         <div className="font-semibold text-slate-900 text-sm">{item.label}</div>
-                        <div className="text-xs text-slate-500">{item.value}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{item.value}</div>
                       </div>
                     </div>
                   ))}
@@ -352,23 +368,23 @@ function Landing() {
           </div>
         </section>
 
-        {/* ABOUT */}
-        <section id="about" className="bg-slate-900 text-white py-16 px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
+        {/* ── ABOUT ── */}
+        <section id="about" className="bg-slate-900 text-white py-20 md:py-28 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-16 items-start">
               <div>
-                <h2 className="text-2xl md:text-3xl font-bold mb-4">About HealthCircle</h2>
-                <p className="text-slate-300 leading-relaxed mb-4">
-                  HealthCircle is India's first AI-powered healthcare super app — built for real people navigating real health challenges. We combine community wisdom, AI clarity, and professional expertise to help you make confident health decisions.
+                <h2 className="text-2xl md:text-3xl font-semibold mb-5">About HealthCircle</h2>
+                <p className="text-slate-300 leading-relaxed mb-4 max-w-md">
+                  HealthCircle is India's first AI-powered healthcare super app — built for real people navigating real challenges. We combine community wisdom, AI clarity, and professional expertise.
                 </p>
-                <p className="text-slate-300 leading-relaxed mb-6">
-                  Founded on the belief that quality healthcare guidance should be accessible to everyone, HealthCircle bridges the gap between patients and professionals — in their language, on their schedule.
+                <p className="text-slate-400 leading-relaxed mb-8 max-w-md">
+                  Founded on the belief that quality healthcare guidance should be accessible to every Indian — in their language, on their schedule.
                 </p>
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  {[["20+", "Communities"], ["Yukti AI", "Health Assistant"], ["Hindi + English", "Languages"]].map(([val, lbl]) => (
-                    <div key={lbl} className="text-center">
-                      <div className="text-xl font-extrabold text-primary">{val}</div>
-                      <div className="text-xs text-slate-400 mt-1">{lbl}</div>
+                <div className="grid grid-cols-3 gap-5">
+                  {[["20+", "Communities"], ["Yukti AI", "Health Assistant"], ["2 Languages", "English & Hindi"]].map(([val, lbl]) => (
+                    <div key={lbl} className="bg-slate-800 rounded-2xl p-4 border border-slate-700 text-center">
+                      <div className="text-lg font-bold text-primary mb-1">{val}</div>
+                      <div className="text-xs text-slate-400 leading-snug">{lbl}</div>
                     </div>
                   ))}
                 </div>
@@ -379,9 +395,9 @@ function Landing() {
                   { icon: "👁️", title: "Our Vision", desc: "A world where no one makes a critical health decision alone or in the dark." },
                   { icon: "💙", title: "Our Values", desc: "Empathy, accuracy, privacy, and accessibility — in every feature we build." },
                 ].map(v => (
-                  <div key={v.title} className="bg-slate-800 rounded-xl p-5 border border-slate-700">
-                    <div className="text-xl mb-2">{v.icon}</div>
-                    <div className="font-semibold text-white mb-1">{v.title}</div>
+                  <div key={v.title} className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700 hover:border-slate-600 hover:bg-slate-800 transition-all duration-200">
+                    <div className="text-2xl mb-3">{v.icon}</div>
+                    <div className="font-semibold text-white mb-1.5">{v.title}</div>
                     <p className="text-sm text-slate-400 leading-relaxed">{v.desc}</p>
                   </div>
                 ))}
@@ -390,41 +406,43 @@ function Landing() {
           </div>
         </section>
 
-        {/* SUPPORT / CONTACT */}
-        <section id="support" className="py-16 px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">We're here to help</h2>
-              <p className="text-slate-500">Have a question, feedback, or need support? Reach out — we respond within 24 hours.</p>
+        {/* ── SUPPORT / FAQ ── */}
+        <section id="support" className="py-20 md:py-24 px-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-14">
+              <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-3">We're here to help</h2>
+              <p className="text-slate-500 max-w-sm mx-auto">Reach out anytime — we respond within 24 hours.</p>
             </div>
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
+            <div className="grid md:grid-cols-3 gap-5 mb-14">
               {[
-                { icon: "📧", title: "Email Support", desc: "For general inquiries, account help, or technical issues.", link: "mailto:support@healthcircle.in", linkLabel: "support@healthcircle.in" },
+                { icon: "📧", title: "Email Support", desc: "General inquiries, account help, or technical issues.", link: "mailto:support@healthcircle.in", linkLabel: "support@healthcircle.in" },
                 { icon: "🤝", title: "Partnerships", desc: "Hospitals, clinics, health brands — let's build together.", link: "mailto:partners@healthcircle.in", linkLabel: "partners@healthcircle.in" },
-                { icon: "🩺", title: "Doctor Onboarding", desc: "Join as a verified medical professional and help thousands.", link: "/sign-up", linkLabel: "Apply for MedPro access" },
+                { icon: "🩺", title: "Doctor Onboarding", desc: "Join as a verified medical professional.", link: "/sign-up", linkLabel: "Apply for MedPro access" },
               ].map(c => (
-                <div key={c.title} className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:border-primary/30 hover:shadow-md transition-all">
-                  <div className="text-3xl mb-4">{c.icon}</div>
-                  <h3 className="font-bold text-slate-900 mb-2">{c.title}</h3>
-                  <p className="text-sm text-slate-500 mb-4 leading-relaxed">{c.desc}</p>
-                  <a href={c.link} className="text-sm text-primary font-medium hover:underline">{c.linkLabel}</a>
+                <div key={c.title} className="bg-white border border-slate-200 rounded-2xl p-7 text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group">
+                  <div className="text-3xl mb-4 w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto">{c.icon}</div>
+                  <h3 className="font-semibold text-slate-900 mb-2">{c.title}</h3>
+                  <p className="text-sm text-slate-500 mb-5 leading-relaxed">{c.desc}</p>
+                  <a href={c.link} className="text-sm text-primary font-semibold hover:underline underline-offset-2 transition-colors group-hover:text-primary/80">{c.linkLabel}</a>
                 </div>
               ))}
             </div>
 
-            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 text-center">
-              <h3 className="font-bold text-slate-900 mb-2">Frequently Asked Questions</h3>
-              <div className="space-y-3 text-left max-w-2xl mx-auto mt-4">
+            <div className="bg-primary/5 border border-primary/15 rounded-2xl p-8">
+              <h3 className="font-semibold text-slate-900 mb-1 text-center text-lg">Frequently Asked Questions</h3>
+              <p className="text-slate-500 text-sm text-center mb-7">Everything you need to know</p>
+              <div className="grid md:grid-cols-2 gap-3 max-w-3xl mx-auto">
                 {[
-                  ["Is HealthCircle free?", "Yes, joining and participating is completely free. No credit card required."],
-                  ["Is the AI a replacement for doctors?", "No. Yukti AI provides guidance and clarity, but always recommends seeing a doctor for serious concerns."],
-                  ["Is my health data private?", "Absolutely. Your data is encrypted and never sold to third parties."],
-                  ["Can I ask questions in Hindi?", "Yes, Yukti AI responds in both English and Hindi based on your preference."],
-                  ["How do I become a verified doctor?", "Sign up, then contact us at support@healthcircle.in to get verified as a Medical Professional."],
+                  ["Is HealthCircle free?", "Yes — completely free. No credit card required."],
+                  ["Is the AI a replacement for doctors?", "No. Yukti AI provides guidance but always recommends a doctor for serious concerns."],
+                  ["Is my health data private?", "Absolutely. Encrypted and never sold to third parties."],
+                  ["Can I ask questions in Hindi?", "Yes, Yukti AI responds in English and Hindi."],
+                  ["How do I become a verified doctor?", "Sign up and email support@healthcircle.in to get verified."],
+                  ["How quickly do doctors respond?", "Most Medical Professionals respond within 24-48 hours."],
                 ].map(([q, a]) => (
-                  <div key={q} className="bg-white rounded-xl p-4 border border-slate-200">
-                    <div className="font-semibold text-slate-900 text-sm mb-1">{q}</div>
-                    <p className="text-sm text-slate-500">{a}</p>
+                  <div key={q} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200">
+                    <div className="font-semibold text-slate-900 text-sm mb-1.5">{q}</div>
+                    <p className="text-sm text-slate-500 leading-relaxed">{a}</p>
                   </div>
                 ))}
               </div>
@@ -432,33 +450,31 @@ function Landing() {
           </div>
         </section>
 
-        {/* TRUST BLOCK / CTA */}
-        <section className="bg-primary text-white py-14 px-4">
-          <div className="max-w-2xl mx-auto text-center">
-            <div className="text-3xl mb-4">🔒</div>
-            <h2 className="text-2xl font-bold mb-3">Your health data is private.</h2>
-            <p className="text-primary-foreground/80 text-base mb-2">
-              AI guidance is safe, structured, and not a replacement for doctors.
+        {/* ── FINAL CTA ── */}
+        <section className="relative overflow-hidden bg-primary py-20 md:py-24 px-4">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.1),transparent_60%)]" />
+          <div className="max-w-2xl mx-auto text-center relative">
+            <div className="inline-flex w-12 h-12 bg-white/20 rounded-2xl items-center justify-center text-2xl mb-6 mx-auto">🔒</div>
+            <h2 className="text-2xl md:text-3xl font-semibold text-white mb-4">Your health data stays private.</h2>
+            <p className="text-primary-foreground/75 text-base mb-2 max-w-md mx-auto leading-relaxed">
+              AI guidance is safe, structured, and never a replacement for real doctors.
             </p>
-            <p className="text-primary-foreground/60 text-sm mb-8">
-              Free to join. No credit card needed. Available in English & Hindi.
-            </p>
-            <Link href="/sign-up" className="inline-block px-8 py-4 bg-white text-primary rounded-xl font-semibold text-lg hover:bg-white/90 transition-all">
+            <p className="text-primary-foreground/50 text-sm mb-10">Free to join • No credit card • English & Hindi</p>
+            <Link href="/sign-up" className="inline-block px-8 py-4 bg-white text-primary rounded-xl font-semibold text-base hover:bg-white/95 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5">
               Get Started — It's Free
             </Link>
           </div>
         </section>
 
-        {/* Footer */}
-        <footer className="bg-slate-50 border-t border-slate-100 py-8 px-4">
-          <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* ── FOOTER ── */}
+        <footer className="bg-slate-50 border-t border-slate-100 py-10 px-4">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
             <HealthCircleLogo size="sm" animate={false} />
-            <div className="flex flex-wrap gap-4 text-sm text-slate-500">
-              <button onClick={() => scrollTo("about")} className="hover:text-primary transition-colors">About</button>
-              <button onClick={() => scrollTo("solutions")} className="hover:text-primary transition-colors">Solutions</button>
-              <button onClick={() => scrollTo("for-doctors")} className="hover:text-primary transition-colors">For Doctors</button>
-              <button onClick={() => scrollTo("support")} className="hover:text-primary transition-colors">Support</button>
-              <a href="mailto:support@healthcircle.in" className="hover:text-primary transition-colors">Contact</a>
+            <div className="flex flex-wrap gap-5 text-sm text-slate-500">
+              {[["about","About"],["solutions","Solutions"],["for-doctors","For Doctors"],["support","Support"]].map(([id,label]) => (
+                <button key={id} onClick={() => scrollTo(id)} className="hover:text-primary transition-colors duration-200">{label}</button>
+              ))}
+              <a href="mailto:support@healthcircle.in" className="hover:text-primary transition-colors duration-200">Contact</a>
             </div>
             <p className="text-xs text-slate-400">© 2025 HealthCircle. India-first healthcare.</p>
           </div>

@@ -1,0 +1,38 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "vRVO-2ug7ofefHo5dw7Nm"
+uri = "file://artifacts/askhealth/src/assets/community-mind-space.png"
+type = "image"
+title = "mind space mental wellness"
+
+[[generated]]
+id = "D8YAanCX5u1ZoD-J6R3uQ"
+uri = "file://artifacts/askhealth/src/assets/community-sugar-care.png"
+type = "image"
+title = "sugar care diabetes"
+
+[[generated]]
+id = "fijpXrCqLvMCoXBLjJmuc"
+uri = "file://artifacts/askhealth/src/assets/community-mom-journey.png"
+type = "image"
+title = "mom journey pregnancy"
+
+[[generated]]
+id = "7mLwMt6DHCC2JRGh_weds"
+uri = "file://artifacts/askhealth/src/assets/community-work-reset.png"
+type = "image"
+title = "work reset stress relief"
+
+[[generated]]
+id = "T7kc9oVw8x-TVm3lloBsP"
+uri = "file://artifacts/askhealth/src/assets/community-fit-life.png"
+type = "image"
+title = "fit life fitness"
+
+[[generated]]
+id = "0oxBWxDTveI3BvZ3FPLp7"
+uri = "file://artifacts/askhealth/src/assets/community-heart-circle.png"
+type = "image"
+title = "heart circle cardiac health"
