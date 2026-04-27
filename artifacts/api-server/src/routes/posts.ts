@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
-import { db, postsTable, usersTable, commentsTable, postUpvotesTable, communityMembersTable } from "@workspace/db";
+import { db, postsTable, usersTable, commentsTable, postUpvotesTable, communityMembersTable, doctorConsultationsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth, requireModeratorOrAdmin, getOrCreateUser } from "../lib/auth";
 import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
@@ -183,6 +183,36 @@ router.post("/posts/:postId/upvote", requireAuth, async (req, res) => {
     }
     res.json({ upvoteCount: updated.upvoteCount, hasUpvoted: true });
   }
+});
+
+router.post("/posts/:postId/request-consultation", requireAuth, async (req, res) => {
+  const postId = parseInt(req.params.postId);
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const user = await getOrCreateUser(clerkId);
+  const { reason, riskLevel } = req.body;
+
+  const [post] = await db.select().from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+  if (!post) { res.status(404).json({ error: "Post not found" }); return; }
+
+  const existing = await db.select().from(doctorConsultationsTable)
+    .where(and(eq(doctorConsultationsTable.postId, postId), eq(doctorConsultationsTable.userId, user.id))).limit(1);
+  if (existing.length > 0) {
+    res.json({ success: true, consultation: existing[0], alreadyExists: true });
+    return;
+  }
+
+  const [consultation] = await db.insert(doctorConsultationsTable).values({
+    userId: user.id,
+    postId,
+    riskLevel: riskLevel ?? "high",
+    reason: reason ?? "User requested professional review",
+    status: "pending",
+    source: "user_request",
+  }).returning();
+
+  res.status(201).json({ success: true, consultation });
 });
 
 export default router;

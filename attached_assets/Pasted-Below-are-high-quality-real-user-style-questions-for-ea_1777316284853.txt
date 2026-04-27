@@ -1,0 +1,66 @@
+Below are high-quality, real-user style questions for each of your 20 communities. These are designed to:
+
+Seed your platform at launch
+Drive engagement (relatable, specific)
+Train AI responses
+Improve SEO later
+🫀 1. Heart Circle
+“Is chest pain after workout normal or something serious?”
+“My BP stays around 140/90—do I need medication?”
+🧠 2. Mind Space
+“Why do I feel anxious mostly at night?”
+“How do I know if this is stress or depression?”
+🩺 3. Sugar Care (Diabetes)
+“My fasting sugar is 120—should I be worried?”
+“Can I reverse diabetes with diet alone?”
+🧬 4. Hormone Hub
+“Why am I gaining weight even without eating much?”
+“Can thyroid issues cause mood swings?”
+🦴 5. Move Easy (Bone & Joint)
+“Lower back pain after sitting long hours—what helps?”
+“Is knee pain at 35 normal?”
+🤰 6. Mom Journey
+“Is mild cramping normal in early pregnancy?”
+“What foods should I avoid in the first trimester?”
+🌸 7. Cycle Sync (PCOS)
+“Irregular periods for months—could it be PCOS?”
+“Best way to manage PCOS without heavy medication?”
+🧫 8. Hope & Fertility
+“How long should we try before considering IVF?”
+“What are early signs of infertility?”
+👶 9. Little Care (Child Health)
+“My child has fever for 2 days—when should I worry?”
+“How do I improve my child’s immunity?”
+👴 10. Elder Care Circle
+“How to manage multiple medicines for aging parents?”
+“What are early signs of memory loss?”
+⚖️ 11. Fit Life
+“Why am I not losing weight despite dieting?”
+“Is walking enough for weight loss?”
+🥗 12. Eat Right
+“What’s a simple Indian diet for weight loss?”
+“How do I fix vitamin deficiencies naturally?”
+😴 13. Sleep Better
+“Why do I wake up tired even after 7 hours of sleep?”
+“How to fix sleep cycle without medication?”
+🫁 14. Breathe Easy
+“Shortness of breath while climbing stairs—is it serious?”
+“How to manage seasonal allergies better?”
+🧪 15. Cancer Support Circle
+“How to support a family member undergoing chemotherapy?”
+“What side effects should we expect during treatment?”
+🦠 16. Infection Care
+“Fever and body ache—viral or something else?”
+“How long does viral fever usually last?”
+💻 17. Work Reset
+“I feel constantly exhausted from work—what should I do?”
+“How to manage burnout without quitting job?”
+📱 18. Screen Health
+“Eye strain after long screen time—how to reduce it?”
+“Can screen use affect sleep and mood?”
+🧘 19. Natural Healing
+“Does Ayurveda really help with chronic issues?”
+“Home remedies for digestion problems?”
+🧠 20. Brain Matters
+“Frequent headaches—when should I get it checked?”
+“Is forgetfulness normal or something serious?”

@@ -14,3 +14,4 @@ export * from "./health_chats";
 export * from "./analytics";
 export * from "./consents";
 export * from "./ai_summaries";
+export * from "./consultations";

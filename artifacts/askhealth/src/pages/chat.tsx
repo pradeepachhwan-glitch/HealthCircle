@@ -9,7 +9,7 @@ import { Link, useLocation } from "wouter";
 import { useClerk } from "@clerk/react";
 import {
   Send, Plus, Trash2, Bot, User, AlertTriangle, CheckCircle,
-  Activity, Mic, Paperclip, Menu, X, ChevronRight, Stethoscope, ArrowLeft
+  Activity, Mic, Paperclip, Menu, X, ChevronRight, Stethoscope, ArrowLeft, UserCheck
 } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -126,8 +126,17 @@ function StructuredCard({ data, onFollowUp }: { data: StructuredResponse; onFoll
   );
 }
 
-function MessageBubble({ message, onFollowUp }: { message: ChatMessage; onFollowUp?: (q: string) => void }) {
+function MessageBubble({
+  message, onFollowUp, onRequestDoctor, consultationRequested, showDoctorButton
+}: {
+  message: ChatMessage;
+  onFollowUp?: (q: string) => void;
+  onRequestDoctor?: () => void;
+  consultationRequested?: boolean;
+  showDoctorButton?: boolean;
+}) {
   const isUser = message.role === "user";
+  const isHighRisk = message.structuredResponse?.risk_level === "high" || message.structuredResponse?.risk_level === "emergency";
   return (
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? "bg-slate-200" : "bg-primary text-white"}`}>
@@ -140,6 +149,24 @@ function MessageBubble({ message, onFollowUp }: { message: ChatMessage; onFollow
         {!isUser && message.structuredResponse && (
           <div className="mt-1 w-full">
             <StructuredCard data={message.structuredResponse} onFollowUp={onFollowUp} />
+          </div>
+        )}
+        {!isUser && showDoctorButton && isHighRisk && onRequestDoctor && (
+          <div className="mt-2 w-full">
+            {consultationRequested ? (
+              <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg">
+                <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                Doctor consultation request sent — a medical professional will review your case shortly.
+              </div>
+            ) : (
+              <button
+                onClick={onRequestDoctor}
+                className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-100 transition-colors font-medium"
+              >
+                <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                Get a Doctor's Opinion — request professional review
+              </button>
+            )}
           </div>
         )}
         <span className="text-[11px] text-slate-400 mt-1 px-1">
@@ -184,6 +211,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [consultationRequested, setConsultationRequested] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const communityContext = getCommunityFromUrl();
 
@@ -225,6 +253,26 @@ export default function ChatPage() {
       return r.json();
     },
     enabled: !!activeSessionId,
+  });
+
+  const requestConsultation = useMutation({
+    mutationFn: async (sessionId: number) => {
+      const lastMsg = messages.filter(m => m.role === "assistant").slice(-1)[0];
+      const riskLevel = lastMsg?.structuredResponse?.risk_level ?? "high";
+      const r = await fetch(`${API_BASE}/chat/sessions/${sessionId}/request-consultation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ riskLevel, reason: `AI flagged ${riskLevel} risk during chat session` }),
+      });
+      if (!r.ok) throw new Error("Failed to request consultation");
+      return r.json();
+    },
+    onSuccess: (data) => {
+      setConsultationRequested(true);
+      toast({ title: data.alreadyExists ? "Already requested" : "Consultation requested!", description: "A medical professional will review your case." });
+    },
+    onError: () => toast({ title: "Error", description: "Could not request consultation. Please try again.", variant: "destructive" }),
   });
 
   const createSession = useMutation({
@@ -334,7 +382,7 @@ export default function ChatPage() {
             <div
               key={session.id}
               className={`group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer mb-1 transition-colors ${activeSessionId === session.id ? "bg-primary/10 text-primary" : "hover:bg-slate-100 text-slate-700"}`}
-              onClick={() => setActiveSessionId(session.id)}
+              onClick={() => { setActiveSessionId(session.id); setConsultationRequested(false); }}
             >
               <Stethoscope className="w-4 h-4 flex-shrink-0 opacity-60" />
               <span className="flex-1 text-sm truncate">{session.title}</span>
@@ -434,13 +482,19 @@ export default function ChatPage() {
           )}
 
           <div className="max-w-3xl mx-auto space-y-5">
-            {messages.map(msg => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                onFollowUp={(q) => handleSend(q)}
-              />
-            ))}
+            {(() => {
+              const lastAiMsgIdx = messages.map((m, i) => ({ m, i })).filter(({ m }) => m.role === "assistant").slice(-1)[0]?.i ?? -1;
+              return messages.map((msg, idx) => (
+                <MessageBubble
+                  key={msg.id}
+                  message={msg}
+                  onFollowUp={(q) => handleSend(q)}
+                  showDoctorButton={idx === lastAiMsgIdx}
+                  consultationRequested={consultationRequested}
+                  onRequestDoctor={activeSessionId ? () => requestConsultation.mutate(activeSessionId) : undefined}
+                />
+              ));
+            })()}
             {isTyping && <TypingIndicator />}
             <div ref={bottomRef} />
           </div>

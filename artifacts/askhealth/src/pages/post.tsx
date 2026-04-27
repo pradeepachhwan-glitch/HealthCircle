@@ -9,10 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowUp, ArrowLeft, MessageSquare, Eye, Bot, Stethoscope,
   BookOpen, Heart, AlertTriangle, CheckCircle2, Clock,
-  BookMarked, CalendarPlus, Share2,
+  BookMarked, CalendarPlus, Share2, UserCheck,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,28 @@ export default function PostDetail() {
   const [saved, setSaved] = useState(false);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
+  const [consultationRequested, setConsultationRequested] = useState(false);
+
+  const requestConsultation = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`${API_BASE}/posts/${postId}/request-consultation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          riskLevel: aiSummary?.riskLevel ?? "high",
+          reason: `User requested professional review for post: ${post?.title ?? ""}`,
+        }),
+      });
+      if (!r.ok) throw new Error("Failed");
+      return r.json();
+    },
+    onSuccess: (data) => {
+      setConsultationRequested(true);
+      toast.success(data.alreadyExists ? "Request already submitted" : "Doctor's opinion requested! A medical professional will review this.");
+    },
+    onError: () => toast.error("Could not submit request. Please try again."),
+  });
 
   useEffect(() => {
     if (!postId) return;
@@ -254,6 +276,27 @@ export default function PostDetail() {
                   <p className="text-foreground leading-relaxed">{aiSummary.whenToSeeDoctor}</p>
                 </div>
                 <p className="text-[10px] text-muted-foreground border-t pt-2 mt-2 leading-relaxed">{aiSummary.disclaimer}</p>
+                {(aiSummary.riskLevel === "high" || aiSummary.riskLevel === "emergency") && (
+                  <div className="pt-2">
+                    {consultationRequested ? (
+                      <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        Doctor consultation requested — a medical professional will review this.
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2 text-xs border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                        onClick={() => requestConsultation.mutate()}
+                        disabled={requestConsultation.isPending}
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        {requestConsultation.isPending ? "Requesting…" : "Get a Doctor's Opinion"}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">AI summary unavailable for this post.</p>

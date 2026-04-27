@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
-import { db, usersTable, communitiesTable, postsTable, aiSummariesTable, communityMembersTable, commentsTable } from "@workspace/db";
-import { eq, desc, and, count, isNull } from "drizzle-orm";
+import { db, usersTable, communitiesTable, postsTable, aiSummariesTable, communityMembersTable, commentsTable, doctorConsultationsTable } from "@workspace/db";
+import { eq, desc, and, count, inArray, or } from "drizzle-orm";
 import { requireMedPro, getOrCreateUser } from "../lib/auth";
 
 const router = Router();
@@ -135,6 +135,86 @@ router.get("/medpro/stats", requireMedPro, async (req, res) => {
     isVerifiedPro: user.isVerifiedPro,
     specialty: user.specialty,
   });
+});
+
+router.get("/medpro/urgent-cases", requireMedPro, async (req, res) => {
+  const urgentSummaries = await db
+    .select({ summary: aiSummariesTable, post: postsTable, community: communitiesTable })
+    .from(aiSummariesTable)
+    .innerJoin(postsTable, eq(aiSummariesTable.postId, postsTable.id))
+    .innerJoin(communitiesTable, eq(postsTable.communityId, communitiesTable.id))
+    .where(and(
+      eq(aiSummariesTable.status, "pending"),
+      inArray(aiSummariesTable.riskLevel, ["high", "emergency"])
+    ))
+    .orderBy(desc(aiSummariesTable.createdAt))
+    .limit(50);
+
+  res.json(urgentSummaries.map(({ summary, post, community }) => ({
+    id: summary.id,
+    postId: summary.postId,
+    postTitle: post.title,
+    postContent: post.content,
+    communityName: community.name,
+    communitySlug: community.slug,
+    whatItCouldBe: summary.whatItCouldBe,
+    riskLevel: summary.riskLevel,
+    whatToDo: summary.whatToDo,
+    whenToSeeDoctor: summary.whenToSeeDoctor,
+    disclaimer: summary.disclaimer,
+    status: summary.status,
+    createdAt: summary.createdAt,
+  })));
+});
+
+router.get("/medpro/consultations", requireMedPro, async (req, res) => {
+  const status = (req.query.status as string) || "pending";
+
+  const consultations = await db
+    .select({
+      consultation: doctorConsultationsTable,
+      user: usersTable,
+      post: postsTable,
+    })
+    .from(doctorConsultationsTable)
+    .innerJoin(usersTable, eq(doctorConsultationsTable.userId, usersTable.id))
+    .leftJoin(postsTable, eq(doctorConsultationsTable.postId, postsTable.id))
+    .where(eq(doctorConsultationsTable.status, status as "pending" | "in_review" | "resolved"))
+    .orderBy(desc(doctorConsultationsTable.createdAt))
+    .limit(50);
+
+  res.json(consultations.map(({ consultation, user, post }) => ({
+    id: consultation.id,
+    riskLevel: consultation.riskLevel,
+    reason: consultation.reason,
+    status: consultation.status,
+    source: consultation.source,
+    doctorNote: consultation.doctorNote,
+    createdAt: consultation.createdAt,
+    resolvedAt: consultation.resolvedAt,
+    postId: consultation.postId,
+    postTitle: post?.title ?? null,
+    chatSessionId: consultation.chatSessionId,
+    user: { id: user.id, displayName: user.displayName, email: user.email, avatarUrl: user.avatarUrl },
+  })));
+});
+
+router.patch("/medpro/consultations/:id/resolve", requireMedPro, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const doctor = await getOrCreateUser(clerkId);
+  const id = Number(req.params.id);
+  const { doctorNote, status } = req.body;
+
+  const [updated] = await db.update(doctorConsultationsTable).set({
+    status: status ?? "resolved",
+    doctorNote: doctorNote ?? null,
+    resolvedById: doctor.id,
+    resolvedAt: new Date(),
+  }).where(eq(doctorConsultationsTable.id, id)).returning();
+
+  if (!updated) { res.status(404).json({ error: "Consultation not found" }); return; }
+  res.json({ success: true, consultation: updated });
 });
 
 export default router;

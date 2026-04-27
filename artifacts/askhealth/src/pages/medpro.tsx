@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Pencil, Stethoscope, Bot, Building2, AlertTriangle, MessageSquare, Star, Shield } from "lucide-react";
+import { CheckCircle2, XCircle, Pencil, Stethoscope, Bot, Building2, AlertTriangle, MessageSquare, Star, Shield, Siren, Users, Link as LinkIcon, Phone } from "lucide-react";
 import { useGetCurrentUser } from "@workspace/api-client-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -113,6 +113,9 @@ export default function MedPro() {
   const [expertCommunityId, setExpertCommunityId] = useState<number | null>(null);
   const [expertPostId, setExpertPostId] = useState("");
   const [expertResponse, setExpertResponse] = useState("");
+  const [consultationFilter, setConsultationFilter] = useState<"pending" | "in_review" | "resolved">("pending");
+  const [resolveModal, setResolveModal] = useState<any | null>(null);
+  const [doctorNote, setDoctorNote] = useState("");
 
   const { data: stats } = useQuery({
     queryKey: ["medpro-stats"],
@@ -127,6 +130,34 @@ export default function MedPro() {
   const { data: queue, isLoading: queueLoading, refetch: refetchQueue } = useQuery({
     queryKey: ["medpro-ai-queue", filterStatus],
     queryFn: () => fetch(`${API_BASE}/medpro/ai-summaries/queue?status=${filterStatus}`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const { data: urgentCases, isLoading: urgentLoading, refetch: refetchUrgent } = useQuery({
+    queryKey: ["medpro-urgent-cases"],
+    queryFn: () => fetch(`${API_BASE}/medpro/urgent-cases`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const { data: consultations, isLoading: consultationsLoading, refetch: refetchConsultations } = useQuery({
+    queryKey: ["medpro-consultations", consultationFilter],
+    queryFn: () => fetch(`${API_BASE}/medpro/consultations?status=${consultationFilter}`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const resolveConsultation = useMutation({
+    mutationFn: ({ id, doctorNote, status }: { id: number; doctorNote?: string; status?: string }) =>
+      fetch(`${API_BASE}/medpro/consultations/${id}/resolve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ doctorNote, status: status ?? "resolved" }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      refetchConsultations();
+      queryClient.invalidateQueries({ queryKey: ["medpro-stats"] });
+      toast.success("Consultation resolved!");
+      setResolveModal(null);
+      setDoctorNote("");
+    },
+    onError: () => toast.error("Failed to resolve consultation"),
   });
 
   const validateSummary = useMutation({
@@ -215,12 +246,138 @@ export default function MedPro() {
           </div>
         )}
 
-        <Tabs defaultValue="queue" className="space-y-5">
-          <TabsList>
-            <TabsTrigger value="queue" className="gap-1.5 text-xs"><Bot className="w-3.5 h-3.5" />AI Validation Queue</TabsTrigger>
+        <Tabs defaultValue="urgent" className="space-y-5">
+          <TabsList className="flex-wrap h-auto gap-1">
+            <TabsTrigger value="urgent" className="gap-1.5 text-xs">
+              <Siren className="w-3.5 h-3.5 text-red-500" />
+              Urgent Cases
+              {Array.isArray(urgentCases) && urgentCases.length > 0 && (
+                <span className="bg-red-500 text-white rounded-full w-4 h-4 text-[10px] font-bold flex items-center justify-center ml-1">
+                  {urgentCases.length > 9 ? "9+" : urgentCases.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="consultations" className="gap-1.5 text-xs">
+              <Users className="w-3.5 h-3.5" />Patient Requests
+              {Array.isArray(consultations) && consultations.length > 0 && (
+                <span className="bg-amber-500 text-white rounded-full w-4 h-4 text-[10px] font-bold flex items-center justify-center ml-1">
+                  {consultations.length > 9 ? "9+" : consultations.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="queue" className="gap-1.5 text-xs"><Bot className="w-3.5 h-3.5" />AI Queue</TabsTrigger>
             <TabsTrigger value="communities" className="gap-1.5 text-xs"><Building2 className="w-3.5 h-3.5" />Communities</TabsTrigger>
             <TabsTrigger value="respond" className="gap-1.5 text-xs"><MessageSquare className="w-3.5 h-3.5" />Expert Response</TabsTrigger>
           </TabsList>
+
+          {/* ── URGENT CASES ── */}
+          <TabsContent value="urgent" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-base">High & Emergency Risk Cases</h2>
+              <Button variant="outline" size="sm" onClick={() => refetchUrgent()} className="gap-1 text-xs">Refresh</Button>
+            </div>
+            {urgentLoading ? (
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)
+            ) : !Array.isArray(urgentCases) || urgentCases.length === 0 ? (
+              <Card><CardContent className="p-10 text-center text-muted-foreground">
+                <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-green-500" />
+                <p className="font-medium">No urgent cases pending review</p>
+                <p className="text-xs mt-1">All high-risk AI summaries have been reviewed</p>
+              </CardContent></Card>
+            ) : urgentCases.map((c: any) => (
+              <Card key={c.id} className={`border-l-4 ${c.riskLevel === "emergency" ? "border-l-red-600" : "border-l-orange-500"}`}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start gap-2 justify-between flex-wrap">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.riskLevel === "emergency" ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>
+                          {c.riskLevel === "emergency" ? "🚨 EMERGENCY" : "⚠️ HIGH RISK"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{c.communityName}</span>
+                      </div>
+                      <p className="font-semibold mt-1">{c.postTitle}</p>
+                    </div>
+                    <a
+                      href={`/communities/${c.communitySlug}/posts/${c.postId}`}
+                      className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                      target="_blank" rel="noopener noreferrer"
+                    >
+                      <LinkIcon className="w-3 h-3" />View Post
+                    </a>
+                  </div>
+                  {c.postContent && <p className="text-sm text-muted-foreground line-clamp-2">{c.postContent}</p>}
+                  {c.whatItCouldBe && (
+                    <div className="bg-red-50 dark:bg-red-950 rounded-lg p-3 text-sm space-y-1">
+                      <p className="font-medium text-red-700 dark:text-red-300 text-xs uppercase tracking-wide">AI Assessment</p>
+                      <p>{c.whatItCouldBe}</p>
+                    </div>
+                  )}
+                  {c.whenToSeeDoctor && (
+                    <div className="flex items-start gap-2 text-sm">
+                      <Phone className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                      <p className="text-red-700 dark:text-red-300">{c.whenToSeeDoctor}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">Flagged {new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </TabsContent>
+
+          {/* ── PATIENT CONSULTATION REQUESTS ── */}
+          <TabsContent value="consultations" className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="font-semibold text-base">Patient Requests</h2>
+              <div className="flex gap-2">
+                {(["pending", "in_review", "resolved"] as const).map(s => (
+                  <Button key={s} size="sm" variant={consultationFilter === s ? "default" : "outline"} className="text-xs"
+                    onClick={() => setConsultationFilter(s)}>
+                    {s === "pending" ? "Pending" : s === "in_review" ? "In Review" : "Resolved"}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            {consultationsLoading ? (
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
+            ) : !Array.isArray(consultations) || consultations.length === 0 ? (
+              <Card><CardContent className="p-10 text-center text-muted-foreground">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="font-medium">No {consultationFilter} consultation requests</p>
+              </CardContent></Card>
+            ) : consultations.map((c: any) => (
+              <Card key={c.id} className={`border-l-4 ${c.riskLevel === "emergency" ? "border-l-red-600" : c.riskLevel === "high" ? "border-l-orange-500" : "border-l-amber-400"}`}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{c.source === "user_request" ? "👤 Patient Request" : c.source === "ai_flag" ? "🤖 AI Flagged" : "Auto"}</span>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.riskLevel === "emergency" ? "bg-red-100 text-red-700" : c.riskLevel === "high" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>
+                          {c.riskLevel?.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="font-semibold text-sm">{c.user?.displayName ?? "Unknown User"}</p>
+                      {c.postTitle && <p className="text-xs text-muted-foreground">Re: {c.postTitle}</p>}
+                      {c.chatSessionId && <p className="text-xs text-muted-foreground">From chat session #{c.chatSessionId}</p>}
+                    </div>
+                    {c.status !== "resolved" && (
+                      <Button size="sm" variant="default" className="text-xs gap-1"
+                        onClick={() => { setResolveModal(c); setDoctorNote(""); }}>
+                        <CheckCircle2 className="w-3.5 h-3.5" />Respond
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{c.reason}</p>
+                  {c.doctorNote && (
+                    <div className="bg-green-50 dark:bg-green-950 rounded-lg p-2.5">
+                      <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-0.5">Doctor's Note</p>
+                      <p className="text-sm">{c.doctorNote}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">Requested {new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </TabsContent>
 
           {/* ── AI VALIDATION QUEUE ── */}
           <TabsContent value="queue" className="space-y-4">
@@ -369,6 +526,52 @@ export default function MedPro() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Resolve Consultation Modal */}
+      <Dialog open={!!resolveModal} onOpenChange={open => !open && setResolveModal(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-500" /> Respond to Patient Request
+            </DialogTitle>
+          </DialogHeader>
+          {resolveModal && (
+            <div className="space-y-4">
+              <div className="bg-muted rounded-xl p-4 text-sm space-y-1">
+                <div className="font-semibold">{resolveModal.user?.displayName}</div>
+                {resolveModal.postTitle && <div className="text-muted-foreground text-xs">Re: {resolveModal.postTitle}</div>}
+                <p className="text-sm mt-2">{resolveModal.reason}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold mb-1.5 block">Your Clinical Note</label>
+                <Textarea
+                  value={doctorNote}
+                  onChange={e => setDoctorNote(e.target.value)}
+                  placeholder="Provide your professional assessment, recommendations, or advice for this patient…"
+                  className="min-h-28 text-sm"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setResolveModal(null)}>Cancel</Button>
+            <Button
+              onClick={() => resolveConsultation.mutate({ id: resolveModal.id, doctorNote, status: "in_review" })}
+              disabled={resolveConsultation.isPending}
+              variant="secondary"
+            >
+              Mark In Review
+            </Button>
+            <Button
+              onClick={() => resolveConsultation.mutate({ id: resolveModal.id, doctorNote, status: "resolved" })}
+              disabled={resolveConsultation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {resolveConsultation.isPending ? "Saving…" : "Resolve & Send Note"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Validation Modal */}
       <Dialog open={!!validateModal} onOpenChange={open => !open && setValidateModal(null)}>

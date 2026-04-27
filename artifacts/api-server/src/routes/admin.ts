@@ -216,4 +216,27 @@ router.patch("/admin/users/:userId/verify-pro", requireAdmin, async (req, res) =
   res.json({ success: true, user: updated });
 });
 
+router.patch("/admin/users/:clerkId/role", requireAdmin, async (req, res) => {
+  const { clerkId } = req.params;
+  const { role } = req.body;
+  const validRoles = ["admin", "moderator", "medical_professional", "member"];
+  if (!validRoles.includes(role)) {
+    res.status(400).json({ error: "Invalid role" }); return;
+  }
+  const [updated] = await db.update(usersTable)
+    .set({ role, isVerifiedPro: role === "medical_professional" ? true : false })
+    .where(eq(usersTable.clerkId, clerkId))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({ success: true, user: updated });
+});
+
+router.get("/admin/consultations/stats", requireAdmin, async (req, res) => {
+  const { count: countFn } = await import("drizzle-orm");
+  const { doctorConsultationsTable } = await import("@workspace/db");
+  const [pending] = await db.select({ count: countFn() }).from(doctorConsultationsTable).where(eq(doctorConsultationsTable.status as any, "pending"));
+  const [total] = await db.select({ count: countFn() }).from(doctorConsultationsTable);
+  res.json({ pending: Number(pending?.count ?? 0), total: Number(total?.count ?? 0) });
+});
+
 export default router;

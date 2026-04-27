@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
-import { db } from "@workspace/db";
+import { db, doctorConsultationsTable } from "@workspace/db";
 import { healthChatSessionsTable, healthChatMessagesTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { getHealthAssistantResponse, detectLanguage } from "../lib/healthAssistant";
 import { logger } from "../lib/logger";
@@ -127,6 +127,34 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
     logger.error({ err }, "Health assistant error");
     res.status(500).json({ error: "AI service unavailable. Please try again." });
   }
+});
+
+router.post("/chat/sessions/:sessionId/request-consultation", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+  const sessionId = parseInt(req.params.sessionId);
+  const { reason, riskLevel } = req.body;
+
+  const [session] = await db.select().from(healthChatSessionsTable).where(eq(healthChatSessionsTable.id, sessionId));
+  if (!session || session.userId !== user.id) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const existing = await db.select().from(doctorConsultationsTable)
+    .where(and(eq(doctorConsultationsTable.chatSessionId, sessionId), eq(doctorConsultationsTable.userId, user.id))).limit(1);
+  if (existing.length > 0) {
+    res.json({ success: true, consultation: existing[0], alreadyExists: true }); return;
+  }
+
+  const [consultation] = await db.insert(doctorConsultationsTable).values({
+    userId: user.id,
+    chatSessionId: sessionId,
+    riskLevel: riskLevel ?? "high",
+    reason: reason ?? "User requested professional review from chat",
+    status: "pending",
+    source: "user_request",
+  }).returning();
+
+  res.status(201).json({ success: true, consultation });
 });
 
 router.delete("/chat/sessions/:sessionId", requireAuth, async (req, res) => {

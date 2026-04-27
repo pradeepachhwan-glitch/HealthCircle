@@ -320,16 +320,16 @@ export default function Admin() {
                                   <Button variant="ghost" size="sm" className="text-xs">Manage ▾</Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-52">
-                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.id, role: "admin" })}>
+                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.clerkId, role: "admin" })}>
                                     <ShieldCheck className="w-4 h-4 mr-2 text-red-500" /> Make Admin
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.id, role: "moderator" })}>
+                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.clerkId, role: "moderator" })}>
                                     <Shield className="w-4 h-4 mr-2 text-blue-500" /> Make Moderator
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.id, role: "medical_professional" })}>
+                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.clerkId, role: "medical_professional" })}>
                                     <Stethoscope className="w-4 h-4 mr-2 text-emerald-500" /> Make Med Professional
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.id, role: "member" })}>
+                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.clerkId, role: "member" })}>
                                     <Users className="w-4 h-4 mr-2" /> Make Member
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />

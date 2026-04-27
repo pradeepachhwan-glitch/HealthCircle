@@ -122,11 +122,18 @@ Admin promotes users via the GODMODE dashboard Users tab. Medical pros are verif
 
 ### 7. Admin Godmode (`/admin`)
 - Platform stats dashboard
-- User management (roles, ban/unban)
+- User management (roles: admin/moderator/medical_professional/member via `PATCH /api/users/:clerkId/role`, ban/unban)
 - Community management (create, archive)
 - Broadcast tool (post to all/selected communities)
 - Provider rankings management (`GET/POST /admin/rankings`)
 - API: `GET /admin/appointments` — all appointments
+
+### 8. Doctor Consultation System
+- `lib/db/src/schema/consultations.ts` — `doctorConsultationsTable` schema
+- Fields: userId, postId (nullable), chatSessionId (nullable), riskLevel, reason, status (pending/in_review/resolved), source (user_request/ai_flag/auto_high_risk), doctorNote, resolvedById, resolvedAt
+- **"Get a Doctor's Opinion" button** appears on post detail pages (high/emergency AI risk) and chat (high/emergency AI response)
+- **MedPro Portal** (`/medpro`): "Urgent Cases" tab (high/emergency risk AI summaries), "Patient Requests" tab (user-requested consultations with resolve modal)
+- API routes: `GET /api/medpro/urgent-cases`, `GET /api/medpro/consultations`, `PATCH /api/medpro/consultations/:id/resolve`, `POST /api/posts/:id/request-consultation`, `POST /api/chat/sessions/:id/request-consultation`
 
 ## Key Routes
 
