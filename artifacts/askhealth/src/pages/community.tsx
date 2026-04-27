@@ -17,7 +17,7 @@ import {
   ArrowUp, MessageSquare, Eye, Plus, ArrowLeft, Users, Stethoscope,
   TrendingUp, Clock, HelpCircle, Bot,
 } from "lucide-react";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ConsentModal } from "@/components/ConsentModal";
@@ -59,6 +59,13 @@ export default function Community() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const isMember = (community as any)?.isMember ?? false;
+
+  const { data: communityAIPrompts } = useQuery<{ suggestedQuestions: string[] }>({
+    queryKey: ["community-prompts", community?.slug],
+    queryFn: () => fetch(`${API_BASE}/ai/community-prompts/${community!.slug}`).then(r => r.json()),
+    enabled: !!community?.slug,
+  });
+  const suggestedQuestions = communityAIPrompts?.suggestedQuestions ?? [];
 
   const handleAskClick = () => {
     if (!hasConsented) {
@@ -279,10 +286,10 @@ export default function Community() {
                     <span className="text-sm font-semibold text-primary">Ask Yukti AI</span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                    Get an instant AI-powered health guidance — private and personalized.
+                    Get instant AI guidance specialised for {community.name}.
                   </p>
-                  <Link href="/chat">
-                    <Button size="sm" variant="default" className="w-full text-xs">Start AI Chat</Button>
+                  <Link href={`/chat?community=${encodeURIComponent(community.slug)}&communityName=${encodeURIComponent(community.name)}`}>
+                    <Button size="sm" variant="default" className="w-full text-xs">Ask Yukti about {community.name}</Button>
                   </Link>
                 </CardContent>
               </Card>
@@ -305,8 +312,25 @@ export default function Community() {
             <DialogTitle>Ask in {community.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {suggestedQuestions.length > 0 && !postTitle && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2 font-medium">Common questions in {community.name}:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestedQuestions.slice(0, 4).map((q, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setPostTitle(q)}
+                      className="text-xs px-2.5 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors text-left"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <Input
-              placeholder="What's your health question? (Be specific)"
+              placeholder={`What's your ${community.name} question? (Be specific)`}
               value={postTitle}
               onChange={e => setPostTitle(e.target.value)}
               className="font-medium"
@@ -315,7 +339,7 @@ export default function Community() {
               placeholder="Share more details — symptoms, duration, medications, age, etc. The more context, the better the community can help."
               value={postContent}
               onChange={e => setPostContent(e.target.value)}
-              className="min-h-[160px]"
+              className="min-h-[140px]"
             />
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-start gap-2">
               <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />

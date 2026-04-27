@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
@@ -66,7 +65,15 @@ const INTENT_LABELS: Record<string, string> = {
   emergency: "Emergency",
 };
 
-function StructuredCard({ data }: { data: StructuredResponse }) {
+const DEFAULT_PROMPTS = [
+  "I have a fever and sore throat. What should I do?",
+  "Find me a cardiologist in Mumbai",
+  "What are the symptoms of diabetes?",
+  "How do I prepare for a blood test?",
+  "My back pain has been going on for 3 days",
+];
+
+function StructuredCard({ data, onFollowUp }: { data: StructuredResponse; onFollowUp?: (q: string) => void }) {
   const RiskIcon = RISK_ICONS[data.risk_level] ?? Activity;
   return (
     <div className="mt-3 space-y-3">
@@ -78,14 +85,15 @@ function StructuredCard({ data }: { data: StructuredResponse }) {
 
       {data.summary && (
         <div className="bg-white/60 rounded-xl p-3 text-sm text-slate-700">
-          {data.summary}
+          <p className="font-medium text-slate-800 mb-1">Summary</p>
+          <p className="leading-relaxed">{data.summary}</p>
         </div>
       )}
 
-      {data.recommendations?.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Recommended Actions</p>
-          <ul className="space-y-1">
+      {data.recommendations && data.recommendations.length > 0 && (
+        <div className="bg-white/60 rounded-xl p-3">
+          <p className="font-medium text-slate-800 text-sm mb-2">Recommendations</p>
+          <ul className="space-y-1.5">
             {data.recommendations.map((rec, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
                 <ChevronRight className="w-3.5 h-3.5 mt-0.5 text-primary flex-shrink-0" />
@@ -97,31 +105,43 @@ function StructuredCard({ data }: { data: StructuredResponse }) {
       )}
 
       {data.disclaimer && (
-        <p className="text-xs text-slate-400 italic border-t border-slate-100 pt-2">
-          {data.disclaimer}
-        </p>
+        <p className="text-[11px] text-slate-400 italic">{data.disclaimer}</p>
+      )}
+
+      {data.suggested_questions && data.suggested_questions.length > 0 && onFollowUp && (
+        <div className="flex flex-wrap gap-2">
+          {data.suggested_questions.map((q, i) => (
+            <button
+              key={i}
+              onClick={() => onFollowUp(q)}
+              className="text-xs px-3 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, onFollowUp }: { message: ChatMessage; onFollowUp?: (q: string) => void }) {
   const isUser = message.role === "user";
   return (
-    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? "bg-slate-900 text-white" : "bg-primary text-white"}`}>
-        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? "bg-slate-200" : "bg-primary text-white"}`}>
+        {isUser ? <User className="w-4 h-4 text-slate-600" /> : <Bot className="w-4 h-4" />}
       </div>
-      <div className={`max-w-[78%] ${isUser ? "items-end" : "items-start"} flex flex-col gap-1`}>
-        <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isUser
-          ? "bg-slate-900 text-white rounded-tr-sm"
-          : "bg-slate-100 text-slate-800 rounded-tl-sm"}`}>
+      <div className={`max-w-[80%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? "bg-primary text-white rounded-tr-sm" : "bg-slate-100 text-slate-800 rounded-tl-sm"}`}>
           {message.content}
         </div>
         {!isUser && message.structuredResponse && (
-          <StructuredCard data={message.structuredResponse} />
+          <div className="mt-1 w-full">
+            <StructuredCard data={message.structuredResponse} onFollowUp={onFollowUp} />
+          </div>
         )}
-        <span className="text-[11px] text-slate-400 px-1">
+        <span className="text-[11px] text-slate-400 mt-1 px-1">
           {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </span>
       </div>
@@ -146,13 +166,13 @@ function TypingIndicator() {
   );
 }
 
-const SUGGESTED_PROMPTS = [
-  "I have a fever and sore throat. What should I do?",
-  "Find me a cardiologist in Mumbai",
-  "What are the symptoms of diabetes?",
-  "How do I prepare for a blood test?",
-  "My back pain has been going on for 3 days",
-];
+function getCommunityFromUrl(): { slug: string; name: string } | null {
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get("community");
+  const name = params.get("communityName");
+  if (slug && name) return { slug, name: decodeURIComponent(name) };
+  return null;
+}
 
 export default function ChatPage() {
   const { toast } = useToast();
@@ -162,32 +182,58 @@ export default function ChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const communityContext = getCommunityFromUrl();
+
+  const { data: communityPrompts } = useQuery<{ suggestedQuestions: string[] }>({
+    queryKey: ["community-prompts", communityContext?.slug],
+    queryFn: () => communityContext
+      ? fetch(`${API_BASE}/ai/community-prompts/${communityContext.slug}`).then(r => r.json())
+      : Promise.resolve({ suggestedQuestions: DEFAULT_PROMPTS }),
+    enabled: true,
+  });
+
+  const suggestedPrompts = communityPrompts?.suggestedQuestions ?? DEFAULT_PROMPTS;
 
   const { data: sessions = [] } = useQuery<ChatSession[]>({
     queryKey: ["chat-sessions"],
-    queryFn: () => fetch(`${API_BASE}/chat/sessions`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/chat/sessions`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
   });
 
   const { data: messages = [] } = useQuery<ChatMessage[]>({
     queryKey: ["chat-messages", activeSessionId],
-    queryFn: () => activeSessionId
-      ? fetch(`${API_BASE}/chat/sessions/${activeSessionId}/messages`, { credentials: "include" }).then(r => r.json())
-      : Promise.resolve([]),
+    queryFn: async () => {
+      if (!activeSessionId) return [];
+      const r = await fetch(`${API_BASE}/chat/sessions/${activeSessionId}/messages`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
     enabled: !!activeSessionId,
   });
 
   const createSession = useMutation({
-    mutationFn: () =>
-      fetch(`${API_BASE}/chat/sessions`, { method: "POST", credentials: "include" }).then(r => r.json()),
-    onSuccess: (session: ChatSession) => {
+    mutationFn: async () => {
+      const r = await fetch(`${API_BASE}/chat/sessions`, { method: "POST", credentials: "include" });
+      if (!r.ok) throw new Error("Failed to create chat session");
+      return r.json() as Promise<ChatSession>;
+    },
+    onSuccess: (session) => {
       qc.invalidateQueries({ queryKey: ["chat-sessions"] });
       setActiveSessionId(session.id);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Couldn't start a new chat. Please try again.", variant: "destructive" });
     },
   });
 
   const deleteSession = useMutation({
-    mutationFn: (id: number) =>
-      fetch(`${API_BASE}/chat/sessions/${id}`, { method: "DELETE", credentials: "include" }),
+    mutationFn: async (id: number) => {
+      const r = await fetch(`${API_BASE}/chat/sessions/${id}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) throw new Error("Failed to delete session");
+    },
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: ["chat-sessions"] });
       if (activeSessionId === id) setActiveSessionId(null);
@@ -195,22 +241,32 @@ export default function ChatPage() {
   });
 
   const sendMessage = useMutation({
-    mutationFn: ({ sessionId, message }: { sessionId: number; message: string }) =>
-      fetch(`${API_BASE}/chat/sessions/${sessionId}/messages`, {
+    mutationFn: async ({ sessionId, message }: { sessionId: number; message: string }) => {
+      const r = await fetch(`${API_BASE}/chat/sessions/${sessionId}/messages`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
-      }).then(r => r.json()),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error((body as any).error ?? "Failed to send message");
+      }
+      return r.json();
+    },
     onMutate: () => setIsTyping(true),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["chat-messages", activeSessionId] });
       qc.invalidateQueries({ queryKey: ["chat-sessions"] });
       setIsTyping(false);
     },
-    onError: () => {
+    onError: (err: Error) => {
       setIsTyping(false);
-      toast({ title: "Error", description: "Failed to send message. Please try again.", variant: "destructive" });
+      toast({
+        title: "Yukti is unavailable",
+        description: err.message || "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -242,12 +298,13 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[100dvh] bg-slate-50 overflow-hidden">
+      {/* Sidebar */}
       <div className={`${sidebarOpen ? "w-72" : "w-0"} flex-shrink-0 transition-all duration-300 overflow-hidden bg-white border-r border-slate-200 flex flex-col`}>
         <div className="p-4 border-b border-slate-100">
           <Link href="/" className="flex items-center gap-2 mb-4 group">
             <span className="font-bold text-slate-900">HealthCircle</span>
           </Link>
-          <Button onClick={() => createSession.mutate()} className="w-full gap-2 bg-primary hover:bg-primary/90" size="sm">
+          <Button onClick={() => createSession.mutate()} className="w-full gap-2 bg-primary hover:bg-primary/90" size="sm" disabled={createSession.isPending}>
             <Plus className="w-4 h-4" /> New Chat
           </Button>
         </div>
@@ -275,15 +332,25 @@ export default function ChatPage() {
         </ScrollArea>
 
         <div className="p-3 border-t border-slate-100">
-          <Link href="/communities">
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-slate-600">
-              <ArrowLeft className="w-4 h-4" /> Back to Communities
-            </Button>
-          </Link>
+          {communityContext ? (
+            <Link href={`/communities/${communityContext.slug}`}>
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-slate-600">
+                <ArrowLeft className="w-4 h-4" /> Back to {communityContext.name}
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/communities">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-slate-600">
+                <ArrowLeft className="w-4 h-4" /> Back to Communities
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
+      {/* Main Chat */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
         <div className="h-14 bg-white border-b border-slate-200 flex items-center px-4 gap-3 flex-shrink-0">
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
@@ -294,15 +361,23 @@ export default function ChatPage() {
               <p className="font-semibold text-sm text-slate-900">
                 {activeSession ? activeSession.title : "Yukti — Health Assistant"}
               </p>
-              <p className="text-xs text-slate-500">AI-powered healthcare guidance</p>
+              <p className="text-xs text-slate-500">
+                {communityContext ? `${communityContext.name} specialist` : "AI-powered healthcare guidance"}
+              </p>
             </div>
           </div>
+          {communityContext && (
+            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20 hidden sm:flex">
+              {communityContext.name}
+            </Badge>
+          )}
           <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 text-xs">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5 inline-block" />
             Online
           </Badge>
         </div>
 
+        {/* Messages */}
         <ScrollArea className="flex-1 px-4 py-6">
           {!activeSessionId && (
             <div className="max-w-xl mx-auto text-center space-y-6 py-12">
@@ -310,15 +385,22 @@ export default function ChatPage() {
                 <Bot className="w-8 h-8 text-primary" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Hi, I'm Yukti</h2>
-                <p className="text-slate-500 text-sm leading-relaxed">Your AI health assistant. Ask me about symptoms, treatments, finding doctors, or any health concern — in English or Hindi.</p>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                  Hi, I'm Yukti
+                  {communityContext && <span className="text-primary"> — {communityContext.name} Expert</span>}
+                </h2>
+                <p className="text-slate-500 text-sm leading-relaxed">
+                  {communityContext
+                    ? `I'm your specialised AI assistant for the ${communityContext.name} community. Ask me anything related to ${communityContext.name} topics.`
+                    : "Your AI health assistant. Ask me about symptoms, treatments, finding doctors, or any health concern — in English or Hindi."}
+                </p>
               </div>
               <div className="grid gap-2">
-                {SUGGESTED_PROMPTS.map((prompt, i) => (
+                {suggestedPrompts.map((prompt, i) => (
                   <button
                     key={i}
                     className="text-left px-4 py-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-primary/30 text-sm text-slate-700 transition-all"
-                    onClick={() => { setInput(prompt); }}
+                    onClick={() => handleSend(prompt)}
                   >
                     {prompt}
                   </button>
@@ -336,13 +418,18 @@ export default function ChatPage() {
 
           <div className="max-w-3xl mx-auto space-y-5">
             {messages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onFollowUp={(q) => handleSend(q)}
+              />
             ))}
             {isTyping && <TypingIndicator />}
             <div ref={bottomRef} />
           </div>
         </ScrollArea>
 
+        {/* Input */}
         <div className="bg-white border-t border-slate-200 p-4">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-2 bg-slate-100 rounded-2xl px-3 py-2">
@@ -353,7 +440,9 @@ export default function ChatPage() {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Describe your symptoms or ask a health question…"
+                placeholder={communityContext
+                  ? `Ask Yukti about ${communityContext.name}…`
+                  : "Describe your symptoms or ask a health question…"}
                 className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 text-sm resize-none"
                 disabled={sendMessage.isPending}
               />

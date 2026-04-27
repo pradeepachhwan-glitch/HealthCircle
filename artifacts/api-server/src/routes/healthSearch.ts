@@ -6,16 +6,16 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
-router.get("/health-search", requireAuth, async (req, res) => {
+router.get("/health-search", async (req, res) => {
   const { q, language } = req.query;
-  if (!q || typeof q !== "string") {
+  if (!q || typeof q !== "string" || !q.trim()) {
     res.status(400).json({ error: "Query parameter q is required" }); return;
   }
 
   try {
     const { userId: clerkId } = getAuth(req);
     const user = clerkId ? await getOrCreateUser(clerkId) : null;
-    const result = await runHealthSearch(q, user?.id, typeof language === "string" ? language : "en");
+    const result = await runHealthSearch(q.trim(), user?.id, typeof language === "string" ? language : "en");
     res.json(result);
   } catch (err) {
     logger.error({ err }, "Health search error");

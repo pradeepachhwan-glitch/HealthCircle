@@ -1,11 +1,25 @@
 import { Router } from "express";
 import { requireAuth } from "../lib/auth";
 import { logger } from "../lib/logger";
+import { buildCommunitySystemPrompt, getCommunitySuggestedQuestions } from "../lib/communityPrompts";
 
 const router = Router();
 
+const GENERAL_SYSTEM_PROMPT = `You are Yukti, an expert AI health assistant on HealthCircle — India's trusted healthcare community platform. You provide:
+- Accurate, evidence-based health information (WHO, ICMR, major Indian clinical guidelines)
+- Safe triage: you clearly identify when symptoms need emergency care
+- Culturally sensitive guidance for Indian patients and healthcare contexts
+- Bilingual support: respond in Hindi or English based on what the user uses
+- Warm, empathetic communication without judgment
+
+CRITICAL RULES:
+1. Never hallucinate drug names, dosages, or clinical procedures
+2. Always classify risk appropriately — for emergencies, direct to 112 or nearest hospital immediately
+3. You are NOT a replacement for a doctor. Always recommend professional consultation for diagnosis and treatment
+4. Be sensitive to Indian cultural contexts: vegetarian diet, family dynamics, affordability, government health schemes`;
+
 router.post("/ai/chat", requireAuth, async (req, res) => {
-  const { message, communityId, communityName, history } = req.body;
+  const { message, communitySlug, communityName, history } = req.body;
 
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -15,12 +29,14 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
     return;
   }
 
-  const communityContext = communityName
-    ? `You are Yukti, an expert AI assistant for the "${communityName}" healthcare community on HealthCircle. Your specialty is health operations, clinical workflows, and healthcare administration topics specifically relevant to ${communityName}. Be precise, professional, and supportive.`
-    : "You are Yukti, an expert AI assistant for HealthCircle — a healthcare community platform. Your specialty is health operations, clinical workflows, and healthcare administration. Be precise, professional, and supportive.";
+  const systemPrompt = communitySlug && communityName
+    ? buildCommunitySystemPrompt(communitySlug, communityName)
+    : communityName
+    ? `You are Yukti, an expert AI health assistant for the "${communityName}" community on HealthCircle. ${GENERAL_SYSTEM_PROMPT}`
+    : GENERAL_SYSTEM_PROMPT;
 
   const messages = [
-    { role: "system", content: communityContext },
+    { role: "system", content: systemPrompt },
     ...(history ?? []).map((h: { role: string; content: string }) => ({
       role: h.role,
       content: h.content,
@@ -38,7 +54,7 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages,
-        max_tokens: 600,
+        max_tokens: 700,
       }),
     });
 
@@ -52,11 +68,17 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
     const data = await response.json() as { choices: { message: { content: string } }[] };
     const reply = data.choices[0]?.message?.content ?? "I couldn't generate a response.";
 
-    res.json({ reply, communityContext: communityName ?? null });
+    res.json({ reply, communityContext: communityName ?? null, communitySlug: communitySlug ?? null });
   } catch (err) {
     logger.error({ err }, "Yukti AI fetch error");
-    res.status(500).json({ reply: "Sorry, I'm unable to respond right now.", communityContext: null });
+    res.status(500).json({ reply: "Sorry, I'm unable to respond right now. Please try again.", communityContext: null });
   }
+});
+
+router.get("/ai/community-prompts/:slug", (req, res) => {
+  const { slug } = req.params;
+  const questions = getCommunitySuggestedQuestions(slug);
+  res.json({ slug, suggestedQuestions: questions });
 });
 
 export default router;
