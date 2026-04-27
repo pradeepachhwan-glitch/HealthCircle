@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { db, doctorConsultationsTable } from "@workspace/db";
 import { healthChatSessionsTable, healthChatMessagesTable } from "@workspace/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, isNull, gt } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { getHealthAssistantResponse } from "../lib/healthAssistant";
 import { detectLanguage } from "../lib/languageDetect";
@@ -212,6 +212,77 @@ router.post("/chat/sessions/:sessionId/request-consultation", requireAuth, async
     chatSessionId: sessionId,
     riskLevel: riskLevel ?? "high",
     reason: reason ?? "User requested professional review from chat",
+    status: "pending",
+    source: "user_request",
+  }).returning();
+
+  res.status(201).json({ success: true, consultation });
+});
+
+// Yukti chat is a stateless side-panel chatbot — there's no session row to
+// pin a consultation to. This endpoint lets the patient escalate any Yukti
+// thread to a human medical professional. The full transcript is stuffed
+// into `reason` so the medpro reviewing the request has the complete AI
+// conversation to read, edit, approve, or reject.
+router.post("/chat/yukti/request-consultation", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+
+  const { transcript, riskLevel, communityName } = req.body as {
+    transcript?: Array<{ role: "user" | "assistant"; content: string }>;
+    riskLevel?: "low" | "medium" | "high" | "emergency";
+    communityName?: string;
+  };
+
+  if (!Array.isArray(transcript) || transcript.length === 0) {
+    res.status(400).json({ error: "transcript is required" }); return;
+  }
+
+  // Trim transcript defensively so a runaway chat can't blow up the row.
+  // Keep the last 30 messages; truncate each to 2 KB.
+  const trimmed = transcript.slice(-30).map(m => ({
+    role: m.role === "user" ? "user" : "assistant",
+    content: String(m.content ?? "").slice(0, 2000),
+  }));
+
+  const header = `Patient escalated a Yukti AI chat${communityName ? ` from "${communityName}"` : ""} for medical professional review. Please verify, edit, approve or reject the AI responses below.`;
+  const transcriptText = trimmed
+    .map(m => `${m.role === "user" ? "👤 Patient" : "🤖 Yukti AI"}: ${m.content}`)
+    .join("\n\n");
+  const reason = `${header}\n\n--- TRANSCRIPT ---\n${transcriptText}`;
+
+  // Anti-spam: collapse repeat Yukti-style (chat-session-less) escalations
+  // from the same patient within the last hour into a single row. Scoped
+  // narrowly via `chatSessionId IS NULL` so a coexisting session-based
+  // pending consultation can't accidentally suppress or be overwritten by
+  // a Yukti escalation.
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const [recentYukti] = await db.select().from(doctorConsultationsTable)
+    .where(and(
+      eq(doctorConsultationsTable.userId, user.id),
+      eq(doctorConsultationsTable.source, "user_request"),
+      eq(doctorConsultationsTable.status, "pending"),
+      isNull(doctorConsultationsTable.chatSessionId),
+      gt(doctorConsultationsTable.createdAt, oneHourAgo),
+    ))
+    .orderBy(desc(doctorConsultationsTable.createdAt))
+    .limit(1);
+
+  if (recentYukti) {
+    const [updated] = await db.update(doctorConsultationsTable)
+      .set({ reason, riskLevel: riskLevel ?? recentYukti.riskLevel })
+      .where(eq(doctorConsultationsTable.id, recentYukti.id))
+      .returning();
+    res.json({ success: true, consultation: updated, merged: true });
+    return;
+  }
+
+  const [consultation] = await db.insert(doctorConsultationsTable).values({
+    userId: user.id,
+    chatSessionId: null,
+    riskLevel: riskLevel ?? "high",
+    reason,
     status: "pending",
     source: "user_request",
   }).returning();

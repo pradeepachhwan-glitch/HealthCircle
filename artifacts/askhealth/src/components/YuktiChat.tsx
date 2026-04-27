@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useYuktiChat } from "@workspace/api-client-react";
 import { ChatMessage, ChatMessageRole } from "@workspace/api-client-react/src/generated/api.schemas";
-import { Send, Bot, User as UserIcon, X, Maximize2, Minimize2 } from "lucide-react";
+import { Send, Bot, User as UserIcon, X, Maximize2, Minimize2, Stethoscope, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 export function YuktiChat({ communityId, communityName }: { communityId?: number, communityName?: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,9 +17,49 @@ export function YuktiChat({ communityId, communityName }: { communityId?: number
     { role: "assistant", content: `Hello! I'm Yukti AI. How can I help you with ${communityName ? communityName : "your clinical questions"} today?` }
   ]);
   const [input, setInput] = useState("");
+  const [escalateState, setEscalateState] = useState<"idle" | "pending" | "sent">("idle");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const chatMutation = useYuktiChat();
+
+  const hasAssistantReply = messages.some(m => m.role === "assistant" && m !== messages[0]);
+
+  async function handleEscalateToDoctor() {
+    if (escalateState === "pending") return;
+    setEscalateState("pending");
+    try {
+      const res = await fetch(`${API_BASE}/chat/yukti/request-consultation`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript: messages,
+          riskLevel: "high",
+          communityName,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setEscalateState("sent");
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "✅ I've sent this conversation to a HealthCircle medical professional for review. A verified doctor will read the AI responses, edit or approve them, and reply to you shortly. You can keep chatting in the meantime.",
+        },
+      ]);
+    } catch {
+      setEscalateState("idle");
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "I couldn't reach the doctor review queue just now. Please try again in a moment, or call 108 if this is an emergency.",
+        },
+      ]);
+    }
+  }
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -124,6 +166,43 @@ export function YuktiChat({ communityId, communityName }: { communityId?: number
           </div>
         </ScrollArea>
         
+        {/* "Get a Doctor's Opinion" CTA — escalates the live transcript to a
+             HealthCircle medical professional via the medpro queue. Only
+             surfaces once the AI has actually said something so the patient
+             has context to escalate. */}
+        {hasAssistantReply && (
+          <div className="px-3 pt-2 pb-1 border-t bg-amber-50/40">
+            <Button
+              type="button"
+              size="sm"
+              variant={escalateState === "sent" ? "outline" : "default"}
+              disabled={escalateState !== "idle"}
+              onClick={handleEscalateToDoctor}
+              className={cn(
+                "w-full gap-1.5 text-xs h-9",
+                escalateState === "sent"
+                  ? "border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-50"
+                  : "bg-amber-500 hover:bg-amber-500/90 text-white",
+              )}
+              data-testid="button-escalate-doctor"
+            >
+              {escalateState === "pending" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {escalateState === "sent" && <CheckCircle2 className="w-3.5 h-3.5" />}
+              {escalateState === "idle" && <Stethoscope className="w-3.5 h-3.5" />}
+              {escalateState === "pending"
+                ? "Sending to a doctor..."
+                : escalateState === "sent"
+                  ? "Sent for medical review"
+                  : "Get a Doctor's Opinion"}
+            </Button>
+            {escalateState === "idle" && (
+              <p className="text-[10px] text-amber-700/80 text-center mt-1 leading-tight">
+                A verified HealthCircle doctor will review and edit/approve the AI responses
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="p-3 border-t bg-card">
           <form 
             onSubmit={(e) => { e.preventDefault(); handleSend(); }}
