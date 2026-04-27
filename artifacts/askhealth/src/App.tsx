@@ -24,7 +24,18 @@ import OnboardingFlow from "@/components/OnboardingFlow";
 import MedPro from "@/pages/medpro";
 import { useUser } from "@clerk/react";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: (failureCount, error: unknown) => {
+        if ((error as any)?.status === 401) return false;
+        return failureCount < 1;
+      },
+    },
+  },
+});
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;

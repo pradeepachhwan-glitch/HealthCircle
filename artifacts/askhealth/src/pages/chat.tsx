@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useClerk } from "@clerk/react";
 import {
   Send, Plus, Trash2, Bot, User, AlertTriangle, CheckCircle,
   Activity, Mic, Paperclip, Menu, X, ChevronRight, Stethoscope, ArrowLeft
@@ -176,6 +177,8 @@ function getCommunityFromUrl(): { slug: string; name: string } | null {
 
 export default function ChatPage() {
   const { toast } = useToast();
+  const { signOut } = useClerk();
+  const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [input, setInput] = useState("");
@@ -183,6 +186,16 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const communityContext = getCommunityFromUrl();
+
+  async function handleSessionExpired() {
+    toast({
+      title: "Session expired",
+      description: "Please sign in again to continue.",
+      variant: "destructive",
+    });
+    await signOut();
+    setLocation("/sign-in");
+  }
 
   const { data: communityPrompts } = useQuery<{ suggestedQuestions: string[] }>({
     queryKey: ["community-prompts", communityContext?.slug],
@@ -217,6 +230,7 @@ export default function ChatPage() {
   const createSession = useMutation({
     mutationFn: async () => {
       const r = await fetch(`${API_BASE}/chat/sessions`, { method: "POST", credentials: "include" });
+      if (r.status === 401) { const e = new Error("Unauthorized"); (e as any).status = 401; throw e; }
       if (!r.ok) throw new Error("Failed to create chat session");
       return r.json() as Promise<ChatSession>;
     },
@@ -224,7 +238,8 @@ export default function ChatPage() {
       qc.invalidateQueries({ queryKey: ["chat-sessions"] });
       setActiveSessionId(session.id);
     },
-    onError: () => {
+    onError: (err: Error) => {
+      if ((err as any).status === 401) { handleSessionExpired(); return; }
       toast({ title: "Error", description: "Couldn't start a new chat. Please try again.", variant: "destructive" });
     },
   });
@@ -249,6 +264,7 @@ export default function ChatPage() {
         body: JSON.stringify({ message }),
       });
       if (!r.ok) {
+        if (r.status === 401) { const e = new Error("Unauthorized"); (e as any).status = 401; throw e; }
         const body = await r.json().catch(() => ({}));
         throw new Error((body as any).error ?? "Failed to send message");
       }
@@ -262,6 +278,7 @@ export default function ChatPage() {
     },
     onError: (err: Error) => {
       setIsTyping(false);
+      if ((err as any).status === 401) { handleSessionExpired(); return; }
       toast({
         title: "Yukti is unavailable",
         description: err.message || "Failed to send message. Please try again.",

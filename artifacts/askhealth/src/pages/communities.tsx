@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useClerk } from "@clerk/react";
 import { MessageSquare, Users, Search, CheckCircle, Plus } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -128,14 +129,27 @@ function CategorySection({ label, communities, onJoin, onLeave }: {
 
 export default function Communities() {
   const { toast } = useToast();
+  const { signOut } = useClerk();
+  const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
 
-  const { data: communities = [], isLoading } = useQuery<Community[]>({
+  async function handleSessionExpired() {
+    await signOut();
+    setLocation("/sign-in");
+  }
+
+  const { data: rawCommunities, isLoading, isError } = useQuery<Community[]>({
     queryKey: ["communities"],
-    queryFn: () => fetch(`${API_BASE}/communities`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/communities`, { credentials: "include" });
+      if (!r.ok) throw new Error("Failed to fetch communities");
+      const data = await r.json();
+      return Array.isArray(data) ? data : [];
+    },
   });
+  const communities: Community[] = Array.isArray(rawCommunities) ? rawCommunities : [];
 
   const join = useMutation({
     mutationFn: (id: number) =>
@@ -175,6 +189,14 @@ export default function Communities() {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+        {isError && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-4">
+            <p className="text-sm text-amber-800">Your session has expired. Please sign in again to continue.</p>
+            <Button size="sm" className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white" onClick={handleSessionExpired}>
+              Sign in again
+            </Button>
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-1">Health Communities</h1>
           <p className="text-slate-500">Join communities relevant to your health journey and connect with others.</p>
