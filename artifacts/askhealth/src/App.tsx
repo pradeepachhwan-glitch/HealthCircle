@@ -5,7 +5,8 @@ import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import HealthCircleLogo from "@/components/HealthCircleLogo";
 import PWAInstallButton from "@/components/PWAInstallButton";
-import React, { useEffect, useRef } from "react";
+import { ContactModal, type ContactChannel } from "@/components/ContactModal";
+import React, { useEffect, useRef, useState } from "react";
 import { ClerkProvider, Show, useClerk, AuthenticateWithRedirectCallback } from '@clerk/react';
 import { shadcn } from '@clerk/themes';
 import { useGetCurrentUser } from "@workspace/api-client-react";
@@ -146,6 +147,16 @@ const HOW_IT_WORKS = [
 
 function Landing() {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+  // Single source of truth for the contact modal — opens when the user clicks
+  // any email/WhatsApp logo on the page. The contact details themselves are
+  // never rendered as plain text in the UI.
+  const [contactModal, setContactModal] = useState<{ open: boolean; channel: ContactChannel; topic?: string }>({
+    open: false,
+    channel: "email",
+  });
+  const openContact = (channel: ContactChannel, topic?: string) =>
+    setContactModal({ open: true, channel, topic });
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -416,40 +427,52 @@ function Landing() {
               <p className="text-slate-500 max-w-sm mx-auto">Reach out anytime — we respond within 24 hours.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-5 mb-14">
-              {/* EMAIL SUPPORT */}
+              {/* EMAIL SUPPORT — contact info hidden behind the logo button */}
               <div className="bg-white border border-slate-200 rounded-2xl p-7 text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group">
-                <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-5">
+                <button
+                  type="button"
+                  onClick={() => openContact("email", "Support Request")}
+                  className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-5 hover:bg-red-100 hover:scale-105 transition-all duration-200 cursor-pointer"
+                  aria-label="Open email contact form"
+                  title="Click to send us a message"
+                >
                   <svg viewBox="0 0 24 24" className="w-8 h-8" xmlns="http://www.w3.org/2000/svg">
                     <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z" fill="#EA4335"/>
                   </svg>
-                </div>
+                </button>
                 <h3 className="font-semibold text-slate-900 mb-2">Email Support</h3>
                 <p className="text-sm text-slate-500 mb-5 leading-relaxed">General inquiries, account help, or technical issues. We reply within 24 hours.</p>
-                <a
-                  href={`mailto:yukticare.support@gmail.com?subject=${encodeURIComponent("Support Request – HealthCircle")}&body=${encodeURIComponent("Hi HealthCircle Team,\n\nName: \nEmail: \nQuery:\n\n[Describe your issue or question here]\n\nThank you")}`}
+                <button
+                  type="button"
+                  onClick={() => openContact("email", "Support Request")}
                   className="inline-flex items-center gap-1.5 text-sm text-red-600 font-semibold hover:underline underline-offset-2 transition-colors"
                 >
-                  yukticare.support@gmail.com
-                </a>
+                  Contact via Email →
+                </button>
               </div>
 
-              {/* WHATSAPP / PARTNERSHIPS */}
+              {/* WHATSAPP / PARTNERSHIPS — number hidden behind the logo button */}
               <div className="bg-white border border-slate-200 rounded-2xl p-7 text-center shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group">
-                <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-5">
+                <button
+                  type="button"
+                  onClick={() => openContact("whatsapp", "Partnership Enquiry")}
+                  className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-5 hover:bg-green-100 hover:scale-105 transition-all duration-200 cursor-pointer"
+                  aria-label="Open WhatsApp contact form"
+                  title="Click to send us a message"
+                >
                   <svg viewBox="0 0 24 24" className="w-8 h-8" xmlns="http://www.w3.org/2000/svg" fill="#25D366">
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
                   </svg>
-                </div>
+                </button>
                 <h3 className="font-semibold text-slate-900 mb-2">WhatsApp & Partnerships</h3>
                 <p className="text-sm text-slate-500 mb-5 leading-relaxed">Chat with us on WhatsApp — hospitals, clinics, health brands or anyone with a question.</p>
-                <a
-                  href={`https://wa.me/919278347143?text=${encodeURIComponent("Hi HealthCircle Team! 👋 I'm interested in partnering with HealthCircle.\n\nOrganization/Name: \nEmail: \nPartnership Interest:\n\n[Tell us more about your interest]")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => openContact("whatsapp", "Partnership Enquiry")}
                   className="inline-flex items-center gap-1.5 text-sm text-green-600 font-semibold hover:underline underline-offset-2 transition-colors"
                 >
-                  +91 92783 47143
-                </a>
+                  Message us on WhatsApp →
+                </button>
               </div>
 
               {/* DOCTOR ONBOARDING */}
@@ -461,15 +484,14 @@ function Landing() {
                   <Link href="/sign-up" className="text-sm text-primary font-semibold hover:underline underline-offset-2 transition-colors">
                     Create an account →
                   </Link>
-                  <a
-                    href={`https://wa.me/919278347143?text=${encodeURIComponent("Hi HealthCircle Team! 👋 I'm a medical professional interested in joining the MedPro portal.\n\nName: \nSpecialization: \nRegistration No.: \nEmail: ")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => openContact("whatsapp", "Doctor Onboarding")}
                     className="inline-flex items-center gap-1.5 text-xs text-green-600 font-medium hover:underline"
                   >
                     <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
                     Or WhatsApp us to get verified
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -483,7 +505,7 @@ function Landing() {
                   ["Is the AI a replacement for doctors?", "No. Yukti AI provides guidance but always recommends a doctor for serious concerns."],
                   ["Is my health data private?", "Absolutely. Encrypted and never sold to third parties."],
                   ["Can I ask questions in Hindi?", "Yes, Yukti AI responds in English and Hindi."],
-                  ["How do I become a verified doctor?", "Create an account, then contact us at yukticare.support@gmail.com or WhatsApp +91 92783 47143 to get verified."],
+                  ["How do I become a verified doctor?", "Create an account, then use the Email or WhatsApp contact buttons above to request verification."],
                   ["How quickly do doctors respond?", "Most Medical Professionals respond within 24-48 hours."],
                 ].map(([q, a]) => (
                   <div key={q} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200">
@@ -512,19 +534,19 @@ function Landing() {
           </div>
         </section>
 
-        {/* ── FLOATING WHATSAPP BUTTON ── */}
-        <a
-          href={`https://wa.me/919278347143?text=${encodeURIComponent("Hi HealthCircle Team! 👋 I have a question:\n\n")}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        {/* ── FLOATING WHATSAPP BUTTON — opens contact form (no number visible) ── */}
+        <button
+          type="button"
+          onClick={() => openContact("whatsapp", "Quick Question")}
           className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#25D366] text-white px-4 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 hover:bg-[#22c55e] transition-all duration-200 group"
           title="Chat on WhatsApp"
+          aria-label="Open WhatsApp contact form"
         >
           <svg viewBox="0 0 24 24" className="w-6 h-6 flex-shrink-0" fill="white" xmlns="http://www.w3.org/2000/svg">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
           </svg>
           <span className="text-sm font-semibold leading-none">Chat with us</span>
-        </a>
+        </button>
 
         {/* ── FOOTER ── */}
         <footer className="bg-slate-50 border-t border-slate-100 py-10 px-4">
@@ -534,12 +556,20 @@ function Landing() {
               {[["about","About"],["solutions","Solutions"],["for-doctors","For Doctors"],["support","Support"]].map(([id,label]) => (
                 <button key={id} onClick={() => scrollTo(id)} className="hover:text-primary transition-colors duration-200">{label}</button>
               ))}
-              <a href={`mailto:yukticare.support@gmail.com?subject=${encodeURIComponent("HealthCircle Enquiry")}&body=${encodeURIComponent("Hi HealthCircle Team,\n\nName: \nEmail: \nQuery:\n\nThank you")}`} className="hover:text-primary transition-colors duration-200">Contact</a>
+              <button type="button" onClick={() => openContact("email")} className="hover:text-primary transition-colors duration-200">Contact</button>
             </div>
             <p className="text-xs text-slate-400">© 2025 HealthCircle. India-first healthcare.</p>
           </div>
         </footer>
       </main>
+
+      {/* Shared contact modal — opened from email/WhatsApp logos, footer link, and floating button. */}
+      <ContactModal
+        open={contactModal.open}
+        onOpenChange={(open) => setContactModal((s) => ({ ...s, open }))}
+        channel={contactModal.channel}
+        topic={contactModal.topic}
+      />
     </div>
   );
 }
