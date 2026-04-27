@@ -45,6 +45,8 @@ interface SearchResult {
   discussions: Discussion[];
   mapQuery: string;
   ai_synthesized: boolean;
+  detectedSpecialty: string | null;
+  providerEmptyReason: "no_specialty_match" | "no_general_match" | null;
 }
 
 interface Coords { lat: number; lng: number; }
@@ -160,25 +162,28 @@ export default function SearchPage() {
             </div>
           )}
 
-          {/* Search bar */}
-          <div className="relative">
-            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          {/* Search bar — flex layout (more robust than absolute positioning across viewport widths). */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); doSearch(query); }}
+            className="flex items-center gap-2 bg-white rounded-2xl shadow-md border border-slate-200 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20 px-3 h-14 transition-all"
+          >
+            <SearchIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
             <Input
               ref={inputRef}
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKey}
               placeholder="Search symptoms, conditions, doctors, treatments..."
-              className="pl-12 pr-28 h-14 text-base rounded-2xl shadow-md border-slate-200 focus-visible:ring-primary/30 bg-white"
+              className="flex-1 h-10 border-0 shadow-none bg-transparent text-base focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
             />
             <Button
-              onClick={() => doSearch(query)}
+              type="submit"
               disabled={loading || !query.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-10 px-5 bg-primary hover:bg-primary/90 rounded-xl text-sm"
+              className="flex-shrink-0 h-10 px-5 bg-primary hover:bg-primary/90 rounded-xl text-sm"
             >
               {loading ? "Searching…" : "Search"}
             </Button>
-          </div>
+          </form>
 
           {/* Trending chips */}
           {!submittedQuery && (
@@ -310,11 +315,33 @@ export default function SearchPage() {
                 )}
               </div>
 
+              {/* Honest empty state — only shown when we genuinely have no
+                   verified specialists for the query. Better UX than silently
+                   serving unrelated doctors. */}
+              {result.providers.length === 0 && result.providerEmptyReason === "no_specialty_match" && result.detectedSpecialty && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                  <h3 className="text-sm font-semibold text-amber-900 mb-1 flex items-center gap-1.5">
+                    <Stethoscope className="w-4 h-4" /> No verified {result.detectedSpecialty}s yet
+                  </h3>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    We're growing our verified specialist network across India. In the meantime, use the map above to find nearby {result.detectedSpecialty}s, or join our community to ask peers.
+                  </p>
+                  <Link href="/providers">
+                    <Button size="sm" variant="outline" className="mt-3 h-8 text-xs border-amber-300 text-amber-900 hover:bg-amber-100">
+                      Browse all verified providers
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
               {/* In-app DB providers (if any) */}
               {result.providers.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
-                    <Stethoscope className="w-4 h-4 text-primary" /> HealthCircle Verified Providers
+                    <Stethoscope className="w-4 h-4 text-primary" />
+                    {result.detectedSpecialty
+                      ? <>HealthCircle Verified {result.detectedSpecialty}s</>
+                      : <>HealthCircle Verified Providers</>}
                   </h3>
                   <div className="space-y-3">
                     {result.providers.map((p, i) => (

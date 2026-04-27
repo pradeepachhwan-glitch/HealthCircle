@@ -16,6 +16,10 @@ export interface SearchResult {
   discussions: DiscussionResult[];
   mapQuery: string;
   ai_synthesized: boolean;
+  /** The medical specialty inferred from the query, if any (e.g. "Pediatrician"). */
+  detectedSpecialty: string | null;
+  /** Reason providers list is empty (lets the UI show an honest message). */
+  providerEmptyReason: "no_specialty_match" | "no_general_match" | null;
 }
 
 interface ProviderResult {
@@ -54,18 +58,38 @@ const TREATMENT_KEYWORDS = ["treat", "cure", "medicine", "drug", "therapy", "sur
 const DOCTOR_KEYWORDS = ["doctor", "specialist", "physician", "surgeon", "cardiologist", "dermatologist", "orthopedic", "gynecologist", "डॉक्टर", "चिकित्सक"];
 const LAB_KEYWORDS = ["test", "blood", "urine", "x-ray", "scan", "mri", "ct", "lab", "report", "sample", "टेस्ट", "जांच"];
 
+// NOTE: communitySlug values MUST match the slugs seeded in the `communities` DB table.
+// Mismatches silently fall through and cause irrelevant communities to surface in results.
 const SPECIALTY_MAP: { keywords: string[]; specialty: string; communitySlug?: string }[] = [
-  { keywords: ["heart", "cardiac", "cardiologist", "chest pain", "blood pressure", "hypertension", "bp"], specialty: "Cardiologist", communitySlug: "heart-circle" },
-  { keywords: ["diabetes", "sugar", "insulin", "glucose"], specialty: "Endocrinologist", communitySlug: "sugar-care" },
+  { keywords: ["heart", "cardiac", "cardiologist", "chest pain", "blood pressure", "hypertension", "bp"], specialty: "Cardiologist", communitySlug: "heart-health" },
+  { keywords: ["diabetes", "sugar", "insulin", "glucose"], specialty: "Endocrinologist", communitySlug: "diabetes-care" },
+  { keywords: ["thyroid", "hormone", "hormonal", "pcos", "pcod"], specialty: "Endocrinologist", communitySlug: "thyroid-hormonal" },
   { keywords: ["skin", "rash", "acne", "dermatologist", "eczema"], specialty: "Dermatologist" },
-  { keywords: ["bone", "joint", "back pain", "knee", "orthopedic", "fracture"], specialty: "Orthopedic Surgeon" },
-  { keywords: ["pregnan", "gynec", "menstrual", "period", "ovary", "uterus", "मातृत्व"], specialty: "Gynecologist", communitySlug: "mom-journey" },
-  { keywords: ["mental", "anxiety", "depression", "stress", "panic", "sleep"], specialty: "Psychiatrist", communitySlug: "mind-space" },
-  { keywords: ["child", "kid", "pediatric", "baby"], specialty: "Pediatrician" },
-  { keywords: ["lung", "breathing", "asthma", "cough", "respiratory"], specialty: "Pulmonologist" },
-  { keywords: ["fitness", "weight", "obesity", "exercise", "diet"], specialty: "General Physician", communitySlug: "fit-life" },
-  { keywords: ["work", "burnout", "workplace stress"], specialty: "Psychiatrist", communitySlug: "work-reset" },
+  { keywords: ["bone", "joint", "back pain", "knee", "orthopedic", "fracture", "arthritis"], specialty: "Orthopedic Surgeon", communitySlug: "bone-joint-health" },
+  { keywords: ["pregnan", "gynec", "menstrual", "period", "ovary", "uterus", "मातृत्व"], specialty: "Gynecologist", communitySlug: "pregnancy-motherhood" },
+  { keywords: ["fertility", "ivf", "conceive", "infertil"], specialty: "Gynecologist", communitySlug: "fertility-ivf" },
+  { keywords: ["mental", "anxiety", "depression", "stress", "panic", "sleep", "mood"], specialty: "Psychiatrist", communitySlug: "mental-wellness" },
+  { keywords: ["child", "kid", "pediatr", "paediatr", "baby", "infant", "toddler", "बच्चे", "बच्चा"], specialty: "Pediatrician", communitySlug: "child-health" },
+  { keywords: ["elder", "senior", "geriatric", "old age"], specialty: "General Physician", communitySlug: "elder-care" },
+  { keywords: ["lung", "breathing", "asthma", "cough", "respiratory"], specialty: "Pulmonologist", communitySlug: "respiratory-health" },
+  { keywords: ["fitness", "weight", "obesity", "exercise"], specialty: "General Physician", communitySlug: "weight-loss-fitness" },
+  { keywords: ["nutrition", "diet", "food", "meal"], specialty: "Dietitian", communitySlug: "nutrition-diet" },
+  { keywords: ["work", "burnout", "workplace stress"], specialty: "Psychiatrist", communitySlug: "work-stress-burnout" },
+  { keywords: ["cancer", "tumor", "tumour", "oncolog", "chemo"], specialty: "Oncologist", communitySlug: "cancer-support" },
+  { keywords: ["brain", "neuro", "migraine", "headache", "seizure", "epilepsy"], specialty: "Neurologist", communitySlug: "neurology-brain" },
 ];
+
+// Allow-list of community slugs that may appear in search results. Excludes
+// admin/business communities (clinical-ops, rcm, isb-alumni) so health-seekers
+// only see health-relevant peer groups.
+const HEALTH_COMMUNITY_SLUGS = new Set([
+  "heart-health", "mental-wellness", "diabetes-care", "thyroid-hormonal",
+  "bone-joint-health", "pregnancy-motherhood", "pcos-womens-health",
+  "fertility-ivf", "child-health", "elder-care", "weight-loss-fitness",
+  "nutrition-diet", "sleep-recovery", "respiratory-health", "cancer-support",
+  "infectious-diseases", "work-stress-burnout", "digital-health",
+  "alternative-medicine", "neurology-brain",
+]);
 
 // Same forbidden-platforms list used by Yukti chat — keeps the search summary on-platform.
 const FORBIDDEN_REFERRALS = [
@@ -300,6 +324,8 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       discussions: [],
       mapQuery: "",
       ai_synthesized: false,
+      detectedSpecialty: null,
+      providerEmptyReason: null,
     };
   }
 
@@ -309,24 +335,42 @@ export async function runHealthSearch(query: string, userId?: number, language?:
   const { specialty, communitySlug } = detectSpecialty(query);
 
   // ── Providers (doctors + hospitals) ──
+  // If a specialty was detected but we have ZERO doctors of that specialty in
+  // our verified network, we DO NOT silently backfill with random doctors —
+  // that misleads users (e.g. searching "pediatrician" and getting a cardiologist
+  // is a worse experience than an honest "no verified pediatricians yet").
   let providers: ProviderResult[] = [];
+  let specialtyMatched = false;
+  let providerEmptyReason: "no_specialty_match" | "no_general_match" | null = null;
   try {
     if (intent !== "lab") {
-      const conditions = [];
-      if (specialty) conditions.push(ilike(doctorsTable.specialty, `%${specialty}%`));
-      conditions.push(ilike(doctorsTable.name, `%${query}%`));
-      conditions.push(ilike(doctorsTable.specialty, `%${query}%`));
-      conditions.push(ilike(doctorsTable.location, `%${query}%`));
+      let final: typeof doctorsTable.$inferSelect[] = [];
 
-      const doctors = await db
-        .select()
-        .from(doctorsTable)
-        .where(and(eq(doctorsTable.available, true), or(...conditions)))
-        .limit(5);
-
-      let final = doctors;
-      if (final.length === 0) {
-        final = await db.select().from(doctorsTable).where(eq(doctorsTable.available, true)).limit(5);
+      if (specialty) {
+        // Strict: only doctors actually matching the requested specialty.
+        final = await db
+          .select()
+          .from(doctorsTable)
+          .where(and(
+            eq(doctorsTable.available, true),
+            ilike(doctorsTable.specialty, `%${specialty}%`),
+          ))
+          .limit(5);
+        specialtyMatched = final.length > 0;
+        if (!specialtyMatched) providerEmptyReason = "no_specialty_match";
+      } else {
+        // No specialty intent: fuzzy match on name/specialty/location.
+        const conditions = [
+          ilike(doctorsTable.name, `%${query}%`),
+          ilike(doctorsTable.specialty, `%${query}%`),
+          ilike(doctorsTable.location, `%${query}%`),
+        ];
+        final = await db
+          .select()
+          .from(doctorsTable)
+          .where(and(eq(doctorsTable.available, true), or(...conditions)))
+          .limit(5);
+        if (final.length === 0) providerEmptyReason = "no_general_match";
       }
 
       providers = providers.concat(
@@ -356,6 +400,10 @@ export async function runHealthSearch(query: string, userId?: number, language?:
   }
 
   // ── Communities ──
+  // Only health communities ever surface here. Admin/business communities
+  // (clinical-ops, rcm, isb-alumni) are excluded via HEALTH_COMMUNITY_SLUGS so
+  // a health-seeker never sees "ISB Alumni Network" while searching for a
+  // pediatrician.
   let relatedCommunities: RelatedCommunity[] = [];
   try {
     const allCommunities = await db
@@ -369,20 +417,32 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       .from(communitiesTable)
       .where(eq(communitiesTable.isArchived, false));
 
+    const healthOnly = allCommunities.filter(c => HEALTH_COMMUNITY_SLUGS.has(c.slug));
+
+    // 1. Direct match for the detected specialty's community (highest signal).
     if (communitySlug) {
-      const direct = allCommunities.find(c => c.slug === communitySlug);
+      const direct = healthOnly.find(c => c.slug === communitySlug);
       if (direct) relatedCommunities.push(direct);
     }
+
+    // 2. Fuzzy text match against community name/description.
     const lowerQ = query.toLowerCase();
-    const fuzzy = allCommunities
-      .filter(c => c.slug !== communitySlug)
-      .filter(c => c.name.toLowerCase().includes(lowerQ) || (c.description ?? "").toLowerCase().includes(lowerQ));
+    const fuzzy = healthOnly
+      .filter(c => !relatedCommunities.find(r => r.id === c.id))
+      .filter(c =>
+        c.name.toLowerCase().includes(lowerQ) ||
+        (c.description ?? "").toLowerCase().includes(lowerQ)
+      );
     relatedCommunities = relatedCommunities.concat(fuzzy.slice(0, 2));
+
+    // 3. Backfill from a curated "popular" set, not alphabetical order.
     if (relatedCommunities.length < 3) {
-      const remaining = allCommunities
-        .filter(c => !relatedCommunities.find(r => r.id === c.id))
-        .slice(0, 3 - relatedCommunities.length);
-      relatedCommunities = relatedCommunities.concat(remaining);
+      const POPULAR_FALLBACK = ["heart-health", "mental-wellness", "diabetes-care", "weight-loss-fitness", "child-health"];
+      const popular = POPULAR_FALLBACK
+        .map(slug => healthOnly.find(c => c.slug === slug))
+        .filter((c): c is NonNullable<typeof c> => !!c)
+        .filter(c => !relatedCommunities.find(r => r.id === c.id));
+      relatedCommunities = relatedCommunities.concat(popular.slice(0, 3 - relatedCommunities.length));
     }
   } catch {
     // graceful
@@ -415,7 +475,9 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       .limit(5);
 
     discussions = rows
-      .filter(r => r.communitySlug && r.communityName)
+      // Health allow-list applies here too — a peer post in "Clinical Ops" or
+      // "ISB Alumni" must never appear inside a health-search result.
+      .filter(r => r.communitySlug && r.communityName && HEALTH_COMMUNITY_SLUGS.has(r.communitySlug))
       .map(r => ({
         id: r.id,
         title: r.title,
@@ -454,6 +516,8 @@ export async function runHealthSearch(query: string, userId?: number, language?:
     discussions,
     mapQuery,
     ai_synthesized: aiUsed,
+    detectedSpecialty: specialty,
+    providerEmptyReason,
   };
 }
 

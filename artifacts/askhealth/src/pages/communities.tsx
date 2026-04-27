@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { useClerk } from "@clerk/react";
+import { useClerk, useAuth } from "@clerk/react";
 import { MessageSquare, Users, Search, CheckCircle, Plus, Crown } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -147,14 +147,25 @@ export default function Communities() {
     setLocation("/sign-in");
   }
 
+  // Wait until Clerk has finished bootstrapping before firing the query.
+  // Otherwise the request goes out before the session token is available, the
+  // server returns 401, and the user sees "sign in again" even though they
+  // already are signed in.
+  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+
   const { data: rawCommunities, isLoading, isError } = useQuery<Community[]>({
     queryKey: ["communities"],
+    enabled: clerkLoaded && isSignedIn === true,
     queryFn: async () => {
       const r = await fetch(`${API_BASE}/communities`, { credentials: "include" });
+      if (r.status === 401) {
+        throw new Error("Session expired");
+      }
       if (!r.ok) throw new Error("Failed to fetch communities");
       const data = await r.json();
       return Array.isArray(data) ? data : [];
     },
+    retry: 1,
   });
   const communities: Community[] = Array.isArray(rawCommunities) ? rawCommunities : [];
 
