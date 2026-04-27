@@ -3,6 +3,8 @@ import { doctorsTable, hospitalsTable, searchLogsTable, communitiesTable, postsT
 import { ilike, or, eq, and, desc, sql } from "drizzle-orm";
 import { aiChatJson } from "./aiClient";
 import { detectEmergency } from "./emergencyDetect";
+import { fetchLiveDoctors, fetchLiveHospitals } from "./osmProviders";
+import { logger } from "./logger";
 
 export type SearchIntent = "symptom" | "treatment" | "doctor" | "lab" | "general";
 
@@ -23,13 +25,16 @@ export interface SearchResult {
 }
 
 interface ProviderResult {
-  id: number;
+  // Number for in-DB rows (serial PK), string for live OSM rows ("osm-d-…").
+  id: number | string;
   type: "doctor" | "hospital";
   name: string;
   specialty?: string;
   location: string;
   rating: string;
   available?: boolean;
+  source?: "openstreetmap";
+  sourceUrl?: string;
 }
 
 interface RelatedCommunity {
@@ -289,7 +294,73 @@ async function synthesizeSummary(
   return { text, aiUsed: true };
 }
 
-export async function runHealthSearch(query: string, userId?: number, language?: string): Promise<SearchResult> {
+export interface SearchLocation {
+  city?: string;
+  coords?: { lat: number; lng: number };
+}
+
+/**
+ * Pull the leading "city" token out of values like "Faridabad, Haryana" so
+ * we match DB rows storing either short or long form.
+ */
+function cityToken(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  const t = raw.split(",")[0].trim();
+  return t.length > 0 ? t : null;
+}
+
+/**
+ * Reverse-geocode browser coords to a human-readable city using OSM
+ * Nominatim. Cached via a bounded LRU-ish Map (Map iteration is insertion
+ * order — we evict the oldest entries when the cap is hit). Failures are
+ * negative-cached for a shorter TTL so a Nominatim outage doesn't trigger
+ * a thundering-herd of retries or log-spam.
+ */
+const reverseCache = new Map<string, { city: string | null; expires: number }>();
+const REVERSE_TTL_MS = 30 * 60 * 1000;
+const REVERSE_NEG_TTL_MS = 5 * 60 * 1000;
+const REVERSE_CACHE_MAX = 1000;
+
+function setReverseCache(key: string, city: string | null, ttl: number): void {
+  if (reverseCache.size >= REVERSE_CACHE_MAX) {
+    // Evict oldest insertion first (Map preserves insertion order).
+    const oldest = reverseCache.keys().next().value;
+    if (oldest !== undefined) reverseCache.delete(oldest);
+  }
+  reverseCache.set(key, { city, expires: Date.now() + ttl });
+}
+
+async function reverseGeocodeCity(lat: number, lng: number): Promise<string | null> {
+  const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+  const hit = reverseCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.city;
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { "User-Agent": "HealthCircle/1.0 (healthcircle.app; contact@healthcircle.app)" },
+    }).finally(() => clearTimeout(t));
+    if (!r.ok) { setReverseCache(key, null, REVERSE_NEG_TTL_MS); return null; }
+    const j = (await r.json()) as { address?: Record<string, string> };
+    const a = j.address ?? {};
+    const city = a.city || a.town || a.village || a.municipality || a.county || a.state_district || a.state || null;
+    setReverseCache(key, city, city ? REVERSE_TTL_MS : REVERSE_NEG_TTL_MS);
+    return city;
+  } catch (err) {
+    logger.warn({ err, lat, lng }, "reverse geocode failed");
+    setReverseCache(key, null, REVERSE_NEG_TTL_MS);
+    return null;
+  }
+}
+
+export async function runHealthSearch(
+  query: string,
+  userId?: number,
+  language?: string,
+  location?: SearchLocation,
+): Promise<SearchResult> {
   const intent = classifyIntent(query);
   // Emergency hard-stop overrides any heuristic risk score — if the query
   // includes life-threatening triggers (chest pain, suicide, breathing
@@ -331,8 +402,22 @@ export async function runHealthSearch(query: string, userId?: number, language?:
 
   const risk = assessRisk(query, intent);
   const recommendations = getRecommendations(intent, risk);
-  const mapQuery = getMapQuery(intent, query);
   const { specialty, communitySlug } = detectSpecialty(query);
+
+  // ── Resolve user's city ──
+  // Prefer explicit `city` param; otherwise reverse-geocode the browser
+  // coords. The result is used (a) as a hard SQL filter on DB providers and
+  // (b) as the bbox for the OSM live fallback when the DB has no city-local
+  // matches.
+  let cityFull: string | null = location?.city?.trim() || null;
+  if (!cityFull && location?.coords) {
+    cityFull = await reverseGeocodeCity(location.coords.lat, location.coords.lng);
+  }
+  const cityShort = cityToken(cityFull);
+
+  // mapQuery now includes the resolved city when available, so the embedded
+  // Google Map zooms to the user's area instead of "near me" guessing.
+  const mapQuery = cityFull ? `${getMapQuery(intent, query)} ${cityFull}` : getMapQuery(intent, query);
 
   // ── Providers (doctors + hospitals) ──
   // If a specialty was detected but we have ZERO doctors of that specialty in
@@ -340,36 +425,34 @@ export async function runHealthSearch(query: string, userId?: number, language?:
   // that misleads users (e.g. searching "pediatrician" and getting a cardiologist
   // is a worse experience than an honest "no verified pediatricians yet").
   let providers: ProviderResult[] = [];
-  let specialtyMatched = false;
   let providerEmptyReason: "no_specialty_match" | "no_general_match" | null = null;
   try {
     if (intent !== "lab") {
       let final: typeof doctorsTable.$inferSelect[] = [];
 
+      const cityCond = cityShort ? ilike(doctorsTable.location, `%${cityShort}%`) : null;
+
       if (specialty) {
-        // Strict: only doctors actually matching the requested specialty.
-        final = await db
-          .select()
-          .from(doctorsTable)
-          .where(and(
-            eq(doctorsTable.available, true),
-            ilike(doctorsTable.specialty, `%${specialty}%`),
-          ))
-          .limit(5);
-        specialtyMatched = final.length > 0;
-        if (!specialtyMatched) providerEmptyReason = "no_specialty_match";
+        // Strict: only doctors actually matching the requested specialty
+        // AND (when known) located in the user's city.
+        const conds = [eq(doctorsTable.available, true), ilike(doctorsTable.specialty, `%${specialty}%`)];
+        if (cityCond) conds.push(cityCond);
+        final = await db.select().from(doctorsTable).where(and(...conds)).limit(5);
+        if (final.length === 0) providerEmptyReason = "no_specialty_match";
       } else {
-        // No specialty intent: fuzzy match on name/specialty/location.
-        const conditions = [
+        // No specialty intent: fuzzy match on name/specialty/location,
+        // AND-ed with city when known so a "diabetes" search in Faridabad
+        // doesn't surface Mumbai dummy rows. Location stays inside the
+        // fuzzy OR so callers without coords (no city filter) can still
+        // hit doctors via "<query> mumbai" style text searches.
+        const fuzzy = or(
           ilike(doctorsTable.name, `%${query}%`),
           ilike(doctorsTable.specialty, `%${query}%`),
           ilike(doctorsTable.location, `%${query}%`),
-        ];
-        final = await db
-          .select()
-          .from(doctorsTable)
-          .where(and(eq(doctorsTable.available, true), or(...conditions)))
-          .limit(5);
+        );
+        const conds = [eq(doctorsTable.available, true), fuzzy];
+        if (cityCond) conds.push(cityCond);
+        final = await db.select().from(doctorsTable).where(and(...conds)).limit(5);
         if (final.length === 0) providerEmptyReason = "no_general_match";
       }
 
@@ -384,17 +467,68 @@ export async function runHealthSearch(query: string, userId?: number, language?:
           available: d.available,
         })),
       );
+
+      // Live OSM fallback for doctors when:
+      //   (a) we know the user's city, and
+      //   (b) the DB had nothing in that city for this query.
+      // This guarantees the user sees real local options instead of an
+      // empty list or — worse — unrelated big-city dummy data.
+      if (final.length === 0 && cityFull) {
+        try {
+          const live = await fetchLiveDoctors({
+            specialty: specialty ?? undefined,
+            q: specialty ? undefined : query,
+            city: cityFull,
+          });
+          if (live.length > 0) {
+            providers = providers.concat(
+              live.slice(0, 5).map(d => ({
+                id: d.id,
+                type: "doctor" as const,
+                name: d.name,
+                specialty: d.specialty,
+                location: d.location,
+                rating: d.rating,
+                available: d.available,
+                source: "openstreetmap" as const,
+                sourceUrl: d.sourceUrl,
+              })),
+            );
+            providerEmptyReason = null;
+          }
+        } catch (err) {
+          logger.warn({ err }, "live doctor fallback failed");
+        }
+      }
     }
 
-    const hospitals = await db
-      .select()
-      .from(hospitalsTable)
-      .where(or(ilike(hospitalsTable.name, `%${query}%`), ilike(hospitalsTable.location, `%${query}%`)))
-      .limit(3);
+    // Hospitals — same AND-with-city pattern + OSM fallback.
+    const hConds = [or(ilike(hospitalsTable.name, `%${query}%`), ilike(hospitalsTable.location, `%${query}%`))];
+    if (cityShort) hConds.push(ilike(hospitalsTable.location, `%${cityShort}%`));
+    const hospitals = await db.select().from(hospitalsTable).where(and(...hConds)).limit(3);
 
     providers = providers.concat(
       hospitals.map(h => ({ id: h.id, type: "hospital" as const, name: h.name, location: h.location, rating: h.rating })),
     );
+
+    if (hospitals.length === 0 && cityFull) {
+      try {
+        const liveH = await fetchLiveHospitals({ q: query, city: cityFull });
+        providers = providers.concat(
+          liveH.slice(0, 3).map(h => ({
+            id: h.id,
+            type: "hospital" as const,
+            name: h.name,
+            location: h.location,
+            rating: h.rating,
+            source: "openstreetmap" as const,
+            sourceUrl: h.sourceUrl,
+          })),
+        );
+      } catch (err) {
+        logger.warn({ err }, "live hospital fallback failed");
+      }
+    }
   } catch {
     // graceful — empty is fine
   }

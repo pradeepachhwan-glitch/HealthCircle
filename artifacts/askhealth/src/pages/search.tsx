@@ -13,8 +13,14 @@ import { Link } from "wouter";
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 interface Provider {
-  id: number; type: "doctor" | "hospital"; name: string;
+  // Numeric for in-DB rows (serial PK), string for live OSM rows (e.g. "osm-d-12345")
+  // returned by the live nearby fallback. Frontend uses it only as a React key.
+  id: number | string;
+  type: "doctor" | "hospital";
+  name: string;
   specialty?: string; location: string; rating: string; available?: boolean;
+  source?: "openstreetmap";
+  sourceUrl?: string;
 }
 
 interface RelatedCommunity {
@@ -127,7 +133,17 @@ export default function SearchPage() {
     setResult(null);
     setMapLoaded(false);
     try {
-      const res = await fetch(`${API_BASE}/health-search?q=${encodeURIComponent(trimmed)}`, { credentials: "include" });
+      // Pass coords when we have them so the backend can reverse-geocode the
+      // user's city, filter the verified provider directory by it, and fall
+      // back to live OpenStreetMap nearby results when our DB has nothing
+      // local. Without this, every user — regardless of city — would get
+      // the same big-city seeded dummy rows.
+      const params = new URLSearchParams({ q: trimmed });
+      if (coords) {
+        params.set("lat", String(coords.lat));
+        params.set("lng", String(coords.lng));
+      }
+      const res = await fetch(`${API_BASE}/health-search?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Search failed");
       setResult(await res.json());
     } catch {
