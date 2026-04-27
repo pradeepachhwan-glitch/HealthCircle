@@ -10,7 +10,9 @@ export interface SearchResult {
   risk_level: "low" | "medium" | "high";
   recommendations: string[];
   providers: ProviderResult[];
-  articles: ArticleResult[];
+  mapQuery: string;
+  googleSearchUrl: string;
+  trustedLinks: TrustedLink[];
 }
 
 interface ProviderResult {
@@ -24,10 +26,11 @@ interface ProviderResult {
   boostScore: number;
 }
 
-interface ArticleResult {
+interface TrustedLink {
   title: string;
   source: string;
   url: string;
+  icon: string;
 }
 
 const SYMPTOM_KEYWORDS = ["pain", "ache", "fever", "cold", "cough", "headache", "dizzy", "nausea", "fatigue", "swelling", "rash", "bleed", "breathe", "chest", "stomach", "दर्द", "बुखार", "सिरदर्द", "खांसी"];
@@ -71,44 +74,72 @@ function getRecommendations(intent: SearchIntent, risk: "low" | "medium" | "high
   }
 }
 
-function getArticles(intent: SearchIntent, query: string): ArticleResult[] {
-  const baseArticles: Record<SearchIntent, ArticleResult[]> = {
-    symptom: [
-      { title: "When to See a Doctor for Common Symptoms", source: "Mayo Clinic", url: "https://www.mayoclinic.org" },
-      { title: "Understanding Symptom Severity", source: "WebMD", url: "https://www.webmd.com" },
-    ],
-    treatment: [
-      { title: "Evidence-Based Treatment Guidelines", source: "WHO", url: "https://www.who.int" },
-      { title: "Safe Medication Practices", source: "NIH MedlinePlus", url: "https://medlineplus.gov" },
-    ],
-    doctor: [
-      { title: "How to Choose the Right Specialist", source: "Healthline", url: "https://www.healthline.com" },
-      { title: "What to Expect at Your First Appointment", source: "Mayo Clinic", url: "https://www.mayoclinic.org" },
-    ],
-    lab: [
-      { title: "Complete Guide to Medical Tests", source: "NIH MedlinePlus", url: "https://medlineplus.gov/lab-tests/" },
-      { title: "Understanding Your Lab Results", source: "Cleveland Clinic", url: "https://my.clevelandclinic.org" },
-    ],
-    general: [
-      { title: "Preventive Healthcare Basics", source: "CDC", url: "https://www.cdc.gov" },
-      { title: "Building Healthy Habits", source: "WHO", url: "https://www.who.int" },
-    ],
-  };
-  return baseArticles[intent] ?? baseArticles.general;
+function getMapQuery(intent: SearchIntent, query: string): string {
+  switch (intent) {
+    case "doctor": return `${query} doctor hospital near me`;
+    case "lab": return `diagnostic lab pathology near me`;
+    case "symptom": return `doctor clinic hospital near me`;
+    case "treatment": return `hospital specialist clinic near me`;
+    default: return `doctor hospital clinic near me`;
+  }
+}
+
+function getTrustedLinks(intent: SearchIntent, query: string): TrustedLink[] {
+  const encoded = encodeURIComponent(query);
+  const links: TrustedLink[] = [
+    {
+      title: `Search "${query}" on 1mg`,
+      source: "1mg",
+      url: `https://www.1mg.com/search/all?name=${encoded}`,
+      icon: "💊",
+    },
+    {
+      title: `Find doctors for "${query}" on Practo`,
+      source: "Practo",
+      url: `https://www.practo.com/search/doctors?results_type=doctor&q=${encoded}`,
+      icon: "🩺",
+    },
+  ];
+
+  if (intent === "symptom" || intent === "general") {
+    links.push({
+      title: `${query} — National Health Portal India`,
+      source: "NHP India",
+      url: `https://www.nhp.gov.in/search?q=${encoded}`,
+      icon: "🏥",
+    });
+  }
+  if (intent === "lab") {
+    links.push({
+      title: `Book "${query}" lab test — Dr Lal PathLabs`,
+      source: "Dr Lal PathLabs",
+      url: `https://www.lalpathlabs.com/search?q=${encoded}`,
+      icon: "🔬",
+    });
+  }
+  links.push({
+    title: `Search "${query}" health articles`,
+    source: "Google Health",
+    url: `https://www.google.com/search?q=${encoded}+health+india+treatment`,
+    icon: "🔍",
+  });
+  return links;
 }
 
 export async function runHealthSearch(query: string, userId?: number, language?: string): Promise<SearchResult> {
   const intent = classifyIntent(query);
   const risk = assessRisk(query, intent);
   const recommendations = getRecommendations(intent, risk);
-  const articles = getArticles(intent, query);
+  const mapQuery = getMapQuery(intent, query);
+  const trustedLinks = getTrustedLinks(intent, query);
+  const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(query + " health india")}`;
 
   const searchTerms = query.split(" ").filter(t => t.length > 2);
   const searchConditions = searchTerms.map(term => ilike(doctorsTable.specialty, `%${term}%`));
 
   let providers: ProviderResult[] = [];
   try {
-    if (intent === "doctor" || intent === "symptom") {
+    if ((intent === "doctor" || intent === "symptom") && searchConditions.length > 0) {
       const doctors = await db
         .select()
         .from(doctorsTable)
@@ -142,8 +173,7 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       .where(
         or(
           ilike(hospitalsTable.name, `%${query}%`),
-          ilike(hospitalsTable.location, `%${query}%`),
-          sql`${hospitalsTable.specialties} && ARRAY[${query}]::text[]`
+          ilike(hospitalsTable.location, `%${query}%`)
         )
       )
       .limit(3);
@@ -160,7 +190,7 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       })),
     ];
   } catch {
-    // Search providers gracefully fails
+    // Provider search gracefully fails
   }
 
   if (userId) {
@@ -172,11 +202,11 @@ export async function runHealthSearch(query: string, userId?: number, language?:
   }
 
   const summaries: Record<SearchIntent, string> = {
-    symptom: `Based on your query about "${query}", here are relevant health insights and nearby providers who can help.`,
+    symptom: `Based on your query about "${query}", here are AI health insights and nearby care options to help you.`,
     treatment: `Here is evidence-based information about treatment options for "${query}".`,
-    doctor: `Found specialist doctors matching "${query}" along with relevant health information.`,
-    lab: `Here are details about the lab tests related to "${query}" and where you can get them done.`,
-    general: `Here is general health information related to "${query}".`,
+    doctor: `Here are specialist doctors and hospitals for "${query}" along with nearby care options.`,
+    lab: `Here are details about the lab tests related to "${query}" and where you can get them done nearby.`,
+    general: `Here is health information related to "${query}" along with nearby care options.`,
   };
 
   return {
@@ -185,6 +215,8 @@ export async function runHealthSearch(query: string, userId?: number, language?:
     risk_level: risk,
     recommendations,
     providers,
-    articles,
+    mapQuery,
+    googleSearchUrl,
+    trustedLinks,
   };
 }
