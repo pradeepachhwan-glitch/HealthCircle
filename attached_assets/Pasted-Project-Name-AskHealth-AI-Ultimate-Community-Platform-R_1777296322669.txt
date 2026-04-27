@@ -1,0 +1,52 @@
+Project Name: AskHealth AI - Ultimate Community Platform
+Role: Senior Full-Stack Architect & Product Lead
+
+Task: Build a high-performance, feature-rich community platform similar to Circle.so or Skool, but optimized for the healthcare sector. The app must include a comprehensive Admin Suite, dynamic community management, and a robust gamification system.
+
+1. Architecture & Multi-Tenancy:
+
+Admin Dashboard (God Mode): Create a secure /admin area accessible only to the Master Admin. From here, the admin must be able to:
+
+Create, edit, or archive new "Communities" (e.g., Clinical Ops, RCM, ISB Alumni).
+
+Global Broadcast: A tool to post a message or announcement simultaneously to all communities or a selection of them.
+
+User Management: View all users, assign "Moderator" roles, and manage bans.
+
+Community Model: Each community must have its own Feed, Member List, and "Ask AI" instance.
+
+Database: Use PostgreSQL. Design a schema with organizations, communities, posts, comments, users, and achievements tables.
+
+2. Gamification & Engagement (The Circle Killer):
+
+Scoring System: Users earn "Health Credits" for: Starting a discussion (+10), commenting (+5), and receiving an upvote (+2).
+
+Levels & Badges: Implement a Leveling system (Level 1-10). When a user hits a milestone, a "Badge" is automatically awarded (e.g., "Insight Leader," "First Responder").
+
+Leaderboards: Each community should have a weekly and all-time leaderboard visible in the sidebar.
+
+3. Feature-Rich Community Engine:
+
+The Feed: Support rich text, image uploads, and "Pinning" posts (Admin only).
+
+Yukti AI Assistant: Integrate a chat interface in every community. The AI must be "context-aware"—it knows which community it is in and tailors its health-ops advice accordingly.
+
+Global Search: A fast, fuzzy-search bar to find posts or members across the entire platform.
+
+4. Admin-to-Community Link:
+
+Syncing: Implement a "Master Post" feature where an admin can write one post and toggle "Post to all sub-communities" with a single checkbox.
+
+5. Tech Stack & UX:
+
+Frontend: React with Tailwind CSS. Use a professional "Clinical White & Deep Navy" theme.
+
+Backend: Node.js (Express).
+
+Authentication: Robust system with distinct "Admin," "Moderator," and "Member" roles.
+
+PWA: Ensure the app is fully installable with a mobile-first, bottom-tab navigation.
+
+6. Implementation Detail:
+
+Build the "Admin Dashboard" first so I can create the first community immediately. Ensure the UI is clean, using shadcn/ui components for a premium feel.

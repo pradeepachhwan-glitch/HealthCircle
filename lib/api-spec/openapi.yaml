@@ -1,22 +1,36 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AskHealth AI Community Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: communities
+    description: Community management
+  - name: posts
+    description: Post management
+  - name: comments
+    description: Comment management
+  - name: users
+    description: User management
+  - name: gamification
+    description: Gamification (Health Credits, badges, leaderboards)
+  - name: search
+    description: Global search
+  - name: admin
+    description: Admin operations
+  - name: ai
+    description: Yukti AI assistant
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,631 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Communities ──────────────────────────────────────────────────────────
+  /communities:
+    get:
+      operationId: listCommunities
+      tags: [communities]
+      summary: List all communities
+      parameters:
+        - name: includeArchived
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of communities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Community"
+    post:
+      operationId: createCommunity
+      tags: [communities]
+      summary: Create a new community (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommunityBody"
+      responses:
+        "201":
+          description: Created community
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Community"
+
+  /communities/{communityId}:
+    get:
+      operationId: getCommunity
+      tags: [communities]
+      summary: Get a community by ID
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Community
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Community"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCommunity
+      tags: [communities]
+      summary: Update a community (admin only)
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommunityBody"
+      responses:
+        "200":
+          description: Updated community
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Community"
+    delete:
+      operationId: archiveCommunity
+      tags: [communities]
+      summary: Archive a community (admin only)
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Archived
+
+  /communities/{communityId}/stats:
+    get:
+      operationId: getCommunityStats
+      tags: [communities]
+      summary: Get stats for a community (member count, post count, weekly activity)
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Community statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityStats"
+
+  /communities/{communityId}/members:
+    get:
+      operationId: getCommunityMembers
+      tags: [communities]
+      summary: Get members of a community
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Members list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+
+  # ─── Posts ──────────────────────────────────────────────────────────────
+  /communities/{communityId}/posts:
+    get:
+      operationId: listPosts
+      tags: [posts]
+      summary: List posts in a community
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+    post:
+      operationId: createPost
+      tags: [posts]
+      summary: Create a post in a community
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostBody"
+      responses:
+        "201":
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /communities/{communityId}/posts/pinned:
+    get:
+      operationId: getPinnedPosts
+      tags: [posts]
+      summary: Get pinned posts in a community
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Pinned posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+
+  /posts/{postId}:
+    get:
+      operationId: getPost
+      tags: [posts]
+      summary: Get a post by ID
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "404":
+          description: Not found
+    patch:
+      operationId: updatePost
+      tags: [posts]
+      summary: Update a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePostBody"
+      responses:
+        "200":
+          description: Updated post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+    delete:
+      operationId: deletePost
+      tags: [posts]
+      summary: Delete a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  /posts/{postId}/pin:
+    patch:
+      operationId: pinPost
+      tags: [posts]
+      summary: Pin/unpin a post (admin/moderator only)
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinPostBody"
+      responses:
+        "200":
+          description: Updated pin state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /posts/{postId}/upvote:
+    post:
+      operationId: upvotePost
+      tags: [posts]
+      summary: Upvote a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Upvote result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpvoteResult"
+
+  # ─── Comments ──────────────────────────────────────────────────────────
+  /posts/{postId}/comments:
+    get:
+      operationId: listComments
+      tags: [comments]
+      summary: List comments on a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+    post:
+      operationId: createComment
+      tags: [comments]
+      summary: Add a comment to a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentBody"
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+
+  /comments/{commentId}:
+    delete:
+      operationId: deleteComment
+      tags: [comments]
+      summary: Delete a comment
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  # ─── Users ───────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      operationId: getCurrentUser
+      tags: [users]
+      summary: Get current authenticated user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    patch:
+      operationId: updateCurrentUser
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (admin only)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get a user by ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/{userId}/role:
+    patch:
+      operationId: updateUserRole
+      tags: [users]
+      summary: Update a user's role (admin only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRoleBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/{userId}/ban:
+    patch:
+      operationId: banUser
+      tags: [users]
+      summary: Ban/unban a user (admin/moderator only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BanUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  # ─── Gamification ────────────────────────────────────────────────────────
+  /communities/{communityId}/leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [gamification]
+      summary: Get community leaderboard (weekly and all-time)
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [weekly, all_time]
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  /users/{userId}/achievements:
+    get:
+      operationId: getUserAchievements
+      tags: [gamification]
+      summary: Get a user's badges and achievements
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Achievements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Achievement"
+
+  /users/me/credits-summary:
+    get:
+      operationId: getMyCreditsSummary
+      tags: [gamification]
+      summary: Get current user's Health Credits summary (level, badges, weekly activity)
+      responses:
+        "200":
+          description: Credits summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditsSummary"
+
+  # ─── Search ──────────────────────────────────────────────────────────────
+  /search:
+    get:
+      operationId: globalSearch
+      tags: [search]
+      summary: Global fuzzy search across posts and members
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [all, posts, members]
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+
+  # ─── Admin ───────────────────────────────────────────────────────────────
+  /admin/broadcast:
+    post:
+      operationId: broadcastAnnouncement
+      tags: [admin]
+      summary: Broadcast an announcement to all or selected communities (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastBody"
+      responses:
+        "201":
+          description: Broadcast created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BroadcastResult"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get global platform statistics (admin only)
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  # ─── AI ──────────────────────────────────────────────────────────────────
+  /ai/chat:
+    post:
+      operationId: yuktiChat
+      tags: [ai]
+      summary: Chat with Yukti AI (community-aware health-ops assistant)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/YuktiChatBody"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YuktiChatResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +673,482 @@ components:
       required:
         - status
 
+    Community:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+        iconEmoji:
+          type: ["string", "null"]
+        coverColor:
+          type: ["string", "null"]
+        isArchived:
+          type: boolean
+        memberCount:
+          type: integer
+        postCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - slug
+        - isArchived
+        - memberCount
+        - postCount
+        - createdAt
+
+    CreateCommunityBody:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: ["string", "null"]
+        iconEmoji:
+          type: ["string", "null"]
+        coverColor:
+          type: ["string", "null"]
+      required:
+        - name
+        - slug
+
+    UpdateCommunityBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        iconEmoji:
+          type: ["string", "null"]
+        coverColor:
+          type: ["string", "null"]
+        isArchived:
+          type: ["boolean", "null"]
+
+    CommunityStats:
+      type: object
+      properties:
+        communityId:
+          type: integer
+        memberCount:
+          type: integer
+        postCount:
+          type: integer
+        commentCount:
+          type: integer
+        weeklyPosts:
+          type: integer
+        weeklyComments:
+          type: integer
+        weeklyNewMembers:
+          type: integer
+      required:
+        - communityId
+        - memberCount
+        - postCount
+        - commentCount
+        - weeklyPosts
+        - weeklyComments
+        - weeklyNewMembers
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+        communityId:
+          type: integer
+        authorId:
+          type: string
+        authorName:
+          type: string
+        authorAvatar:
+          type: ["string", "null"]
+        authorLevel:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        isPinned:
+          type: boolean
+        upvoteCount:
+          type: integer
+        commentCount:
+          type: integer
+        hasUpvoted:
+          type: boolean
+        isBroadcast:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - communityId
+        - authorId
+        - authorName
+        - title
+        - content
+        - isPinned
+        - upvoteCount
+        - commentCount
+        - hasUpvoted
+        - isBroadcast
+        - createdAt
+        - updatedAt
+
+    CreatePostBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+      required:
+        - title
+        - content
+
+    UpdatePostBody:
+      type: object
+      properties:
+        title:
+          type: ["string", "null"]
+        content:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+
+    PinPostBody:
+      type: object
+      properties:
+        isPinned:
+          type: boolean
+      required:
+        - isPinned
+
+    UpvoteResult:
+      type: object
+      properties:
+        upvoteCount:
+          type: integer
+        hasUpvoted:
+          type: boolean
+      required:
+        - upvoteCount
+        - hasUpvoted
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        authorId:
+          type: string
+        authorName:
+          type: string
+        authorAvatar:
+          type: ["string", "null"]
+        authorLevel:
+          type: integer
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - postId
+        - authorId
+        - authorName
+        - authorLevel
+        - content
+        - createdAt
+
+    CreateCommentBody:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        clerkId:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [admin, moderator, member]
+        isBanned:
+          type: boolean
+        healthCredits:
+          type: integer
+        level:
+          type: integer
+        weeklyCredits:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - clerkId
+        - displayName
+        - email
+        - role
+        - isBanned
+        - healthCredits
+        - level
+        - weeklyCredits
+        - createdAt
+
+    UpdateUserBody:
+      type: object
+      properties:
+        displayName:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+
+    UpdateUserRoleBody:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [admin, moderator, member]
+      required:
+        - role
+
+    BanUserBody:
+      type: object
+      properties:
+        isBanned:
+          type: boolean
+      required:
+        - isBanned
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        level:
+          type: integer
+        credits:
+          type: integer
+        badgeCount:
+          type: integer
+      required:
+        - rank
+        - userId
+        - displayName
+        - level
+        - credits
+        - badgeCount
+
+    Achievement:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        badgeName:
+          type: string
+        badgeDescription:
+          type: string
+        badgeIcon:
+          type: string
+        earnedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - badgeName
+        - badgeDescription
+        - badgeIcon
+        - earnedAt
+
+    CreditsSummary:
+      type: object
+      properties:
+        userId:
+          type: string
+        healthCredits:
+          type: integer
+        weeklyCredits:
+          type: integer
+        level:
+          type: integer
+        levelName:
+          type: string
+        creditsToNextLevel:
+          type: integer
+        progressPercent:
+          type: number
+        recentBadges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Achievement"
+      required:
+        - userId
+        - healthCredits
+        - weeklyCredits
+        - level
+        - levelName
+        - creditsToNextLevel
+        - progressPercent
+        - recentBadges
+
+    SearchResults:
+      type: object
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+        totalCount:
+          type: integer
+      required:
+        - posts
+        - members
+        - totalCount
+
+    BroadcastBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        communityIds:
+          type: ["array", "null"]
+          items:
+            type: integer
+        postToAll:
+          type: boolean
+      required:
+        - title
+        - content
+        - postToAll
+
+    BroadcastResult:
+      type: object
+      properties:
+        postsCreated:
+          type: integer
+        communityIds:
+          type: array
+          items:
+            type: integer
+      required:
+        - postsCreated
+        - communityIds
+
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalCommunities:
+          type: integer
+        totalPosts:
+          type: integer
+        totalComments:
+          type: integer
+        weeklyActiveUsers:
+          type: integer
+        newUsersThisWeek:
+          type: integer
+        topCommunities:
+          type: array
+          items:
+            $ref: "#/components/schemas/Community"
+      required:
+        - totalUsers
+        - totalCommunities
+        - totalPosts
+        - totalComments
+        - weeklyActiveUsers
+        - newUsersThisWeek
+        - topCommunities
+
+    YuktiChatBody:
+      type: object
+      properties:
+        message:
+          type: string
+        communityId:
+          type: ["integer", "null"]
+        communityName:
+          type: ["string", "null"]
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required:
+        - message
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    YuktiChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+        communityContext:
+          type: ["string", "null"]
+      required:
+        - reply
