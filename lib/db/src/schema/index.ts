@@ -16,3 +16,4 @@ export * from "./consents";
 export * from "./ai_summaries";
 export * from "./consultations";
 export * from "./payments";
+export * from "./api_usage";

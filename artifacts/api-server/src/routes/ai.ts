@@ -1,5 +1,7 @@
 import { Router } from "express";
-import { requireAuth } from "../lib/auth";
+import { getAuth } from "@clerk/express";
+import { requireAuth, getOrCreateUser } from "../lib/auth";
+import { checkQuota, consumeQuota } from "../lib/quota";
 import { logger } from "../lib/logger";
 import { buildCommunitySystemPrompt, getCommunitySuggestedQuestions } from "../lib/communityPrompts";
 
@@ -20,6 +22,20 @@ CRITICAL RULES:
 
 router.post("/ai/chat", requireAuth, async (req, res) => {
   const { message, communitySlug, communityName, history } = req.body;
+
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+
+  const quota = await checkQuota(user.id);
+  if (!quota.allowed) {
+    res.status(429).json({
+      error: "quota_exceeded",
+      message: `You've reached your ${quota.exceeded} AI question limit.`,
+      quota,
+    });
+    return;
+  }
 
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -67,6 +83,9 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
 
     const data = await response.json() as { choices: { message: { content: string } }[] };
     const reply = data.choices[0]?.message?.content ?? "I couldn't generate a response.";
+
+    // Only count successful AI calls toward quota.
+    await consumeQuota(user.id);
 
     res.json({ reply, communityContext: communityName ?? null, communitySlug: communitySlug ?? null });
   } catch (err) {

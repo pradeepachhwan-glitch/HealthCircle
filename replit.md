@@ -183,6 +183,18 @@ Admin promotes users via the GODMODE dashboard Users tab. Medical pros are verif
 - **External-referral sanitiser** (`healthAssistant.ts` + `searchEngine.ts`): regex strips Practo/1mg/Apollo 24/PharmEasy/Justdial/Lybrate/Netmeds/WebMD/Google/NHP from every AI summary; verified clean across all test queries.
 - **Voice + attachments** (`pages/chat.tsx`): browser Web Speech API for transcribed voice input (no audio file upload), image+PDF attachments validated via `/api/uploads/inline` (mime check + 4 MB cap).
 
+## Per-User AI Quota & 3-Month Subscription (Apr 2026)
+- **Limits**: 4 AI questions/day, 15/week, 50/month per user (rolling UTC-day windows). Emergencies bypass the quota.
+- **Where enforced** (server, `lib/quota.ts`):
+  - `POST /api/chat/sessions/:id/messages` — checks quota *after* emergency detection, *before* persisting the user's message; consumes only on successful AI reply.
+  - `POST /api/ai/chat` (legacy community AI) — same pattern; consumes after success.
+- **Storage**: `api_usage(user_id, day_key YYYY-MM-DD, count)` — one row per user per UTC day, upsert+increment via `ON CONFLICT (user_id, day_key) DO UPDATE`. `users.subscription_expires_at` (timestamptz, nullable) gates bypass.
+- **429 response shape**: `{ error: "quota_exceeded", message, quota: { exceeded, used:{daily,weekly,monthly}, limits:{4,15,50}, resetAt } }`. `resetAt` is the next UTC midnight (when the oldest in-window day rolls out).
+- **Status endpoint**: `GET /api/users/me/quota` returns the same `quota` shape (used by frontend to refresh after subscription).
+- **Subscription** (`POST /api/payments/upi/subscribe`): creates a UPI payment for ₹299 / 90 days (purpose `subscription_3mo`, payee VPA `9278347143@upi`). On `POST /api/payments/upi/confirm` with `payment.purpose === "subscription_3mo"`, calls `activateSubscription(user.id, 90)` which extends `subscription_expires_at` (stacks if user re-pays before expiry). Confirm is idempotent: conditional update `WHERE status='created'` so concurrent confirms don't double-grant.
+- **Frontend** (`components/QuotaExhaustedModal.tsx`, mounted in `pages/chat.tsx`): on a 429 from send-message, the modal shows current usage, the limit hit, the reset time, and a CTA "Subscribe to three month plan" → opens the existing UPI flow (link / copy UPI ID + reference / paste UTR). On confirm, modal closes and quota query is invalidated.
+- **Known limitation (pre-existing)**: UPI confirm trusts the user-supplied UTR (no provider verification yet). Same trust model as the existing community-premium flow; should be replaced with a provider webhook before scaling.
+
 ## Key Commands
 - `pnpm --filter @workspace/db run push` — Push DB schema changes
 - `pnpm --filter @workspace/db run seed-providers` — Re-seed doctors/hospitals

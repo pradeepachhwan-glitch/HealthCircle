@@ -7,6 +7,7 @@ import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { getHealthAssistantResponse } from "../lib/healthAssistant";
 import { detectLanguage } from "../lib/languageDetect";
 import { detectEmergency, buildEmergencyResponse } from "../lib/emergencyDetect";
+import { checkQuota, consumeQuota } from "../lib/quota";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -90,6 +91,24 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
 
   const language = detectLanguage(trimmedMessage);
 
+  // ── Emergency hard-stop ─────────────────────────────────────────────
+  // Emergencies bypass quota. We detect first so we can decide whether
+  // to enforce quota before persisting the user's message (avoiding
+  // orphan messages on 429).
+  const emergency = detectEmergency(trimmedMessage);
+
+  if (!emergency) {
+    const quotaPreview = await checkQuota(user.id);
+    if (!quotaPreview.allowed) {
+      res.status(429).json({
+        error: "quota_exceeded",
+        message: `You've reached your ${quotaPreview.exceeded} AI question limit.`,
+        quota: quotaPreview,
+      });
+      return;
+    }
+  }
+
   await db.insert(healthChatMessagesTable).values({
     sessionId,
     role: "user",
@@ -99,12 +118,6 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
     attachmentName: attachment?.name ?? null,
     language,
   });
-
-  // ── Emergency hard-stop ─────────────────────────────────────────────
-  // Runs BEFORE the AI call. If the user's message contains an emergency
-  // trigger (chest pain, suicidal ideation, severe bleeding, etc.), return
-  // a fixed 108/112 response. Never let the LLM soften this.
-  const emergency = detectEmergency(trimmedMessage);
   if (emergency) {
     const structured = buildEmergencyResponse(emergency.language);
     const [assistantMsg] = await db
@@ -119,6 +132,17 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
       })
       .returning();
     res.json({ userMessage: message, assistantMessage: assistantMsg, structured, emergency: true });
+    return;
+  }
+
+  // ── Per-user quota check (4/day, 15/week, 50/month; subscribers bypass) ──
+  const quota = await checkQuota(user.id);
+  if (!quota.allowed) {
+    res.status(429).json({
+      error: "quota_exceeded",
+      message: `You've reached your ${quota.exceeded} AI question limit.`,
+      quota,
+    });
     return;
   }
 
@@ -137,6 +161,8 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
       language,
       attachment?.url && attachment?.type ? { url: attachment.url, type: attachment.type } : null,
     );
+    // Only count successful AI calls toward quota.
+    await consumeQuota(user.id);
 
     const [assistantMsg] = await db
       .insert(healthChatMessagesTable)

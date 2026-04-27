@@ -3,8 +3,17 @@ import { getAuth } from "@clerk/express";
 import { db, usersTable, postsTable, commentsTable, communityMembersTable, communitiesTable } from "@workspace/db";
 import { eq, desc, count, and, or } from "drizzle-orm";
 import { requireAuth, requireAdmin, getOrCreateUser } from "../lib/auth";
+import { checkQuota } from "../lib/quota";
 
 const router = Router();
+
+router.get("/users/me/quota", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+  const quota = await checkQuota(user.id);
+  res.json(quota);
+});
 
 function toProfile(u: typeof usersTable.$inferSelect) {
   return {

@@ -21,6 +21,7 @@ export const usersTable = pgTable("users", {
   specialty: text("specialty"),
   registrationNumber: text("registration_number"),
   isVerifiedPro: boolean("is_verified_pro").notNull().default(false),
+  subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

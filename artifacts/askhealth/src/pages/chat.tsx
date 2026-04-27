@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
 import { useClerk, useAuth } from "@clerk/react";
+import { QuotaExhaustedModal, type QuotaInfo } from "@/components/QuotaExhaustedModal";
 import {
   Send, Plus, Trash2, Bot, User, AlertTriangle, CheckCircle,
   Activity, Mic, MicOff, Paperclip, Menu, X, ChevronRight, Stethoscope, ArrowLeft, UserCheck,
@@ -216,6 +217,8 @@ export default function ChatPage() {
   const [isListening, setIsListening] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
+  const [quotaModalOpen, setQuotaModalOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -411,6 +414,13 @@ export default function ChatPage() {
       });
       if (!r.ok) {
         if (r.status === 401) { const e = new Error("Unauthorized"); (e as any).status = 401; throw e; }
+        if (r.status === 429) {
+          const body = await r.json().catch(() => ({}));
+          const e = new Error("quota_exceeded");
+          (e as any).status = 429;
+          (e as any).quota = (body as any).quota ?? null;
+          throw e;
+        }
         const body = await r.json().catch(() => ({}));
         throw new Error((body as any).error ?? "Failed to send message");
       }
@@ -425,6 +435,11 @@ export default function ChatPage() {
     onError: (err: Error) => {
       setIsTyping(false);
       if ((err as any).status === 401) { handleSessionExpired(); return; }
+      if ((err as any).status === 429) {
+        setQuotaInfo((err as any).quota ?? null);
+        setQuotaModalOpen(true);
+        return;
+      }
       toast({
         title: "Yukti is unavailable",
         description: err.message || "Failed to send message. Please try again.",
@@ -675,6 +690,12 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+      <QuotaExhaustedModal
+        open={quotaModalOpen}
+        quota={quotaInfo}
+        onClose={() => setQuotaModalOpen(false)}
+        onSubscribed={() => { qc.invalidateQueries({ queryKey: ["users-me-quota"] }); }}
+      />
     </div>
   );
 }
