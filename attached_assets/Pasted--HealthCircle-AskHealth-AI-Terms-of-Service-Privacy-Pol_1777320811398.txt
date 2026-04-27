@@ -1,0 +1,210 @@
+# HealthCircle / AskHealth AI
+
+## Terms of Service & Privacy Policy
+
+**Effective Date:** [Insert Date]
+
+---
+
+# 1. Terms of Service
+
+## 1.1 Acceptance of Terms
+
+By accessing or using HealthCircle / AskHealth AI (“Platform”), you agree to comply with and be bound by these Terms of Service. If you do not agree, please refrain from using the Platform.
+
+## 1.2 Nature of Service
+
+HealthCircle is a digital health community and AI-enabled platform designed to provide:
+
+* General health and wellness information
+* AI-assisted responses to user queries
+* Community-based discussions and peer support
+
+**Disclaimer:** The Platform does not provide medical advice, diagnosis, or treatment. Information provided is for educational purposes only and should not replace consultation with a qualified healthcare professional.
+
+## 1.3 User Eligibility
+
+To use the Platform, you must:
+
+* Be at least 18 years of age, or
+* Access the Platform under the supervision of a parent or legal guardian
+
+## 1.4 User Responsibilities
+
+By using the Platform, you agree to:
+
+* Provide accurate and truthful information
+* Use the Platform in a lawful and ethical manner
+* Respect the privacy and rights of other users
+* Avoid sharing sensitive health information of others without consent
+
+You must not:
+
+* Post misleading, harmful, or illegal content
+* Attempt to misuse, hack, or disrupt the Platform
+
+## 1.5 AI Disclaimer
+
+* AskHealth AI provides automated, informational responses only
+* Outputs may not always be accurate, complete, or up to date
+* Users should not rely solely on AI-generated information for medical decisions
+
+## 1.6 Community Guidelines
+
+Users are expected to maintain respectful engagement. The following are prohibited:
+
+* Harassment, abuse, or discrimination
+* Promotion of unsafe medical practices or misinformation
+* Unauthorized advertising or spam
+
+HealthCircle reserves the right to remove content or suspend accounts that violate these guidelines.
+
+## 1.7 Intellectual Property
+
+* All Platform content, including design, branding, and AI systems, is owned by HealthCircle
+* Users retain ownership of their submissions but grant HealthCircle a non-exclusive, worldwide license to use, display, and improve services
+
+## 1.8 Limitation of Liability
+
+To the fullest extent permitted by law, HealthCircle shall not be liable for:
+
+* Any medical or health-related decisions made based on Platform content
+* Errors or omissions in AI-generated responses
+* Any indirect, incidental, or consequential damages arising from use of the Platform
+
+## 1.9 Suspension & Termination
+
+HealthCircle may suspend or terminate user access if:
+
+* These Terms are violated
+* There is misuse, abuse, or security risk
+
+## 1.10 Changes to Terms
+
+HealthCircle reserves the right to update these Terms at any time. Continued use of the Platform constitutes acceptance of revised Terms.
+
+---
+
+# 2. Privacy Policy
+
+## 2.1 Information We Collect
+
+### a. Personal Information
+
+* Name, email address, phone number
+* Login and account credentials
+
+### b. Health & Interaction Data
+
+* Symptoms, questions, and health-related inputs
+* Interaction history with AI and community features
+
+### c. Technical & Usage Data
+
+* Device type, browser information
+* IP address, cookies, and analytics data
+
+---
+
+## 2.2 How We Use Your Information
+
+Your data is used to:
+
+* Deliver AI-powered responses and community features
+* Improve accuracy, safety, and performance
+* Personalize user experience
+* Monitor and prevent misuse
+
+---
+
+## 2.3 Data Sharing & Disclosure
+
+We do not sell your personal data.
+
+We may share data with:
+
+* Trusted third-party service providers (e.g., hosting, analytics)
+* Legal or regulatory authorities, when required by law
+
+---
+
+## 2.4 Data Security
+
+We implement reasonable technical and organizational safeguards, including:
+
+* Encryption where applicable
+* Secure access controls
+* Continuous monitoring
+
+However, no digital platform can guarantee absolute security.
+
+---
+
+## 2.5 Data Retention
+
+We retain your data:
+
+* For as long as your account remains active
+* As required to comply with legal obligations or resolve disputes
+
+---
+
+## 2.6 Your Rights
+
+You may:
+
+* Request access to your personal data
+* Request correction or deletion
+* Withdraw consent, where applicable
+
+To exercise your rights, contact: **[yukticare.support@gmail.com](mailto:yukticare.support@gmail.com)**
+
+---
+
+## 2.7 Cookies & Tracking
+
+We use cookies and similar technologies to:
+
+* Enhance functionality
+* Analyze usage patterns
+* Improve user experience
+
+Users can manage cookie preferences through browser settings.
+
+---
+
+## 2.8 Children’s Privacy
+
+The Platform is not intended for children under 13 without verified parental consent.
+
+---
+
+## 2.9 Third-Party Services
+
+The Platform may contain links or integrations with third-party services. HealthCircle is not responsible for their privacy practices or content.
+
+---
+
+## 2.10 Updates to Privacy Policy
+
+We may update this Privacy Policy periodically. Continued use of the Platform indicates acceptance of the revised policy.
+
+---
+
+# 3. Contact Information
+
+For any questions, concerns, or requests:
+**Email:** [yukticare.support@gmail.com](mailto:yukticare.support@gmail.com)
+**Platform:** HealthCircle / AskHealth AI
+
+---
+
+# 4. Consent
+
+By using HealthCircle / AskHealth AI, you acknowledge and consent to:
+
+* These Terms of Service
+* This Privacy Policy
+* AI-assisted interactions and data processing
+
+---

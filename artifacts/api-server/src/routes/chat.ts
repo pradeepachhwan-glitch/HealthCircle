@@ -67,10 +67,14 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
   const user = await getOrCreateUser(clerkId);
 
   const sessionId = parseInt(req.params.sessionId);
-  const { message } = req.body;
+  const { message, attachment } = req.body as {
+    message?: string;
+    attachment?: { url?: string; type?: string; name?: string } | null;
+  };
 
-  if (!message?.trim()) {
-    res.status(400).json({ error: "Message is required" }); return;
+  const trimmedMessage = (message ?? "").trim();
+  if (!trimmedMessage && !attachment?.url) {
+    res.status(400).json({ error: "Message or attachment is required" }); return;
   }
 
   const [session] = await db
@@ -82,12 +86,15 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
-  const language = detectLanguage(message);
+  const language = detectLanguage(trimmedMessage);
 
   await db.insert(healthChatMessagesTable).values({
     sessionId,
     role: "user",
-    content: message,
+    content: trimmedMessage || (attachment ? "(Attachment shared)" : ""),
+    attachmentUrl: attachment?.url ?? null,
+    attachmentType: attachment?.type ?? null,
+    attachmentName: attachment?.name ?? null,
     language,
   });
 
@@ -100,7 +107,12 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
   const history = historyRows.slice(-12).map(m => ({ role: m.role, content: m.content }));
 
   try {
-    const structured = await getHealthAssistantResponse(message, history.slice(0, -1), language);
+    const structured = await getHealthAssistantResponse(
+      trimmedMessage || "Please review this image.",
+      history.slice(0, -1),
+      language,
+      attachment?.url && attachment?.type ? { url: attachment.url, type: attachment.type } : null,
+    );
 
     const [assistantMsg] = await db
       .insert(healthChatMessagesTable)

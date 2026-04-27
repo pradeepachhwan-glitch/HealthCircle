@@ -51,12 +51,14 @@ router.get("/communities/:communityId", requireAuth, async (req, res) => {
   const [memberRes] = await db.select({ count: count() }).from(communityMembersTable).where(eq(communityMembersTable.communityId, communityId));
   const [postRes] = await db.select({ count: count() }).from(postsTable).where(eq(postsTable.communityId, communityId));
   let isMember = false;
+  let hasPremiumAccess = false;
   if (user) {
     const [membership] = await db.select().from(communityMembersTable)
       .where(and(eq(communityMembersTable.communityId, communityId), eq(communityMembersTable.userId, user.id)));
     isMember = !!membership;
+    hasPremiumAccess = !!membership?.hasPremiumAccess;
   }
-  res.json({ ...community, memberCount: Number(memberRes?.count ?? 0), postCount: Number(postRes?.count ?? 0), isMember });
+  res.json({ ...community, memberCount: Number(memberRes?.count ?? 0), postCount: Number(postRes?.count ?? 0), isMember, hasPremiumAccess });
 });
 
 router.patch("/communities/:communityId", requireAdmin, async (req, res) => {

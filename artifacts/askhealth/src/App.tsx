@@ -5,7 +5,7 @@ import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import HealthCircleLogo from "@/components/HealthCircleLogo";
 import React, { useEffect, useRef } from "react";
-import { ClerkProvider, Show, useClerk } from '@clerk/react';
+import { ClerkProvider, Show, useClerk, AuthenticateWithRedirectCallback } from '@clerk/react';
 import { shadcn } from '@clerk/themes';
 import { useGetCurrentUser } from "@workspace/api-client-react";
 
@@ -724,6 +724,12 @@ function ClerkProviderWithRoutes() {
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
           <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/sso-callback">
+            <AuthenticateWithRedirectCallback
+              signInForceRedirectUrl={`${basePath}/`}
+              signUpForceRedirectUrl={`${basePath}/`}
+            />
+          </Route>
 
           <Route path="/chat">
             <ProtectedRoute><ChatPage /></ProtectedRoute>

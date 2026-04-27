@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowUp, MessageSquare, Eye, Plus, ArrowLeft, Users, Stethoscope,
-  TrendingUp, Clock, HelpCircle, Bot,
+  TrendingUp, Clock, HelpCircle, Bot, Crown, Sparkles, Lock,
 } from "lucide-react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -59,6 +59,88 @@ export default function Community() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const isMember = (community as any)?.isMember ?? false;
+  const isPremium = !!(community as any)?.isPremium;
+  const premiumPriceInr = Number((community as any)?.premiumPriceInr ?? 0);
+  const premiumPerks = ((community as any)?.premiumPerks as string | null | undefined) ?? "";
+  const hasPremiumAccess = !!(community as any)?.hasPremiumAccess;
+  const requiresPaymentToJoin = isPremium && premiumPriceInr > 0 && !hasPremiumAccess;
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
+  function loadRazorpayScript(): Promise<boolean> {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) { resolve(true); return; }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  }
+
+  async function handlePremiumUnlock() {
+    if (!community) return;
+    setPaymentLoading(true);
+    try {
+      const ok = await loadRazorpayScript();
+      if (!ok) {
+        toast.error("Could not load payment gateway. Check your internet connection.");
+        return;
+      }
+      const orderRes = await fetch(`${API_BASE}/payments/razorpay/order`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ communityId, purpose: "community_premium" }),
+      });
+      if (!orderRes.ok) {
+        const body = await orderRes.json().catch(() => ({}));
+        throw new Error((body as any).error ?? "Could not create payment order");
+      }
+      const order = await orderRes.json();
+      const rzp = new (window as any).Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: "HealthCircle",
+        description: `${community.name} — Premium membership`,
+        order_id: order.orderId,
+        prefill: order.prefill ?? {},
+        theme: { color: "#0d9488" },
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            const verifyRes = await fetch(`${API_BASE}/payments/razorpay/verify`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            if (!verifyRes.ok) throw new Error("Payment verification failed");
+            queryClient.invalidateQueries({ queryKey: getGetCommunityQueryKey(communityId) });
+            toast.success("Premium unlocked! Welcome to the inner circle.");
+          } catch {
+            toast.error("Payment received but verification failed. Please contact support.");
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.message("Payment cancelled");
+          },
+        },
+      });
+      rzp.on("payment.failed", (resp: { error: { description: string } }) => {
+        toast.error(resp?.error?.description ?? "Payment failed");
+      });
+      rzp.open();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not start payment");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
 
   const { data: communityAIPrompts } = useQuery<{ suggestedQuestions: string[] }>({
     queryKey: ["community-prompts", community?.slug],
@@ -163,7 +245,14 @@ export default function Community() {
                   {community.iconEmoji || "🏥"}
                 </div>
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">{community.name}</h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">{community.name}</h1>
+                    {isPremium && (
+                      <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white border-0 shadow-md">
+                        <Crown className="w-3 h-3 mr-1" /> Premium
+                      </Badge>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-white/80 text-sm flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" /> {stats?.memberCount ?? community.memberCount} members
@@ -173,21 +262,74 @@ export default function Community() {
                   </div>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant={isMember ? "secondary" : "default"}
-                onClick={handleJoin}
-                disabled={joinCommunity.isPending}
-                className="shrink-0 bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-              >
-                {isMember ? "✓ Joined" : "+ Join"}
-              </Button>
+              {requiresPaymentToJoin ? (
+                <Button
+                  size="sm"
+                  onClick={handlePremiumUnlock}
+                  disabled={paymentLoading}
+                  className="shrink-0 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white border-0 shadow-lg font-semibold"
+                >
+                  <Crown className="w-3.5 h-3.5 mr-1.5" />
+                  {paymentLoading ? "Loading…" : `Unlock ₹${premiumPriceInr}`}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant={isMember ? "secondary" : "default"}
+                  onClick={handleJoin}
+                  disabled={joinCommunity.isPending}
+                  className="shrink-0 bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
+                >
+                  {isMember ? "✓ Joined" : "+ Join"}
+                </Button>
+              )}
             </div>
           </div>
         </div>
 
         <div className="px-4 md:px-8 mt-4 space-y-4">
           <p className="text-sm text-muted-foreground leading-relaxed">{community.description}</p>
+
+          {isPremium && (
+            <div className={cn(
+              "rounded-xl p-4 border",
+              hasPremiumAccess
+                ? "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200"
+                : "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200"
+            )}>
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
+                  {hasPremiumAccess ? <Sparkles className="w-5 h-5 text-white" /> : <Lock className="w-5 h-5 text-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {hasPremiumAccess ? "You're a Premium member" : `Premium · ₹${premiumPriceInr} one-time`}
+                  </h3>
+                  {premiumPerks && (
+                    <ul className="mt-1.5 text-xs text-slate-600 space-y-0.5">
+                      {premiumPerks.split("|").map((perk, i) => (
+                        <li key={i} className="flex items-start gap-1.5">
+                          <span className="text-amber-600 mt-0.5">•</span>
+                          <span>{perk.trim()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {requiresPaymentToJoin && (
+                    <Button
+                      onClick={handlePremiumUnlock}
+                      disabled={paymentLoading}
+                      size="sm"
+                      className="mt-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 font-semibold"
+                    >
+                      <Crown className="w-3.5 h-3.5 mr-1.5" />
+                      {paymentLoading ? "Loading…" : `Unlock for ₹${premiumPriceInr}`}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Ask Question CTA */}
           <button

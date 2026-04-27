@@ -10,6 +10,9 @@ export const communitiesTable = pgTable("communities", {
   iconEmoji: text("icon_emoji"),
   coverColor: text("cover_color"),
   isArchived: boolean("is_archived").notNull().default(false),
+  isPremium: boolean("is_premium").notNull().default(false),
+  premiumPriceInr: integer("premium_price_inr").notNull().default(0),
+  premiumPerks: text("premium_perks"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

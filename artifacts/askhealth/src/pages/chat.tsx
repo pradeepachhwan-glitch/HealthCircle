@@ -9,7 +9,8 @@ import { Link, useLocation } from "wouter";
 import { useClerk } from "@clerk/react";
 import {
   Send, Plus, Trash2, Bot, User, AlertTriangle, CheckCircle,
-  Activity, Mic, Paperclip, Menu, X, ChevronRight, Stethoscope, ArrowLeft, UserCheck
+  Activity, Mic, MicOff, Paperclip, Menu, X, ChevronRight, Stethoscope, ArrowLeft, UserCheck,
+  FileText, Loader2
 } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -212,8 +213,92 @@ export default function ChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [consultationRequested, setConsultationRequested] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
   const communityContext = getCommunityFromUrl();
+
+  useEffect(() => {
+    return () => {
+      try { recognitionRef.current?.stop?.(); } catch { /* noop */ }
+    };
+  }, []);
+
+  function toggleVoice() {
+    const W = window as any;
+    const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
+    if (!SR) {
+      toast({ title: "Voice not supported", description: "Your browser doesn't support voice input. Please use Chrome or Edge.", variant: "destructive" });
+      return;
+    }
+    if (isListening) {
+      try { recognitionRef.current?.stop(); } catch { /* noop */ }
+      setIsListening(false);
+      return;
+    }
+    const rec = new SR();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = navigator.language?.startsWith("hi") ? "hi-IN" : "en-IN";
+    rec.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInput(prev => (prev ? prev + " " : "") + transcript);
+    };
+    rec.onerror = (e: any) => {
+      setIsListening(false);
+      const msg = e?.error === "not-allowed" ? "Microphone access denied. Please allow mic permission." : "Voice input failed. Please try again.";
+      toast({ title: "Voice error", description: msg, variant: "destructive" });
+    };
+    rec.onend = () => setIsListening(false);
+    recognitionRef.current = rec;
+    try { rec.start(); setIsListening(true); }
+    catch { setIsListening(false); toast({ title: "Voice error", description: "Could not start microphone.", variant: "destructive" }); }
+  }
+
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 4 MB.", variant: "destructive" });
+      return;
+    }
+    if (!/^(image\/(png|jpe?g|webp|gif)|application\/pdf)$/i.test(file.type)) {
+      toast({ title: "Unsupported file", description: "Only images (PNG, JPG, WebP, GIF) and PDF are supported.", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Could not read file"));
+        reader.readAsDataURL(file);
+      });
+      const r = await fetch(`${API_BASE}/uploads/inline`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl, name: file.name }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error((body as any).error ?? "Upload failed");
+      }
+      const result = await r.json();
+      setPendingAttachment({ url: result.url, type: file.type, name: file.name });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err?.message ?? "Could not upload file.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleSessionExpired() {
     toast({
@@ -304,12 +389,12 @@ export default function ChatPage() {
   });
 
   const sendMessage = useMutation({
-    mutationFn: async ({ sessionId, message }: { sessionId: number; message: string }) => {
+    mutationFn: async ({ sessionId, message, attachment }: { sessionId: number; message: string; attachment?: { url: string; type: string; name: string } | null }) => {
       const r = await fetch(`${API_BASE}/chat/sessions/${sessionId}/messages`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, attachment: attachment ?? null }),
       });
       if (!r.ok) {
         if (r.status === 401) { const e = new Error("Unauthorized"); (e as any).status = 401; throw e; }
@@ -341,7 +426,8 @@ export default function ChatPage() {
 
   async function handleSend(text?: string) {
     const msg = (text ?? input).trim();
-    if (!msg) return;
+    const attachment = pendingAttachment;
+    if (!msg && !attachment) return;
 
     let sessionId = activeSessionId;
     if (!sessionId) {
@@ -349,7 +435,8 @@ export default function ChatPage() {
       sessionId = session.id;
     }
     setInput("");
-    sendMessage.mutate({ sessionId, message: msg });
+    setPendingAttachment(null);
+    sendMessage.mutate({ sessionId, message: msg, attachment });
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -503,9 +590,43 @@ export default function ChatPage() {
         {/* Input */}
         <div className="bg-white border-t border-slate-200 p-4">
           <div className="max-w-3xl mx-auto">
+            {pendingAttachment && (
+              <div className="flex items-center gap-3 mb-2 p-2.5 bg-teal-50 border border-teal-200 rounded-xl">
+                {pendingAttachment.type.startsWith("image/") ? (
+                  <img src={pendingAttachment.url} alt={pendingAttachment.name} className="w-12 h-12 object-cover rounded-md border border-teal-200" />
+                ) : (
+                  <div className="w-12 h-12 bg-white rounded-md border border-teal-200 flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-teal-600" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">{pendingAttachment.name}</p>
+                  <p className="text-xs text-slate-500">Will be analysed by Yukti</p>
+                </div>
+                <button
+                  onClick={() => setPendingAttachment(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1"
+                  aria-label="Remove attachment"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+              className="hidden"
+              onChange={handleFilePick}
+            />
             <div className="flex items-end gap-2 bg-slate-100 rounded-2xl px-3 py-2">
-              <button className="text-slate-400 hover:text-slate-600 transition-colors p-1" title="Voice (coming soon)">
-                <Mic className="w-5 h-5" />
+              <button
+                onClick={toggleVoice}
+                className={`p-1 transition-colors ${isListening ? "text-red-500 hover:text-red-600 animate-pulse" : "text-slate-400 hover:text-slate-600"}`}
+                title={isListening ? "Stop recording" : "Voice input"}
+                type="button"
+              >
+                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
               <Input
                 value={input}
@@ -517,14 +638,20 @@ export default function ChatPage() {
                 className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 text-sm resize-none"
                 disabled={sendMessage.isPending}
               />
-              <button className="text-slate-400 hover:text-slate-600 transition-colors p-1" title="Attach file (coming soon)">
-                <Paperclip className="w-5 h-5" />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || !!pendingAttachment}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1 disabled:opacity-50"
+                title={pendingAttachment ? "Remove current attachment first" : "Attach image or PDF (max 4 MB)"}
+                type="button"
+              >
+                {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
               </button>
               <Button
                 size="icon"
                 className="w-8 h-8 bg-primary hover:bg-primary/90 rounded-xl flex-shrink-0"
                 onClick={() => handleSend()}
-                disabled={!input.trim() || sendMessage.isPending}
+                disabled={(!input.trim() && !pendingAttachment) || sendMessage.isPending}
               >
                 <Send className="w-4 h-4" />
               </Button>

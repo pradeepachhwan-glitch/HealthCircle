@@ -15,3 +15,4 @@ export * from "./analytics";
 export * from "./consents";
 export * from "./ai_summaries";
 export * from "./consultations";
+export * from "./payments";

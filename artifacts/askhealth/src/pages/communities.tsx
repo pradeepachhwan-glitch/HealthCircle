@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useClerk } from "@clerk/react";
-import { MessageSquare, Users, Search, CheckCircle, Plus } from "lucide-react";
+import { MessageSquare, Users, Search, CheckCircle, Plus, Crown } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -50,7 +50,14 @@ function CommunityCard({ community, onJoin, onLeave }: {
           <div className="flex items-center gap-3">
             <span className="text-2xl leading-none">{community.iconEmoji ?? "🏥"}</span>
             <div>
-              <h3 className="font-semibold text-slate-900 text-sm leading-tight">{community.name}</h3>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="font-semibold text-slate-900 text-sm leading-tight">{community.name}</h3>
+                {(community as any).isPremium && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                    <Crown className="w-2.5 h-2.5" /> Premium
+                  </span>
+                )}
+              </div>
               {community.isMember && (
                 <span className="inline-flex items-center gap-1 text-xs text-primary font-medium mt-0.5">
                   <CheckCircle className="w-3 h-3" /> Joined

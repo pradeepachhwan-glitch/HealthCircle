@@ -19,6 +19,9 @@ export const healthChatMessagesTable = pgTable("health_chat_messages", {
   content: text("content").notNull(),
   intent: text("intent"),
   structuredResponse: jsonb("structured_response"),
+  attachmentUrl: text("attachment_url"),
+  attachmentType: text("attachment_type"),
+  attachmentName: text("attachment_name"),
   language: text("language").notNull().default("en"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

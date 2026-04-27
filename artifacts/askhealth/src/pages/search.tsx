@@ -5,17 +5,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Search as SearchIcon, AlertTriangle, CheckCircle, Activity,
-  Stethoscope, Building2, ExternalLink, ChevronRight, MapPin,
-  Sparkles, Navigation, Map, ArrowUpRight, Loader2,
+  Stethoscope, Building2, ChevronRight, MapPin,
+  Sparkles, Navigation, Map, Loader2, Users,
 } from "lucide-react";
 import { Link } from "wouter";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
-interface TrustedLink { title: string; source: string; url: string; icon: string; }
 interface Provider {
   id: number; type: "doctor" | "hospital"; name: string;
   specialty?: string; location: string; rating: string; available?: boolean;
+}
+
+interface RelatedCommunity {
+  id: number; slug: string; name: string;
+  description: string | null; iconEmoji: string | null;
 }
 
 interface SearchResult {
@@ -24,9 +28,8 @@ interface SearchResult {
   risk_level: "low" | "medium" | "high";
   recommendations: string[];
   providers: Provider[];
+  relatedCommunities: RelatedCommunity[];
   mapQuery: string;
-  googleSearchUrl: string;
-  trustedLinks: TrustedLink[];
 }
 
 interface Coords { lat: number; lng: number; }
@@ -124,7 +127,6 @@ export default function SearchPage() {
   const riskMeta = result ? RISK_META[result.risk_level] : null;
   const RiskIcon = riskMeta?.icon;
 
-  const mapsOpenUrl  = result ? buildMapsUrl(result.mapQuery, coords) : "";
   const mapsEmbedUrl = result ? buildMapsEmbedUrl(result.mapQuery, coords) : "";
 
   return (
@@ -241,14 +243,9 @@ export default function SearchPage() {
                       </Badge>
                     )}
                   </div>
-                  <a
-                    href={mapsOpenUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                  >
-                    Open in Maps <ArrowUpRight className="w-3 h-3" />
-                  </a>
+                  <Link href="/providers" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                    View all providers
+                  </Link>
                 </div>
 
                 {/* Google Maps embed */}
@@ -270,7 +267,7 @@ export default function SearchPage() {
                   />
                 </div>
 
-                {/* Locate + Open button row */}
+                {/* Locate + In-app providers row */}
                 <div className="flex gap-2 p-3 border-t border-slate-100 bg-slate-50/50">
                   {!coords && (
                     <Button
@@ -285,17 +282,12 @@ export default function SearchPage() {
                         : <><Navigation className="w-3.5 h-3.5 mr-1.5" />Use my location</>}
                     </Button>
                   )}
-                  <a
-                    href={mapsOpenUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1"
-                  >
+                  <Link href="/providers" className="flex-1">
                     <Button size="sm" className="w-full h-9 text-xs bg-primary hover:bg-primary/90">
                       <MapPin className="w-3.5 h-3.5 mr-1.5" />
-                      Find Nearby on Google Maps
+                      Browse Verified Providers
                     </Button>
-                  </a>
+                  </Link>
                 </div>
 
                 {locError && (
@@ -335,28 +327,26 @@ export default function SearchPage() {
                 </div>
               )}
 
-              {/* Trusted Links — Indian health sources + Google */}
-              {result.trustedLinks && result.trustedLinks.length > 0 && (
+              {/* Related HealthCircle Communities — native, never external */}
+              {result.relatedCommunities && result.relatedCommunities.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
-                    <SearchIcon className="w-4 h-4 text-primary" /> Find More Information
+                    <Users className="w-4 h-4 text-primary" /> Join the Conversation
                   </h3>
                   <div className="space-y-2">
-                    {result.trustedLinks.map((link, i) => (
-                      <a
-                        key={i}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    {result.relatedCommunities.map((c) => (
+                      <Link
+                        key={c.id}
+                        href={`/communities/${c.slug}`}
                         className="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-slate-200 hover:border-primary/30 hover:shadow-sm transition-all group"
                       >
-                        <span className="text-xl flex-shrink-0">{link.icon}</span>
+                        <span className="text-2xl flex-shrink-0">{c.iconEmoji ?? "💬"}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 group-hover:text-primary transition-colors line-clamp-1">{link.title}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{link.source}</p>
+                          <p className="text-sm font-medium text-slate-800 group-hover:text-primary transition-colors line-clamp-1">{c.name}</p>
+                          {c.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{c.description}</p>}
                         </div>
-                        <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-primary flex-shrink-0" />
-                      </a>
+                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-primary flex-shrink-0" />
+                      </Link>
                     ))}
                   </div>
                 </div>

@@ -14,6 +14,8 @@ import appointmentsRouter from "./appointments";
 import healthSearchRouter from "./healthSearch";
 import consentsRouter from "./consents";
 import medproRouter from "./medpro";
+import paymentsRouter from "./payments";
+import uploadsRouter from "./uploads";
 
 const router: IRouter = Router();
 
@@ -32,5 +34,7 @@ router.use(appointmentsRouter);
 router.use(healthSearchRouter);
 router.use(consentsRouter);
 router.use(medproRouter);
+router.use(paymentsRouter);
+router.use(uploadsRouter);
 
 export default router;
