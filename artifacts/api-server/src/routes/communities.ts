@@ -1,7 +1,6 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
 import { db, communitiesTable, communityMembersTable, usersTable, postsTable, commentsTable } from "@workspace/db";
-import { eq, and, gte, count, desc, sql } from "drizzle-orm";
+import { eq, and, gte, count, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin, getOrCreateUser } from "../lib/auth";
 
 const router = Router();
@@ -10,14 +9,24 @@ router.get("/communities", requireAuth, async (req, res) => {
   const { includeArchived } = req.query as { includeArchived?: string };
   const showArchived = includeArchived === "true";
 
+  const user = await getOrCreateUser(req);
+
   const communities = await db.select().from(communitiesTable)
     .where(showArchived ? undefined : eq(communitiesTable.isArchived, false))
-    .orderBy(desc(communitiesTable.createdAt));
+    .orderBy(communitiesTable.name);
 
   const result = await Promise.all(communities.map(async (c) => {
     const [memberRes] = await db.select({ count: count() }).from(communityMembersTable).where(eq(communityMembersTable.communityId, c.id));
     const [postRes] = await db.select({ count: count() }).from(postsTable).where(eq(postsTable.communityId, c.id));
-    return { ...c, memberCount: Number(memberRes?.count ?? 0), postCount: Number(postRes?.count ?? 0) };
+
+    let isMember = false;
+    if (user) {
+      const [membership] = await db.select().from(communityMembersTable)
+        .where(and(eq(communityMembersTable.communityId, c.id), eq(communityMembersTable.userId, user.id)));
+      isMember = !!membership;
+    }
+
+    return { ...c, memberCount: Number(memberRes?.count ?? 0), postCount: Number(postRes?.count ?? 0), isMember };
   }));
 
   res.json(result);
@@ -28,16 +37,23 @@ router.post("/communities", requireAdmin, async (req, res) => {
   const [community] = await db.insert(communitiesTable).values({
     name, slug, description: description ?? null, iconEmoji: iconEmoji ?? null, coverColor: coverColor ?? null,
   }).returning();
-  res.status(201).json({ ...community, memberCount: 0, postCount: 0 });
+  res.status(201).json({ ...community, memberCount: 0, postCount: 0, isMember: false });
 });
 
 router.get("/communities/:communityId", requireAuth, async (req, res) => {
   const communityId = parseInt(req.params.communityId);
+  const user = await getOrCreateUser(req);
   const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId)).limit(1);
   if (!community) { res.status(404).json({ error: "Not found" }); return; }
   const [memberRes] = await db.select({ count: count() }).from(communityMembersTable).where(eq(communityMembersTable.communityId, communityId));
   const [postRes] = await db.select({ count: count() }).from(postsTable).where(eq(postsTable.communityId, communityId));
-  res.json({ ...community, memberCount: Number(memberRes?.count ?? 0), postCount: Number(postRes?.count ?? 0) });
+  let isMember = false;
+  if (user) {
+    const [membership] = await db.select().from(communityMembersTable)
+      .where(and(eq(communityMembersTable.communityId, communityId), eq(communityMembersTable.userId, user.id)));
+    isMember = !!membership;
+  }
+  res.json({ ...community, memberCount: Number(memberRes?.count ?? 0), postCount: Number(postRes?.count ?? 0), isMember });
 });
 
 router.patch("/communities/:communityId", requireAdmin, async (req, res) => {
@@ -61,6 +77,34 @@ router.delete("/communities/:communityId", requireAdmin, async (req, res) => {
   const communityId = parseInt(req.params.communityId);
   await db.update(communitiesTable).set({ isArchived: true }).where(eq(communitiesTable.id, communityId));
   res.json({ success: true });
+});
+
+// Join a community
+router.post("/communities/:communityId/join", requireAuth, async (req, res) => {
+  const user = await getOrCreateUser(req);
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const communityId = parseInt(req.params.communityId);
+
+  const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId));
+  if (!community || community.isArchived) { res.status(404).json({ error: "Community not found" }); return; }
+
+  await db.insert(communityMembersTable)
+    .values({ communityId, userId: user.id })
+    .onConflictDoNothing();
+
+  res.json({ success: true, isMember: true });
+});
+
+// Leave a community
+router.delete("/communities/:communityId/join", requireAuth, async (req, res) => {
+  const user = await getOrCreateUser(req);
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const communityId = parseInt(req.params.communityId);
+
+  await db.delete(communityMembersTable)
+    .where(and(eq(communityMembersTable.communityId, communityId), eq(communityMembersTable.userId, user.id)));
+
+  res.json({ success: true, isMember: false });
 });
 
 router.get("/communities/:communityId/stats", requireAuth, async (req, res) => {

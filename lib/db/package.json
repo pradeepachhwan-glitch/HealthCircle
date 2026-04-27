@@ -10,7 +10,8 @@
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
-    "seed-providers": "node --import tsx/esm src/seed-providers.ts"
+    "seed-providers": "node --import tsx/esm src/seed-providers.ts",
+    "seed-communities": "node --import tsx/esm src/seed-communities.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

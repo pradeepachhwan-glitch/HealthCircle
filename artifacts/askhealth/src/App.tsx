@@ -127,7 +127,7 @@ function Landing() {
         <section className="max-w-4xl mx-auto text-center px-4 pt-20 pb-16">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-4 py-1.5 rounded-full mb-6">
             <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-            Mayo Clinic-level AI guidance • Multi-language • India-first
+            AI Health Guidance • Multi-language • India-first
           </div>
           <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6 leading-tight">
             Your Personal<br /><span className="text-primary">Health Super App</span>
