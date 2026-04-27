@@ -1,0 +1,1217 @@
+# HealthCircle — Fix All Critical & High Priority Gaps
+
+You are working on a healthcare super app called HealthCircle. The stack is:
+- **Frontend**: React + Vite + Tailwind CSS v4 + shadcn/ui in `artifacts/askhealth/`
+- **Backend**: Express 5 + TypeScript in `artifacts/api-server/`
+- **Database**: PostgreSQL + Drizzle ORM in `artifacts/db/`
+- **Auth**: Clerk
+- **AI**: Currently OpenAI via Replit integration 
+- **Package manager**: pnpm workspaces
+
+Execute the following fixes in order. Complete each one fully before moving to the next. Do not skip steps.
+
+---
+
+3. Rewrite `artifacts/api-server/src/lib/healthAssistant.ts` completely:
+
+export interface YuktiResponse {
+  intent: 'symptom' | 'treatment' | 'doctor' | 'lab' | 'general' | 'emergency';
+  risk_level: 'low' | 'medium' | 'high' | 'emergency';
+  summary: string;
+  recommendations: string[];
+  follow_up_questions: string[];
+  disclaimer: string;
+  language: 'en' | 'hi';
+}
+
+const YUKTI_SYSTEM_PROMPT = `You are Yukti, a compassionate and careful AI health assistant for HealthCircle, an Indian healthcare platform. 
+
+CRITICAL RULES:
+- Never diagnose. Never prescribe. Always recommend seeing a doctor for anything beyond general wellness.
+- For ANY emergency indicators (chest pain, difficulty breathing, loss of consciousness, severe bleeding, stroke symptoms), ALWAYS set risk_level to "emergency".
+- Be warm, clear, and culturally sensitive to Indian patients.
+- Respond in the same language the user writes in (Hindi or English).
+- Keep recommendations practical for India — mention CGHS, PMJAY, government hospitals when relevant.
+
+You MUST respond with ONLY a valid JSON object in this exact shape:
+{
+  "intent": "symptom" | "treatment" | "doctor" | "lab" | "general" | "emergency",
+  "risk_level": "low" | "medium" | "high" | "emergency",
+  "summary": "Clear 2-3 sentence response to the user's query",
+  "recommendations": ["actionable step 1", "actionable step 2", "actionable step 3"],
+  "follow_up_questions": ["relevant follow-up 1", "relevant follow-up 2"],
+  "disclaimer": "Always consult a qualified doctor before making health decisions.",
+  "language": "en" | "hi"
+}
+
+No markdown. No preamble. Only the JSON object.`;
+
+export async function getYuktiResponse(
+  userMessage: string,
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
+): Promise<YuktiResponse> {
+  // Emergency keyword fast-path (Hindi + English)
+  const emergencyKeywords = [
+    'chest pain', 'heart attack', 'stroke', 'can\'t breathe', 'unconscious',
+    'severe bleeding', 'overdose', 'suicide', 'seena dard', 'sans nahi',
+    'behosh', 'khoon', 'ambulance', '108'
+  ];
+  const isEmergency = emergencyKeywords.some(kw =>
+    userMessage.toLowerCase().includes(kw)
+  );
+
+  const messages: Anthropic.MessageParam[] = [
+    ...conversationHistory.slice(-10).map(m => ({
+      role: m.role,
+      content: m.content
+    })),
+    { role: 'user', content: userMessage }
+  ];
+
+  try {
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 1024,
+      system: YUKTI_SYSTEM_PROMPT,
+      messages
+    });
+
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const parsed: YuktiResponse = JSON.parse(text);
+
+    // Override: if emergency keywords detected, force emergency risk level
+    if (isEmergency) {
+      parsed.risk_level = 'emergency';
+      parsed.intent = 'emergency';
+    }
+
+    return parsed;
+  } catch (err) {
+    console.error('Yukti AI error:', err);
+    // Graceful fallback
+    return {
+      intent: 'general',
+      risk_level: isEmergency ? 'emergency' : 'low',
+      summary: 'I\'m having trouble processing your request right now. Please try again or consult a healthcare provider directly.',
+      recommendations: ['Contact your nearest hospital or doctor', 'For emergencies, call 108'],
+      follow_up_questions: ['Can you describe your symptoms in more detail?'],
+      disclaimer: 'Always consult a qualified doctor before making health decisions.',
+      language: 'en'
+    };
+  }
+}
+```
+
+4. Remove all references to `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY` from the codebase. Replace with `ANTHROPIC_API_KEY`.
+
+---
+
+## FIX 2 — Rate Limiting on All AI Endpoints
+
+**Why**: Without rate limiting, a single user (or attacker) can exhaust your entire Anthropic API budget.
+
+1. Install:
+```bash
+pnpm --filter @workspace/api add express-rate-limit
+```
+
+2. Create `artifacts/api-server/src/middleware/rateLimiter.ts`:
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+// AI endpoints: 20 requests per user per 15 minutes
+export const aiRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => {
+    // Use Clerk userId if authenticated, else IP
+    return (req as any).auth?.userId || req.ip || 'anonymous';
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many requests',
+      message: 'You have reached the AI message limit. Please wait 15 minutes.',
+      retryAfter: Math.ceil(15 * 60)
+    });
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// General API: 100 requests per minute per user
+export const generalRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  keyGenerator: (req) => (req as any).auth?.userId || req.ip || 'anonymous',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Admin endpoints: 30 requests per minute
+export const adminRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => (req as any).auth?.userId || req.ip || 'anonymous',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+```
+
+3. Apply in the main server file (`artifacts/api-server/src/index.ts`). Add before route definitions:
+
+```typescript
+import { aiRateLimiter, generalRateLimiter, adminRateLimiter } from './middleware/rateLimiter';
+
+// Apply general rate limiter globally
+app.use('/api', generalRateLimiter);
+
+// Apply AI-specific limiter to all chat/AI routes
+app.use('/api/chat', aiRateLimiter);
+app.use('/api/ai', aiRateLimiter);
+app.use('/api/health-search', aiRateLimiter);
+
+// Apply admin limiter to admin routes
+app.use('/api/admin', adminRateLimiter);
+```
+
+---
+
+## FIX 3 — Emergency Escalation Hard-Stop
+
+**Why**: A red badge is not a safety feature. Emergency cases need an unmissable, actionable response.
+
+1. In `artifacts/api-server/src/routes/chat.ts` (or wherever messages are handled), add emergency detection middleware that fires BEFORE Yukti responds:
+
+```typescript
+// In the message POST handler, after parsing the body but before calling getYuktiResponse:
+const EMERGENCY_TRIGGERS = [
+  'chest pain', 'heart attack', 'stroke', 'can\'t breathe', 'cannot breathe',
+  'not breathing', 'unconscious', 'fainted', 'severe bleeding', 'overdose',
+  'poisoning', 'hanging', 'jumped', 'suicide',
+  // Hindi
+  'seena dard', 'dil ka daura', 'sans nahi aa raha', 'behosh', 'tez khoon'
+];
+
+function isEmergencyMessage(text: string): boolean {
+  const lower = text.toLowerCase();
+  return EMERGENCY_TRIGGERS.some(trigger => lower.includes(trigger));
+}
+
+// In your message handler:
+if (isEmergencyMessage(userMessage)) {
+  // Log the emergency event
+  await db.insert(auditLogsTable).values({
+    action: 'EMERGENCY_DETECTED',
+    performedBy: userId,
+    metadata: { message: userMessage.substring(0, 200), sessionId }
+  });
+
+  // Return emergency response immediately — do NOT wait for AI
+  return res.status(200).json({
+    message: {
+      role: 'assistant',
+      structuredResponse: {
+        intent: 'emergency',
+        risk_level: 'emergency',
+        summary: '🚨 This sounds like a medical emergency. Please act immediately.',
+        recommendations: [
+          'CALL 108 NOW — India\'s national ambulance service (free)',
+          'If you cannot call, ask someone nearby to call for you',
+          'Do not leave the person alone',
+          'Stay on the line with emergency services'
+        ],
+        follow_up_questions: [],
+        disclaimer: 'In emergencies, always call 108 immediately. Do not wait.',
+        language: 'en',
+        emergency_numbers: {
+          ambulance: '108',
+          police: '100',
+          women_helpline: '1091',
+          poison_control: '1800-116-117'
+        }
+      }
+    }
+  });
+}
+```
+
+2. In the frontend chat component (`artifacts/askhealth/src/pages/Chat.tsx` or similar), add a prominent emergency banner when `risk_level === 'emergency'`:
+
+```tsx
+{message.structuredResponse?.risk_level === 'emergency' && (
+  <div className="emergency-banner" style={{
+    background: '#fee2e2',
+    border: '2px solid #ef4444',
+    borderRadius: '12px',
+    padding: '16px',
+    margin: '8px 0'
+  }}>
+    <div style={{ fontWeight: 700, color: '#dc2626', fontSize: '18px', marginBottom: '8px' }}>
+      🚨 MEDICAL EMERGENCY — CALL 108 NOW
+    </div>
+    <a
+      href="tel:108"
+      style={{
+        display: 'block',
+        background: '#dc2626',
+        color: 'white',
+        textAlign: 'center',
+        padding: '12px',
+        borderRadius: '8px',
+        fontWeight: 700,
+        fontSize: '20px',
+        textDecoration: 'none',
+        marginBottom: '8px'
+      }}
+    >
+      📞 TAP TO CALL 108
+    </a>
+    <div style={{ fontSize: '13px', color: '#7f1d1d' }}>
+      Police: 100 &nbsp;|&nbsp; Women: 1091 &nbsp;|&nbsp; Poison: 1800-116-117
+    </div>
+  </div>
+)}
+```
+
+---
+
+## FIX 4 — DPDP 2023 Consent & Data Rights
+
+**Why**: India's Digital Personal Data Protection Act 2023 requires explicit consent logging and data principal rights (access, correction, erasure).
+
+1. Add a DB migration. Create `artifacts/db/src/schema/dpdp.ts`:
+
+```typescript
+import { pgTable, uuid, text, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { users } from './users';
+
+// Granular consent per purpose (DPDP requires purpose-specific consent)
+export const dpdpConsentsTable = pgTable('dpdp_consents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => users.clerkId),
+  purpose: text('purpose').notNull(), // 'health_data_processing' | 'ai_analysis' | 'provider_sharing' | 'community_posts' | 'marketing'
+  granted: boolean('granted').notNull(),
+  grantedAt: timestamp('granted_at'),
+  revokedAt: timestamp('revoked_at'),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  consentVersion: text('consent_version').notNull().default('1.0'),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+// Data principal rights requests (DPDP Section 12-14)
+export const dataRightsRequestsTable = pgTable('data_rights_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => users.clerkId),
+  requestType: text('request_type').notNull(), // 'access' | 'correction' | 'erasure' | 'nomination'
+  status: text('status').notNull().default('pending'), // 'pending' | 'in_progress' | 'completed' | 'rejected'
+  requestDetails: jsonb('request_details'),
+  responseDetails: jsonb('response_details'),
+  requestedAt: timestamp('requested_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+  // DPDP mandates response within 30 days
+  dueBy: timestamp('due_by').notNull()
+});
+```
+
+2. Export from `artifacts/db/src/schema/index.ts`:
+```typescript
+export * from './dpdp';
+```
+
+3. Run migration:
+```bash
+pnpm --filter @workspace/db run push
+```
+
+4. Create `artifacts/api-server/src/routes/dpdp.ts`:
+
+```typescript
+import { Router } from 'express';
+import { requireAuth } from '@clerk/express';
+import { db } from '../db';
+import { dpdpConsentsTable, dataRightsRequestsTable } from '@workspace/db/schema';
+import { eq, and } from 'drizzle-orm';
+
+const router = Router();
+router.use(requireAuth());
+
+// GET /api/dpdp/consents — view my consents
+router.get('/consents', async (req, res) => {
+  const userId = (req as any).auth.userId;
+  const consents = await db.select().from(dpdpConsentsTable)
+    .where(eq(dpdpConsentsTable.userId, userId));
+  res.json(consents);
+});
+
+// POST /api/dpdp/consents — grant or revoke consent
+router.post('/consents', async (req, res) => {
+  const userId = (req as any).auth.userId;
+  const { purpose, granted } = req.body;
+
+  const validPurposes = ['health_data_processing', 'ai_analysis', 'provider_sharing', 'community_posts', 'marketing'];
+  if (!validPurposes.includes(purpose)) {
+    return res.status(400).json({ error: 'Invalid consent purpose' });
+  }
+
+  // Upsert consent record
+  const existing = await db.select().from(dpdpConsentsTable)
+    .where(and(
+      eq(dpdpConsentsTable.userId, userId),
+      eq(dpdpConsentsTable.purpose, purpose)
+    )).limit(1);
+
+  if (existing.length > 0) {
+    await db.update(dpdpConsentsTable)
+      .set({
+        granted,
+        grantedAt: granted ? new Date() : existing[0].grantedAt,
+        revokedAt: !granted ? new Date() : null,
+        ipAddress: req.ip
+      })
+      .where(eq(dpdpConsentsTable.id, existing[0].id));
+  } else {
+    await db.insert(dpdpConsentsTable).values({
+      userId,
+      purpose,
+      granted,
+      grantedAt: granted ? new Date() : null,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+  }
+
+  res.json({ success: true, purpose, granted });
+});
+
+// POST /api/dpdp/rights-request — access, correction, or erasure
+router.post('/rights-request', async (req, res) => {
+  const userId = (req as any).auth.userId;
+  const { requestType, requestDetails } = req.body;
+
+  const validTypes = ['access', 'correction', 'erasure', 'nomination'];
+  if (!validTypes.includes(requestType)) {
+    return res.status(400).json({ error: 'Invalid request type' });
+  }
+
+  // DPDP mandates 30-day response
+  const dueBy = new Date();
+  dueBy.setDate(dueBy.getDate() + 30);
+
+  const [request] = await db.insert(dataRightsRequestsTable).values({
+    userId,
+    requestType,
+    requestDetails,
+    dueBy
+  }).returning();
+
+  // TODO: Send email notification to Grievance Officer
+  // TODO: Send confirmation email to user
+
+  res.status(201).json({
+    id: request.id,
+    message: `Your ${requestType} request has been logged. We will respond within 30 days as required by DPDP 2023.`,
+    dueBy: request.dueBy,
+    referenceId: request.id
+  });
+});
+
+// GET /api/dpdp/my-data — data access (summary of what we hold)
+router.get('/my-data', async (req, res) => {
+  const userId = (req as any).auth.userId;
+  // Return a summary of all data held (do not return raw PHI in API — link to secure download)
+  res.json({
+    dataCategories: [
+      { category: 'Profile', description: 'Name, email, mobile number', table: 'users' },
+      { category: 'Health Chat', description: 'AI chat sessions and messages', table: 'health_chat_sessions' },
+      { category: 'Community Posts', description: 'Posts, comments, upvotes', table: 'posts' },
+      { category: 'Appointments', description: 'Doctor appointment bookings', table: 'appointments' },
+      { category: 'Consents', description: 'Your consent history', table: 'dpdp_consents' }
+    ],
+    grievanceOfficer: {
+      name: 'HealthCircle Grievance Officer',
+      email: 'grievance@healthcircle.in',
+      responseTime: '30 days'
+    },
+    note: 'To receive a full export of your personal data, submit an access request via /api/dpdp/rights-request'
+  });
+});
+
+export default router;
+```
+
+5. Register in server entry point:
+```typescript
+import dpdpRouter from './routes/dpdp';
+app.use('/api/dpdp', dpdpRouter);
+```
+
+6. Add consent gate middleware. Create `artifacts/api-server/src/middleware/consentCheck.ts`:
+
+```typescript
+import { Request, Response, NextFunction } from 'express';
+import { db } from '../db';
+import { dpdpConsentsTable } from '@workspace/db/schema';
+import { and, eq } from 'drizzle-orm';
+
+export function requireConsent(purpose: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const userId = (req as any).auth?.userId;
+    if (!userId) return next(); // Auth middleware will handle unauthenticated
+
+    const consent = await db.select().from(dpdpConsentsTable)
+      .where(and(
+        eq(dpdpConsentsTable.userId, userId),
+        eq(dpdpConsentsTable.purpose, purpose),
+        eq(dpdpConsentsTable.granted, true)
+      )).limit(1);
+
+    if (consent.length === 0) {
+      return res.status(403).json({
+        error: 'CONSENT_REQUIRED',
+        purpose,
+        message: `You must grant consent for "${purpose}" to use this feature.`,
+        consentUrl: '/settings/privacy'
+      });
+    }
+    next();
+  };
+}
+```
+
+7. Apply to AI chat routes:
+```typescript
+import { requireConsent } from '../middleware/consentCheck';
+router.post('/sessions/:id/messages', requireConsent('ai_analysis'), requireConsent('health_data_processing'), async (req, res) => { ... });
+```
+
+---
+
+## FIX 5 — Medical Professional Verification (Document Upload + Audit)
+
+**Why**: "Verify Professional" button with no NMC check is a regulatory liability. At minimum, require document upload and create a clear audit trail.
+
+1. Add to DB schema. Create `artifacts/db/src/schema/verification.ts`:
+
+```typescript
+import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { users } from './users';
+
+export const medProVerificationsTable = pgTable('medpro_verifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => users.clerkId),
+  registrationNumber: text('registration_number').notNull(),
+  registrationCouncil: text('registration_council').notNull(), // 'NMC' | 'SMC' | 'DCI' | 'NCI' | 'INC' etc.
+  specialty: text('specialty').notNull(),
+  documentUrls: jsonb('document_urls').notNull().$type<string[]>(), // uploaded document URLs
+  status: text('status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
+  submittedAt: timestamp('submitted_at').defaultNow().notNull(),
+  reviewedAt: timestamp('reviewed_at'),
+  reviewedBy: text('reviewed_by'), // admin clerkId
+  reviewNote: text('review_note'),
+  // NMC lookup result if API available in future
+  externalVerificationData: jsonb('external_verification_data')
+});
+```
+
+2. Export and push:
+```typescript
+// In schema/index.ts
+export * from './verification';
+```
+```bash
+pnpm --filter @workspace/db run push
+```
+
+3. Add verification submission route in `artifacts/api-server/src/routes/medpro.ts`:
+
+```typescript
+// POST /api/medpro/verify — submit verification application
+router.post('/verify', requireAuth(), async (req, res) => {
+  const userId = (req as any).auth.userId;
+  const { registrationNumber, registrationCouncil, specialty, documentUrls } = req.body;
+
+  if (!registrationNumber || !registrationCouncil || !specialty || !documentUrls?.length) {
+    return res.status(400).json({
+      error: 'Missing required fields: registrationNumber, registrationCouncil, specialty, documentUrls'
+    });
+  }
+
+  // Check if already pending/approved
+  const existing = await db.select().from(medProVerificationsTable)
+    .where(eq(medProVerificationsTable.userId, userId)).limit(1);
+
+  if (existing.length > 0 && ['pending', 'approved'].includes(existing[0].status)) {
+    return res.status(409).json({
+      error: 'Verification already submitted',
+      status: existing[0].status
+    });
+  }
+
+  const [verification] = await db.insert(medProVerificationsTable).values({
+    userId,
+    registrationNumber,
+    registrationCouncil,
+    specialty,
+    documentUrls
+  }).returning();
+
+  // Audit log
+  await db.insert(auditLogsTable).values({
+    action: 'MEDPRO_VERIFICATION_SUBMITTED',
+    performedBy: userId,
+    metadata: { verificationId: verification.id, registrationNumber, registrationCouncil }
+  });
+
+  res.status(201).json({
+    id: verification.id,
+    status: 'pending',
+    message: 'Verification submitted. An admin will review your documents within 3 business days.'
+  });
+});
+
+// PATCH /api/admin/medpro/:id/review — admin approves or rejects
+router.patch('/admin/medpro/:id/review', requireAuth(), requireAdmin(), async (req, res) => {
+  const adminId = (req as any).auth.userId;
+  const { id } = req.params;
+  const { status, reviewNote } = req.body;
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'status must be "approved" or "rejected"' });
+  }
+
+  const [verification] = await db.update(medProVerificationsTable)
+    .set({ status, reviewedAt: new Date(), reviewedBy: adminId, reviewNote })
+    .where(eq(medProVerificationsTable.id, id))
+    .returning();
+
+  if (!verification) return res.status(404).json({ error: 'Not found' });
+
+  // If approved, promote the user to medical_professional role
+  if (status === 'approved') {
+    await db.update(usersTable)
+      .set({ role: 'medical_professional', isVerifiedPro: true })
+      .where(eq(usersTable.clerkId, verification.userId));
+  }
+
+  // Audit log
+  await db.insert(auditLogsTable).values({
+    action: `MEDPRO_VERIFICATION_${status.toUpperCase()}`,
+    performedBy: adminId,
+    metadata: { verificationId: id, targetUser: verification.userId, reviewNote }
+  });
+
+  res.json({ success: true, verification });
+});
+```
+
+---
+
+## FIX 6 — Razorpay Payment Integration (Health Credits)
+
+**Why**: Credits without a payment gateway are a vanity metric. Revenue must flow.
+
+1. Install:
+```bash
+pnpm --filter @workspace/api add razorpay
+pnpm --filter @workspace/api add -D @types/razorpay
+```
+
+2. Add to Replit Secrets:
+```
+RAZORPAY_KEY_ID=<your key>
+RAZORPAY_KEY_SECRET=<your secret>
+```
+
+3. Add payments schema. Create `artifacts/db/src/schema/payments.ts`:
+
+```typescript
+import { pgTable, uuid, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { users } from './users';
+
+export const paymentsTable = pgTable('payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => users.clerkId),
+  razorpayOrderId: text('razorpay_order_id').notNull().unique(),
+  razorpayPaymentId: text('razorpay_payment_id').unique(),
+  amount: integer('amount').notNull(), // in paise (₹1 = 100 paise)
+  currency: text('currency').notNull().default('INR'),
+  creditsAwarded: integer('credits_awarded').notNull(),
+  status: text('status').notNull().default('created'), // 'created' | 'paid' | 'failed' | 'refunded'
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  paidAt: timestamp('paid_at')
+});
+```
+
+4. Create `artifacts/api-server/src/routes/payments.ts`:
+
+```typescript
+import { Router } from 'express';
+import { requireAuth } from '@clerk/express';
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
+import { db } from '../db';
+import { paymentsTable, usersTable } from '@workspace/db/schema';
+import { eq, sql } from 'drizzle-orm';
+
+const router = Router();
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!
+});
+
+// Credit packages
+const CREDIT_PACKAGES = [
+  { id: 'starter', credits: 100, amount: 4900, label: '100 credits — ₹49' },
+  { id: 'popular', credits: 250, amount: 9900, label: '250 credits — ₹99', popular: true },
+  { id: 'pro', credits: 600, amount: 19900, label: '600 credits — ₹199' }
+];
+
+// GET /api/payments/packages
+router.get('/packages', (req, res) => {
+  res.json(CREDIT_PACKAGES);
+});
+
+// POST /api/payments/create-order
+router.post('/create-order', requireAuth(), async (req, res) => {
+  const userId = (req as any).auth.userId;
+  const { packageId } = req.body;
+
+  const pkg = CREDIT_PACKAGES.find(p => p.id === packageId);
+  if (!pkg) return res.status(400).json({ error: 'Invalid package' });
+
+  const order = await razorpay.orders.create({
+    amount: pkg.amount,
+    currency: 'INR',
+    receipt: `hc_${userId.substring(0, 8)}_${Date.now()}`,
+    notes: { userId, credits: pkg.credits.toString(), packageId }
+  });
+
+  await db.insert(paymentsTable).values({
+    userId,
+    razorpayOrderId: order.id,
+    amount: pkg.amount,
+    creditsAwarded: pkg.credits,
+    metadata: { packageId, packageLabel: pkg.label }
+  });
+
+  res.json({
+    orderId: order.id,
+    amount: pkg.amount,
+    currency: 'INR',
+    keyId: process.env.RAZORPAY_KEY_ID,
+    credits: pkg.credits
+  });
+});
+
+// POST /api/payments/verify — called after successful payment on frontend
+router.post('/verify', requireAuth(), async (req, res) => {
+  const userId = (req as any).auth.userId;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+  // Verify signature (HMAC-SHA256)
+  const body = razorpay_order_id + '|' + razorpay_payment_id;
+  const expectedSignature = crypto
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+    .update(body)
+    .digest('hex');
+
+  if (expectedSignature !== razorpay_signature) {
+    return res.status(400).json({ error: 'Payment verification failed — invalid signature' });
+  }
+
+  // Find the pending payment
+  const [payment] = await db.select().from(paymentsTable)
+    .where(eq(paymentsTable.razorpayOrderId, razorpay_order_id)).limit(1);
+
+  if (!payment || payment.status === 'paid') {
+    return res.status(409).json({ error: 'Payment not found or already processed' });
+  }
+
+  // Verify this payment belongs to the authenticated user
+  if (payment.userId !== userId) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  // Mark payment as paid + award credits atomically
+  await db.transaction(async (tx) => {
+    await tx.update(paymentsTable)
+      .set({ status: 'paid', razorpayPaymentId: razorpay_payment_id, paidAt: new Date() })
+      .where(eq(paymentsTable.razorpayOrderId, razorpay_order_id));
+
+    await tx.update(usersTable)
+      .set({ healthCredits: sql`health_credits + ${payment.creditsAwarded}` })
+      .where(eq(usersTable.clerkId, userId));
+  });
+
+  res.json({
+    success: true,
+    creditsAwarded: payment.creditsAwarded,
+    message: `${payment.creditsAwarded} health credits added to your account!`
+  });
+});
+
+// Razorpay webhook (for payment events from Razorpay servers)
+router.post('/webhook', async (req, res) => {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET!;
+  const signature = req.headers['x-razorpay-signature'];
+  const body = JSON.stringify(req.body);
+
+  const expectedSignature = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(body)
+    .digest('hex');
+
+  if (signature !== expectedSignature) {
+    return res.status(400).json({ error: 'Invalid webhook signature' });
+  }
+
+  const event = req.body;
+  if (event.event === 'payment.failed') {
+    const orderId = event.payload?.payment?.entity?.order_id;
+    if (orderId) {
+      await db.update(paymentsTable)
+        .set({ status: 'failed' })
+        .where(eq(paymentsTable.razorpayOrderId, orderId));
+    }
+  }
+
+  res.json({ status: 'ok' });
+});
+
+export default router;
+```
+
+5. Register routes and push schema:
+```typescript
+// In index.ts
+import paymentsRouter from './routes/payments';
+app.use('/api/payments', paymentsRouter);
+```
+```bash
+pnpm --filter @workspace/db run push
+```
+
+6. In the frontend, add Razorpay script to `index.html`:
+```html
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+```
+
+7. Create `artifacts/askhealth/src/components/BuyCreditsModal.tsx`:
+
+```tsx
+import { useState } from 'react';
+
+interface Package { id: string; credits: number; amount: number; label: string; popular?: boolean; }
+
+export function BuyCreditsModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (credits: number) => void }) {
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load packages on mount
+  useState(() => {
+    fetch('/api/payments/packages').then(r => r.json()).then(setPackages);
+  });
+
+  async function handlePurchase(pkg: Package) {
+    setLoading(true);
+    try {
+      const orderRes = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId: pkg.id })
+      });
+      const order = await orderRes.json();
+
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: 'INR',
+        name: 'HealthCircle',
+        description: `${order.credits} Health Credits`,
+        order_id: order.orderId,
+        handler: async (response: any) => {
+          const verifyRes = await fetch('/api/payments/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(response)
+          });
+          const result = await verifyRes.json();
+          if (result.success) {
+            onSuccess(result.creditsAwarded);
+            onClose();
+          }
+        },
+        theme: { color: '#16a34a' }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4">
+        <h2 className="text-lg font-semibold mb-4">Buy Health Credits</h2>
+        <div className="space-y-3">
+          {packages.map(pkg => (
+            <button
+              key={pkg.id}
+              onClick={() => handlePurchase(pkg)}
+              disabled={loading}
+              className={`w-full p-4 rounded-xl border-2 text-left transition-colors ${
+                pkg.popular ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              {pkg.popular && <span className="text-xs font-semibold text-green-600 uppercase">Most Popular</span>}
+              <div className="font-medium">{pkg.label}</div>
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} className="mt-4 w-full text-gray-500 text-sm">Cancel</button>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## FIX 7 — Real Provider Onboarding Flow
+
+**Why**: 8 seeded doctors cannot support a live product.
+
+1. Create `artifacts/api-server/src/routes/providerOnboarding.ts`:
+
+```typescript
+import { Router } from 'express';
+import { requireAuth } from '@clerk/express';
+import { db } from '../db';
+import { doctorsTable, hospitalsTable, auditLogsTable } from '@workspace/db/schema';
+
+const router = Router();
+
+// POST /api/providers/apply/doctor — self-registration for doctors
+router.post('/apply/doctor', requireAuth(), async (req, res) => {
+  const userId = (req as any).auth.userId;
+  const {
+    name, specialty, qualifications, registrationNumber,
+    registrationCouncil, fee, location, languages,
+    clinicName, clinicAddress, phone, availableDays, documentUrls
+  } = req.body;
+
+  const required = ['name', 'specialty', 'registrationNumber', 'fee', 'location', 'phone'];
+  const missing = required.filter(f => !req.body[f]);
+  if (missing.length) {
+    return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+  }
+
+  // Insert as unavailable (pending admin approval)
+  const [doctor] = await db.insert(doctorsTable).values({
+    name,
+    specialty,
+    qualifications: qualifications || '',
+    registrationNumber,
+    fee: Number(fee),
+    location,
+    languages: languages || ['English'],
+    available: false, // not available until approved
+    rating: 0,
+    experience: 0,
+    submittedByUserId: userId,
+    documentUrls: documentUrls || [],
+    approvalStatus: 'pending'
+  }).returning();
+
+  await db.insert(auditLogsTable).values({
+    action: 'DOCTOR_ONBOARDING_SUBMITTED',
+    performedBy: userId,
+    metadata: { doctorId: doctor.id, name, specialty, registrationNumber }
+  });
+
+  res.status(201).json({
+    id: doctor.id,
+    message: 'Application submitted. You will be notified within 3 business days once verified.'
+  });
+});
+
+// PATCH /api/admin/providers/doctor/:id/approve — admin approves
+router.patch('/admin/providers/doctor/:id/approve', requireAuth(), requireAdmin(), async (req, res) => {
+  const adminId = (req as any).auth.userId;
+  const { id } = req.params;
+  const { approved, note } = req.body;
+
+  const [doctor] = await db.update(doctorsTable)
+    .set({
+      available: approved === true,
+      approvalStatus: approved ? 'approved' : 'rejected',
+      approvalNote: note
+    })
+    .where(eq(doctorsTable.id, id))
+    .returning();
+
+  await db.insert(auditLogsTable).values({
+    action: approved ? 'DOCTOR_APPROVED' : 'DOCTOR_REJECTED',
+    performedBy: adminId,
+    metadata: { doctorId: id, note }
+  });
+
+  res.json({ success: true, doctor });
+});
+
+export default router;
+```
+
+2. Add `approvalStatus`, `approvalNote`, `submittedByUserId`, `documentUrls` columns to `doctorsTable` in the schema, then run `pnpm --filter @workspace/db run push`.
+
+3. Add an "Apply as Doctor" public-facing page at route `/providers/join` in the frontend. Simple form collecting the fields above with a file upload for documents.
+
+---
+
+## FIX 8 — Notification System (Appointments + Escalations)
+
+**Why**: Booking an appointment with no confirmation notification is broken UX.
+
+1. Install:
+```bash
+pnpm --filter @workspace/api add nodemailer
+pnpm --filter @workspace/api add -D @types/nodemailer
+```
+
+2. Add Replit Secrets:
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=noreply@healthcircle.in
+SMTP_PASS=<app password>
+NOTIFICATION_FROM=HealthCircle <noreply@healthcircle.in>
+```
+
+3. Create `artifacts/api-server/src/lib/notifications.ts`:
+
+```typescript
+import nodemailer from 'nodemailer';
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false,
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+});
+
+export async function sendAppointmentConfirmation(opts: {
+  toEmail: string;
+  patientName: string;
+  doctorName: string;
+  dateTime: string;
+  location: string;
+  appointmentId: string;
+}) {
+  await transporter.sendMail({
+    from: process.env.NOTIFICATION_FROM,
+    to: opts.toEmail,
+    subject: `Appointment Confirmed — ${opts.doctorName} on ${opts.dateTime}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #16a34a;">Appointment Confirmed ✓</h2>
+        <p>Hello ${opts.patientName},</p>
+        <p>Your appointment has been confirmed:</p>
+        <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
+          <tr><td style="padding:8px; color:#666;">Doctor</td><td style="padding:8px; font-weight:600;">${opts.doctorName}</td></tr>
+          <tr style="background:#f9fafb;"><td style="padding:8px; color:#666;">Date & Time</td><td style="padding:8px; font-weight:600;">${opts.dateTime}</td></tr>
+          <tr><td style="padding:8px; color:#666;">Location</td><td style="padding:8px;">${opts.location}</td></tr>
+          <tr style="background:#f9fafb;"><td style="padding:8px; color:#666;">Reference</td><td style="padding:8px; font-size:12px; color:#999;">${opts.appointmentId}</td></tr>
+        </table>
+        <p style="color:#666; font-size:13px;">For emergencies, always call <strong>108</strong>.</p>
+        <p style="color:#999; font-size:12px;">HealthCircle — Your Health, Your Community</p>
+      </div>
+    `
+  });
+}
+
+export async function sendEscalationAlert(opts: {
+  toEmail: string;
+  patientName: string;
+  sessionId: string;
+  riskLevel: string;
+}) {
+  await transporter.sendMail({
+    from: process.env.NOTIFICATION_FROM,
+    to: opts.toEmail,
+    subject: `[HealthCircle] High-risk health query flagged — action needed`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px;">
+        <h2 style="color: #dc2626;">High-Risk Query Alert</h2>
+        <p>A patient query has been flagged as <strong>${opts.riskLevel}</strong> risk.</p>
+        <p>Patient: ${opts.patientName}<br>Session: ${opts.sessionId}</p>
+        <p>Please review in the <a href="https://healthcircle.replit.app/medpro">MedPro Portal</a>.</p>
+      </div>
+    `
+  });
+}
+```
+
+4. Fire `sendAppointmentConfirmation` in the appointment booking route after successful insert.
+
+5. Fire `sendEscalationAlert` to the medpro team email when `risk_level === 'high' || risk_level === 'emergency'` in the chat message handler.
+
+---
+
+## FIX 9 — Remove / Isolate Legacy Tables
+
+**Why**: `conversations` and `messages` tables marked "kept for compat" are technical debt that creates confusion.
+
+1. In `artifacts/db/src/schema/index.ts`, move legacy exports to a clearly marked section:
+
+```typescript
+// ============================================================
+// LEGACY — do not use in new code. Kept for migration only.
+// Migrate to: health_chat_sessions + health_chat_messages
+// Target removal: v2.0
+// ============================================================
+export * from './legacy/conversations';
+export * from './legacy/messages';
+```
+
+2. Move the actual schema files to `artifacts/db/src/schema/legacy/`.
+
+3. Add a console warning in any routes that still use these tables:
+```typescript
+console.warn('[DEPRECATED] Using legacy conversations table. Migrate to health_chat_sessions.');
+```
+
+---
+
+## FIX 10 — Admin Security (Basic Hardening)
+
+**Why**: Admin Godmode has no 2FA or IP restriction — one compromised account = full platform access.
+
+1. Create `artifacts/api-server/src/middleware/requireAdmin.ts` if it doesn't already exist:
+
+```typescript
+import { Request, Response, NextFunction } from 'express';
+import { db } from '../db';
+import { usersTable } from '@workspace/db/schema';
+import { eq } from 'drizzle-orm';
+
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const userId = (req as any).auth?.userId;
+  if (!userId) return res.status(401).json({ error: 'Unauthenticated' });
+
+  const [user] = await db.select({ role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.clerkId, userId))
+    .limit(1);
+
+  if (!user || user.role !== 'admin') {
+    // Log unauthorized admin access attempt
+    await db.insert(auditLogsTable).values({
+      action: 'UNAUTHORIZED_ADMIN_ACCESS',
+      performedBy: userId,
+      metadata: { path: req.path, method: req.method, ip: req.ip }
+    });
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  next();
+}
+```
+
+2. Apply to ALL `/api/admin/*` routes:
+```typescript
+import { requireAdmin } from '../middleware/requireAdmin';
+app.use('/api/admin', requireAuth(), requireAdmin);
+```
+
+3. Add to the admin frontend — a session timeout warning after 30 minutes of inactivity:
+
+```tsx
+// In admin layout component
+useEffect(() => {
+  let timer: ReturnType<typeof setTimeout>;
+  const reset = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      alert('Admin session expired for security. Please sign in again.');
+      signOut();
+    }, 30 * 60 * 1000); // 30 minutes
+  };
+  window.addEventListener('mousemove', reset);
+  window.addEventListener('keydown', reset);
+  reset();
+  return () => {
+    clearTimeout(timer);
+    window.removeEventListener('mousemove', reset);
+    window.removeEventListener('keydown', reset);
+  };
+}, []);
+```
+
+---
+
+## FIX 11 — Hinglish Support (Roman-script Hindi detection)
+
+**Why**: Devanagari script detection misses Hinglish — the dominant mobile typing mode in India ("mera sir dard kar raha hai" written in Roman script).
+
+1. Update intent classification in `artifacts/api-server/src/lib/healthAssistant.ts` or wherever language detection lives:
+
+```typescript
+// Expanded Hindi detection — covers both Devanagari AND common Roman-script Hinglish
+const HINGLISH_ROMAN_PATTERNS = [
+  /\b(dard|bukhar|sir dard|pet dard|seena|khasi|buzar|beemar|dawai|doctor|aspatal)\b/i,
+  /\b(mera|meri|mujhe|mere|hum|kya|kaise|kab|kyun|aur|nahi|hai|ho|kar)\b/i,
+  /\b(sar|sar dard|sar dard ho|ulti|chakkar|kamzori|thakaan|neend)\b/i,
+  /\b(khaana|pani|dawai|tablet|injection|test|khoon|sugar|bp)\b/i
+];
+
+const DEVANAGARI_PATTERN = /[\u0900-\u097F]/;
+
+export function detectLanguage(text: string): 'hi' | 'en' {
+  if (DEVANAGARI_PATTERN.test(text)) return 'hi';
+  const hinglishMatches = HINGLISH_ROMAN_PATTERNS.filter(p => p.test(text)).length;
+  return hinglishMatches >= 2 ? 'hi' : 'en';
+}
+```
+
+2. Pass detected language to the Yukti system prompt so it responds in the right language:
+
+```typescript
+const languageHint = detectLanguage(userMessage);
+const systemWithLanguage = YUKTI_SYSTEM_PROMPT + `\n\nIMPORTANT: The user is writing in ${languageHint === 'hi' ? 'Hindi/Hinglish — respond warmly in Hindi (Devanagari preferred, Roman-script acceptable)' : 'English — respond in clear, simple English'}.`;
+```
+
+---
+
+## Final Steps — After All Fixes Applied
+
+Run in order:
+
+```bash
+# 1. Push all schema changes
+pnpm --filter @workspace/db run push
+
+# 2. Re-seed providers (optional, keeps test data clean)
+pnpm --filter @workspace/db run seed-providers
+
+# 3. Build and check for TypeScript errors
+pnpm --filter @workspace/api run build
+pnpm --filter @workspace/askhealth run build
+
+# 4. Verify health endpoint
+curl https://healthcircle.replit.app/api/healthz
+```
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` ✓
+- Remove: `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`
+
+**Verify each fix is working:**
+3. Type "chest pain" in chat → confirm emergency banner with 108 call button appears
+4. Call `GET /api/dpdp/my-data` → confirm response with data categories
+5. Submit doctor application via `/providers/join` → confirm pending status in DB
+6. Purchase credits → confirm Razorpay checkout opens and credits are awarded
+7. Book appointment → confirm email confirmation arrives
+8. Access `/api/admin/stats` without admin role → confirm 403 with audit log entry

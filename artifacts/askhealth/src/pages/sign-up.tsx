@@ -12,7 +12,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 type Stage = "details" | "verify";
 
 export default function SignUpPage() {
-  const { signUp, setActive, isLoaded } = useSignUp();
+  const { signUp } = useSignUp();
   const [, setLocation] = useLocation();
 
   const [stage, setStage] = useState<Stage>("details");
@@ -29,7 +29,7 @@ export default function SignUpPage() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded || !signUp) return;
+    if (!signUp) { setError("Sign-up is not ready. Please refresh and try again."); return; }
     if (password !== confirmPass) { setError("Passwords do not match."); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
@@ -41,10 +41,12 @@ export default function SignUpPage() {
         emailAddress: email.trim().toLowerCase(),
         password,
       });
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      // @clerk/react v6: verifications.sendEmailCode replaces prepareEmailAddressVerification.
+      await signUp.verifications.sendEmailCode();
       setStage("verify");
     } catch (err: unknown) {
-      const msg = (err as { errors?: { message: string }[] })?.errors?.[0]?.message
+      const clerkErr = (err as { errors?: { message: string; longMessage?: string; code?: string }[] })?.errors?.[0];
+      const msg = clerkErr?.longMessage ?? clerkErr?.message
         ?? (err instanceof Error ? err.message : "Registration failed. Please try again.");
       setError(msg);
     } finally {
@@ -53,13 +55,14 @@ export default function SignUpPage() {
   }
 
   async function handleGoogle() {
-    if (!isLoaded || !signUp) return;
+    if (!signUp) return;
     setError(null);
     try {
-      await signUp.authenticateWithRedirect({
+      // @clerk/react v6: OAuth uses signUp.sso() instead of authenticateWithRedirect.
+      await signUp.sso({
         strategy: "oauth_google",
         redirectUrl: `${window.location.origin}${basePath}/sso-callback`,
-        redirectUrlComplete: `${basePath}/`,
+        redirectCallbackUrl: `${window.location.origin}${basePath}/sso-callback`,
       });
     } catch (err: unknown) {
       const msg = (err as { errors?: { message: string }[] })?.errors?.[0]?.message
@@ -70,34 +73,38 @@ export default function SignUpPage() {
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded || !signUp) return;
+    if (!signUp) { setError("Sign-up is not ready. Please refresh and try again."); return; }
     setLoading(true);
     setError(null);
     try {
-      const result = await signUp.attemptEmailAddressVerification({ code: otp });
-      if (result.status === "complete") {
-        // Store username + mobile in our DB after Clerk session is created
-        await setActive({ session: result.createdSessionId });
-        try {
-          await fetch(`${API_BASE}/users/me`, {
-            method: "PATCH",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              displayName: fullName,
-              username: username.trim() || null,
-              mobileNumber: mobile.trim() || null,
-            }),
-          });
-        } catch {
-          // Non-fatal — user data still created via getOrCreateUser on next request
-        }
-        window.location.assign(`${basePath}/communities`);
+      // @clerk/react v6: verifications.verifyEmailCode replaces attemptEmailAddressVerification.
+      await signUp.verifications.verifyEmailCode({ code: otp });
+      // signUp.status is a live getter and signUp.createdSessionId becomes truthy on success.
+      if (signUp.createdSessionId || signUp.status === "complete") {
+        // Persist username + mobile in our DB BEFORE finalize so we have a session to use.
+        await signUp.finalize({
+          navigate: async () => {
+            try {
+              await fetch(`${API_BASE}/users/me`, {
+                method: "PATCH",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  displayName: fullName,
+                  username: username.trim() || null,
+                  mobileNumber: mobile.trim() || null,
+                }),
+              });
+            } catch { /* non-fatal — getOrCreateUser will create on next request */ }
+            window.location.assign(`${basePath}/communities`);
+          },
+        });
       } else {
-        setError("Verification incomplete. Please try again.");
+        setError(`Verification incomplete (status: ${signUp.status}). Please try again.`);
       }
     } catch (err: unknown) {
-      const msg = (err as { errors?: { message: string }[] })?.errors?.[0]?.message
+      const clerkErr = (err as { errors?: { message: string; longMessage?: string; code?: string }[] })?.errors?.[0];
+      const msg = clerkErr?.longMessage ?? clerkErr?.message
         ?? (err instanceof Error ? err.message : "Verification failed.");
       setError(msg);
     } finally {
@@ -106,10 +113,11 @@ export default function SignUpPage() {
   }
 
   async function resendOtp() {
-    if (!isLoaded || !signUp) return;
+    if (!signUp) return;
     setError(null);
     try {
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      // @clerk/react v6: verifications.sendEmailCode replaces prepareEmailAddressVerification.
+      await signUp.verifications.sendEmailCode();
     } catch {
       setError("Could not resend code. Please try again.");
     }

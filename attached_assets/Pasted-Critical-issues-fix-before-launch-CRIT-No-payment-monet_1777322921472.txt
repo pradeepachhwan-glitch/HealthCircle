@@ -1,0 +1,38 @@
+Critical issues — fix before launch
+CRIT
+No payment / monetisation layer
+Credits system exists, but zero payment gateway (Razorpay, Stripe, UPI). How does revenue flow in?
+CRIT
+AI = OpenAI, not Anthropic
+Yukti runs on OpenAI via Replit integration. You have Anthropic API credits sitting idle. Mismatch with your AskHealth ecosystem and cost strategy.
+CRIT
+No DPDP / IT Act compliance layer
+India's Digital Personal Data Protection Act 2023 requires explicit consent logging, data principal rights, and a Grievance Officer. Consent table exists but is incomplete for DPDP.
+CRIT
+Medical professional verification is manual and thin
+"Verify Professional" button in Godmode — no NMC/SMC registration check, no document upload, no audit trail. Regulatory liability in India if fake doctors give advice.
+CRIT
+No rate limiting on AI endpoints
+POST /api/chat/sessions/:id/messages hits AI on every call. No per-user throttle, no abuse protection. Open to cost-exhaustion attacks.
+CRIT
+Telemedicine without licensing
+Doctor consultation + AI medical advice = Telemedicine Practise Guidelines (MoHFW 2020) territory. No consent to treatment, no session recording, no prescribing safeguards documented.
+High-priority gaps
+HIGH
+No ABDM / ABHA integration
+India's Ayushman Bharat Digital Mission is the rails all serious health apps must be on. No ABHA ID linking, no PHR linking, no Health Locker. Blocks hospital/insurer partnerships.
+HIGH
+Voice + file attach are mock only
+UI exists. Backend handlers don't. Hindi-speaking users expect voice input — this is table-stakes for Tier 2/3 India penetration.
+HIGH
+Emergency escalation path is AI-only
+Red risk badge appears, "Get a Doctor's Opinion" button shows — but no 108/ambulance integration, no family alert, no hard-stop redirect. Clinical liability.
+HIGH
+Seeded data, not real provider network
+8 doctors, 6 hospitals — seeded. No onboarding flow for real providers. App has no value without real supply-side.
+HIGH
+No notification system
+Appointment bookings, AI escalations, broadcast posts — none trigger push/SMS/email. Patients won't know anything happened.
+HIGH
+Legacy tables in live schema
+conversations + messages tables described as "kept for compat." Technical debt on day one is a smell. Prune or explicitly version them.

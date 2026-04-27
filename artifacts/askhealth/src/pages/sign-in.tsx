@@ -19,7 +19,7 @@ async function lookupEmail(identifier: string): Promise<string> {
 }
 
 export default function SignInPage() {
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const { signIn } = useSignIn();
   const { isSignedIn } = useAuth();
   const { signOut } = useClerk();
   const [, setLocation] = useLocation();
@@ -36,26 +36,42 @@ export default function SignInPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded || !signIn) return;
+    if (!signIn) {
+      setError("Sign-in is not ready. Please refresh and try again.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       if (isSignedIn) {
-        // Already signed in (stale session). Sign out first so credentials apply cleanly.
-        await signOut({ redirectUrl: `${basePath}/sign-in` });
+        // Clear any stale session locally (no redirectUrl — that would reload the page).
+        try { await signOut(); } catch { /* ignore */ }
       }
       const email = await lookupEmail(identifier.trim());
-      const result = await signIn.create({ identifier: email, password });
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
-        // Hard navigation to ensure Clerk session cookie is read fresh by all components.
-        window.location.assign(`${basePath}/communities`);
-      } else {
-        setError("Sign-in could not be completed. Please try again.");
+      await signIn.create({ identifier: email, password });
+      // @clerk/react v6 (signals): signIn.status is hardcoded; check live getter createdSessionId.
+      if (signIn.createdSessionId) {
+        await signIn.finalize({
+          navigate: () => {
+            window.location.assign(`${basePath}/communities`);
+          },
+        });
+        return;
       }
+      setError(`Sign-in needs another step. If you signed up with Google, please use "Continue with Google", or use "Forgot password?" to set a password.`);
     } catch (err: unknown) {
-      const msg = (err as { errors?: { message: string }[] })?.errors?.[0]?.message
-        ?? (err instanceof Error ? err.message : "Sign-in failed. Check your credentials.");
+      const clerkErr = (err as { errors?: { message: string; longMessage?: string; code?: string }[] })?.errors?.[0];
+      const code = clerkErr?.code;
+      let msg = clerkErr?.longMessage ?? clerkErr?.message
+        ?? (err instanceof Error ? err.message : "Sign-in failed. Please check your credentials.");
+      if (code === "form_identifier_not_found") {
+        msg = "We couldn't find an account with that email/username. Please check it or create a new account.";
+      } else if (code === "form_password_incorrect") {
+        msg = "That password is incorrect. Try again or reset it via Forgot password.";
+      } else if (code === "session_exists") {
+        window.location.assign(`${basePath}/communities`);
+        return;
+      }
       setError(msg);
     } finally {
       setLoading(false);
@@ -63,13 +79,14 @@ export default function SignInPage() {
   }
 
   async function handleGoogle() {
-    if (!isLoaded || !signIn) return;
+    if (!signIn) return;
     setError(null);
     try {
-      await signIn.authenticateWithRedirect({
+      // @clerk/react v6: OAuth uses signIn.sso() instead of authenticateWithRedirect.
+      await signIn.sso({
         strategy: "oauth_google",
         redirectUrl: `${window.location.origin}${basePath}/sso-callback`,
-        redirectUrlComplete: `${basePath}/`,
+        redirectCallbackUrl: `${window.location.origin}${basePath}/sso-callback`,
       });
     } catch (err: unknown) {
       const msg = (err as { errors?: { message: string }[] })?.errors?.[0]?.message

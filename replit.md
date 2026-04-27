@@ -21,7 +21,7 @@ A full-featured healthcare super app combining WhatsApp-style AI chat, a doctor/
 
 ## Artifacts
 
-- `artifacts/askhealth/` — Main React frontend (previewPath: `/`)
+- `artifacts/askhealth/` — Main React frontend (previewPath: `/`). Installable PWA — `manifest.json`, service worker (`/sw.js`), icons (`/icon.svg`, `/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png`), offline fallback (`/offline.html`). Install button in `src/components/PWAInstallButton.tsx` uses `beforeinstallprompt` for Chromium and shows iOS Add-to-Home-Screen instructions for Safari. SW registers only in `import.meta.env.PROD` to avoid intercepting the workspace dev iframe.
 - `artifacts/api-server/` — Express API server (previewPath: `/api`)
 
 ## Architecture
