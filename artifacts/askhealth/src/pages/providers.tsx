@@ -250,20 +250,26 @@ export default function ProvidersPage() {
 
   const { data: doctors = [], isLoading: loadingDoctors } = useQuery<Doctor[]>({
     queryKey: ["doctors", query, selectedSpecialty],
-    queryFn: () => {
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       if (selectedSpecialty) params.set("specialty", selectedSpecialty);
-      return fetch(`${API_BASE}/doctors?${params}`, { credentials: "include" }).then(r => r.json());
+      const res = await fetch(`${API_BASE}/doctors?${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
   const { data: hospitals = [], isLoading: loadingHospitals } = useQuery<Hospital[]>({
     queryKey: ["hospitals", query],
-    queryFn: () => {
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
-      return fetch(`${API_BASE}/hospitals?${params}`, { credentials: "include" }).then(r => r.json());
+      const res = await fetch(`${API_BASE}/hospitals?${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 

@@ -106,7 +106,12 @@ function AppointmentCard({ appointment }: { appointment: Appointment }) {
 export default function AppointmentsPage() {
   const { data: appointments = [], isLoading } = useQuery<Appointment[]>({
     queryKey: ["appointments"],
-    queryFn: () => fetch(`${API_BASE}/appointments`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/appointments`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
   });
 
   const upcoming = appointments.filter(a => a.status === "booked" && new Date(a.appointmentTime) >= new Date());

@@ -50,13 +50,23 @@ export default function Profile() {
 
   const { data: myPosts = [], isLoading: postsLoading } = useQuery<MyPost[]>({
     queryKey: ["me-posts"],
-    queryFn: () => fetch(`${API_BASE}/users/me/posts`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/users/me/posts`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
     enabled: !!user && activeTab === "posts",
   });
 
   const { data: myCommunities = [], isLoading: communitiesLoading } = useQuery<MyCommunity[]>({
     queryKey: ["me-communities"],
-    queryFn: () => fetch(`${API_BASE}/users/me/communities`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/users/me/communities`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
     enabled: !!user && activeTab === "communities",
   });
 
