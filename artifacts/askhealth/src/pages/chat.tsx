@@ -242,7 +242,16 @@ export default function ChatPage() {
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = true;
-    rec.lang = navigator.language?.startsWith("hi") ? "hi-IN" : "en-IN";
+    // Match the user's preferred Indic language for speech recognition.
+    // Falls back to en-IN. Supports Hindi, Bengali, Tamil, Telugu, Marathi,
+    // Gujarati, Punjabi, Kannada, Malayalam, Urdu.
+    const preferredLang = (navigator.language ?? "en-IN").toLowerCase();
+    const langMap: Record<string, string> = {
+      hi: "hi-IN", bn: "bn-IN", ta: "ta-IN", te: "te-IN", mr: "mr-IN",
+      gu: "gu-IN", pa: "pa-IN", kn: "kn-IN", ml: "ml-IN", ur: "ur-IN",
+    };
+    const code = preferredLang.split(/[-_]/)[0];
+    rec.lang = langMap[code] ?? "en-IN";
     rec.onresult = (event: any) => {
       let transcript = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {

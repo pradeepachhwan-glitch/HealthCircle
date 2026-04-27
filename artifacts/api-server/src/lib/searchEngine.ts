@@ -1,6 +1,8 @@
 import { db } from "@workspace/db";
-import { doctorsTable, hospitalsTable, searchLogsTable, communitiesTable } from "@workspace/db/schema";
-import { ilike, or, eq, and } from "drizzle-orm";
+import { doctorsTable, hospitalsTable, searchLogsTable, communitiesTable, postsTable, usersTable } from "@workspace/db/schema";
+import { ilike, or, eq, and, desc, sql } from "drizzle-orm";
+import { aiChatJson } from "./aiClient";
+import { detectEmergency } from "./emergencyDetect";
 
 export type SearchIntent = "symptom" | "treatment" | "doctor" | "lab" | "general";
 
@@ -11,7 +13,9 @@ export interface SearchResult {
   recommendations: string[];
   providers: ProviderResult[];
   relatedCommunities: RelatedCommunity[];
+  discussions: DiscussionResult[];
   mapQuery: string;
+  ai_synthesized: boolean;
 }
 
 interface ProviderResult {
@@ -32,6 +36,19 @@ interface RelatedCommunity {
   iconEmoji: string | null;
 }
 
+interface DiscussionResult {
+  id: number;
+  title: string;
+  excerpt: string;
+  communitySlug: string;
+  communityName: string;
+  authorName: string | null;
+  upvoteCount: number;
+  commentCount: number;
+  isExpertAnswered: boolean;
+  createdAt: Date;
+}
+
 const SYMPTOM_KEYWORDS = ["pain", "ache", "fever", "cold", "cough", "headache", "dizzy", "nausea", "fatigue", "swelling", "rash", "bleed", "breathe", "chest", "stomach", "दर्द", "बुखार", "सिरदर्द", "खांसी"];
 const TREATMENT_KEYWORDS = ["treat", "cure", "medicine", "drug", "therapy", "surgery", "vaccine", "dose", "dosage", "prescription", "इलाज", "दवा"];
 const DOCTOR_KEYWORDS = ["doctor", "specialist", "physician", "surgeon", "cardiologist", "dermatologist", "orthopedic", "gynecologist", "डॉक्टर", "चिकित्सक"];
@@ -49,6 +66,21 @@ const SPECIALTY_MAP: { keywords: string[]; specialty: string; communitySlug?: st
   { keywords: ["fitness", "weight", "obesity", "exercise", "diet"], specialty: "General Physician", communitySlug: "fit-life" },
   { keywords: ["work", "burnout", "workplace stress"], specialty: "Psychiatrist", communitySlug: "work-reset" },
 ];
+
+// Same forbidden-platforms list used by Yukti chat — keeps the search summary on-platform.
+const FORBIDDEN_REFERRALS = [
+  /\bpracto\b/gi, /\b1\s?mg\b/gi, /\bjustdial\b/gi, /\bapollo\s?24\b/gi,
+  /\bpharmeasy\b/gi, /\btata\s?1mg\b/gi, /\blybrate\b/gi, /\bnetmeds\b/gi,
+  /\bdr\.?\s?lal\s?path\s?labs?\b/gi, /\bnhp\.gov\b/gi,
+  /\bgoogle\s+(search|it|maps?)\b/gi, /\bwebmd\b/gi, /\bzocdoc\b/gi,
+  /\bministry of health\b/gi, /\bnational health portal\b/gi,
+];
+function sanitizeExternalRefs(text: string): string {
+  let out = text;
+  for (const re of FORBIDDEN_REFERRALS) out = out.replace(re, "HealthCircle");
+  out = out.replace(/(use|check|search on|visit|go to)\s+HealthCircle/gi, "use HealthCircle");
+  return out;
+}
 
 function classifyIntent(query: string): SearchIntent {
   const lower = query.toLowerCase();
@@ -135,16 +167,150 @@ function detectSpecialty(query: string): { specialty: string | null; communitySl
   return { specialty: null, communitySlug: null };
 }
 
+/**
+ * Smart fallback summary — used when AI synthesis is unavailable. Interpolates
+ * the actual data we found so the user always sees something specific and
+ * useful, never a generic boilerplate.
+ */
+function templateSummary(
+  intent: SearchIntent,
+  query: string,
+  providers: ProviderResult[],
+  communities: RelatedCommunity[],
+  discussions: DiscussionResult[],
+  risk: "low" | "medium" | "high",
+): string {
+  const parts: string[] = [];
+
+  if (risk === "high") {
+    parts.push(`⚠️ Your query about "${query}" sounds urgent — if this is an emergency, call 108 immediately.`);
+  } else {
+    const lead: Record<SearchIntent, string> = {
+      symptom: `For your concern about "${query}",`,
+      treatment: `On treatment for "${query}",`,
+      doctor: `Here's what HealthCircle has for "${query}":`,
+      lab: `For "${query}" related tests,`,
+      general: `On "${query}",`,
+    };
+    parts.push(lead[intent]);
+  }
+
+  const hits: string[] = [];
+  if (providers.length) {
+    const docs = providers.filter(p => p.type === "doctor");
+    const top = docs[0] ?? providers[0];
+    if (docs.length > 0 && top.specialty) {
+      hits.push(`${docs.length} verified ${top.specialty}${docs.length === 1 ? "" : "s"} on HealthCircle (e.g. ${top.name} in ${top.location})`);
+    } else if (top) {
+      hits.push(`${providers.length} verified provider${providers.length === 1 ? "" : "s"} on HealthCircle`);
+    }
+  }
+  if (communities.length) {
+    const top = communities[0];
+    hits.push(`an active "${top.name}" community where peers discuss this`);
+  }
+  if (discussions.length) {
+    hits.push(`${discussions.length} member discussion${discussions.length === 1 ? "" : "s"} matching your query`);
+  }
+
+  if (hits.length) {
+    parts.push(`we found ${hits.join(", ")}. Tap any item below to engage directly — everything happens here on HealthCircle.`);
+  } else {
+    parts.push(`browse our verified doctor directory below or join a HealthCircle community to ask peers — no need to leave the app.`);
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Synthesize a query-specific, on-platform summary using OpenAI grounded on the
+ * actual data we found in our database (providers, communities, discussions).
+ * If OpenAI fails or env vars are missing, fall back to the deterministic
+ * template summary — no broken state for the user.
+ */
+async function synthesizeSummary(
+  query: string,
+  intent: SearchIntent,
+  risk: "low" | "medium" | "high",
+  providers: ProviderResult[],
+  communities: RelatedCommunity[],
+  discussions: DiscussionResult[],
+): Promise<{ text: string; aiUsed: boolean }> {
+  const fallback = templateSummary(intent, query, providers, communities, discussions, risk);
+
+  const systemPrompt = `You are HealthCircle Search — India's self-contained health super app. Write a SHORT (2-3 sentence), warm, factual summary that directly addresses the user's query. STRICT RULES:
+1. NEVER mention or recommend any external service (Practo, 1mg, Apollo 24/7, Tata 1mg, Justdial, PharmEasy, WebMD, Google, Lybrate, Netmeds, NHP, etc.). Everything must point inward to HealthCircle.
+2. When relevant, weave in the actual platform results we found — say things like "you can consult Dr. X (cardiologist, Mumbai) below" or "the Heart Circle community has N active discussions on this".
+3. Never diagnose, prescribe, or give dosages. Encourage booking a HealthCircle verified doctor for anything beyond general info.
+4. If risk is "high", lead with the urgency and the 108 / emergency advice.
+5. Respond ONLY with a JSON object of shape: {"summary": "..."}.`;
+
+  const dataContext = {
+    query,
+    intent,
+    risk_level: risk,
+    providers_found: providers.slice(0, 5).map(p => ({ name: p.name, specialty: p.specialty, location: p.location, type: p.type })),
+    communities_found: communities.slice(0, 3).map(c => ({ name: c.name, slug: c.slug })),
+    discussions_found: discussions.slice(0, 3).map(d => ({ title: d.title, community: d.communityName, upvotes: d.upvoteCount, expertAnswered: d.isExpertAnswered })),
+  };
+
+  const parsed = await aiChatJson<{ summary?: string }>({
+    systemPrompt,
+    userPrompt: `User searched for: "${query}"\n\nWhat we found in HealthCircle's own database:\n${JSON.stringify(dataContext, null, 2)}\n\nWrite the summary now.`,
+    timeoutMs: 6000,
+    maxTokens: 220,
+  });
+  if (!parsed?.summary) return { text: fallback, aiUsed: false };
+  const text = sanitizeExternalRefs(parsed.summary.trim());
+  if (!text) return { text: fallback, aiUsed: false };
+  return { text, aiUsed: true };
+}
+
 export async function runHealthSearch(query: string, userId?: number, language?: string): Promise<SearchResult> {
   const intent = classifyIntent(query);
+  // Emergency hard-stop overrides any heuristic risk score — if the query
+  // includes life-threatening triggers (chest pain, suicide, breathing
+  // distress, etc. across English/Hinglish/Indic), bump risk to "high" so
+  // the UI shows the urgent banner and the AI synthesis leads with 108.
+  const emergency = detectEmergency(query);
+
+  // Hard-stop: if a life-threatening trigger fires, return an immediate,
+  // unmissable 108 response without spending DB queries or AI latency.
+  // The user sees the urgent guidance instantly and we still log the search
+  // so MedPro/admin dashboards can see the spike.
+  if (emergency) {
+    if (userId) {
+      try {
+        await db.insert(searchLogsTable).values({
+          userId, query, intent, riskLevel: "high", language: language ?? "en",
+        });
+      } catch { /* logging is best-effort */ }
+    }
+    return {
+      intent: "general",
+      summary: "🚨 This sounds like a medical emergency. Call 108 (ambulance) immediately. If you can't call yourself, ask someone nearby. Do not wait. Inside HealthCircle, tap 'Get a Doctor's Opinion' to alert a verified medical professional in parallel.",
+      risk_level: "high",
+      recommendations: [
+        "CALL 108 NOW — India's national ambulance service (free)",
+        "If you cannot call, ask someone nearby to call for you",
+        "Do not leave the person alone",
+        "Tap 'Get a Doctor's Opinion' inside the chat to alert a HealthCircle verified doctor",
+      ],
+      providers: [],
+      relatedCommunities: [],
+      discussions: [],
+      mapQuery: "",
+      ai_synthesized: false,
+    };
+  }
+
   const risk = assessRisk(query, intent);
   const recommendations = getRecommendations(intent, risk);
   const mapQuery = getMapQuery(intent, query);
   const { specialty, communitySlug } = detectSpecialty(query);
 
+  // ── Providers (doctors + hospitals) ──
   let providers: ProviderResult[] = [];
   try {
-    // Doctor search — prefer detected specialty match, then fall back to text search
     if (intent !== "lab") {
       const conditions = [];
       if (specialty) conditions.push(ilike(doctorsTable.specialty, `%${specialty}%`));
@@ -158,7 +324,6 @@ export async function runHealthSearch(query: string, userId?: number, language?:
         .where(and(eq(doctorsTable.available, true), or(...conditions)))
         .limit(5);
 
-      // If no specialty matches, broaden to top-rated doctors so user always sees options
       let final = doctors;
       if (final.length === 0) {
         final = await db.select().from(doctorsTable).where(eq(doctorsTable.available, true)).limit(5);
@@ -177,7 +342,6 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       );
     }
 
-    // Hospital search
     const hospitals = await db
       .select()
       .from(hospitalsTable)
@@ -185,19 +349,13 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       .limit(3);
 
     providers = providers.concat(
-      hospitals.map(h => ({
-        id: h.id,
-        type: "hospital" as const,
-        name: h.name,
-        location: h.location,
-        rating: h.rating,
-      })),
+      hospitals.map(h => ({ id: h.id, type: "hospital" as const, name: h.name, location: h.location, rating: h.rating })),
     );
   } catch {
-    // Provider search gracefully fails — empty array is fine
+    // graceful — empty is fine
   }
 
-  // Related HealthCircle communities (always native — never external)
+  // ── Communities ──
   let relatedCommunities: RelatedCommunity[] = [];
   try {
     const allCommunities = await db
@@ -215,13 +373,11 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       const direct = allCommunities.find(c => c.slug === communitySlug);
       if (direct) relatedCommunities.push(direct);
     }
-    // Also include up to 2 communities whose name/description matches the query terms
     const lowerQ = query.toLowerCase();
     const fuzzy = allCommunities
       .filter(c => c.slug !== communitySlug)
       .filter(c => c.name.toLowerCase().includes(lowerQ) || (c.description ?? "").toLowerCase().includes(lowerQ));
     relatedCommunities = relatedCommunities.concat(fuzzy.slice(0, 2));
-    // Always at least show 3 communities so user has something to engage with
     if (relatedCommunities.length < 3) {
       const remaining = allCommunities
         .filter(c => !relatedCommunities.find(r => r.id === c.id))
@@ -229,32 +385,77 @@ export async function runHealthSearch(query: string, userId?: number, language?:
       relatedCommunities = relatedCommunities.concat(remaining);
     }
   } catch {
-    // Communities lookup gracefully fails
+    // graceful
   }
 
+  // ── Community discussions (posts) — NEW ──
+  // Surface real conversations on the platform that match the user's query so
+  // they have an immediate way to engage with peers and verified pros.
+  let discussions: DiscussionResult[] = [];
+  try {
+    const pattern = `%${query}%`;
+    const rows = await db
+      .select({
+        id: postsTable.id,
+        title: postsTable.title,
+        content: postsTable.content,
+        upvoteCount: postsTable.upvoteCount,
+        commentCount: postsTable.commentCount,
+        isExpertAnswered: postsTable.isExpertAnswered,
+        createdAt: postsTable.createdAt,
+        communitySlug: communitiesTable.slug,
+        communityName: communitiesTable.name,
+        authorName: usersTable.displayName,
+      })
+      .from(postsTable)
+      .leftJoin(communitiesTable, eq(postsTable.communityId, communitiesTable.id))
+      .leftJoin(usersTable, eq(postsTable.authorId, usersTable.id))
+      .where(or(ilike(postsTable.title, pattern), ilike(postsTable.content, pattern)))
+      .orderBy(desc(postsTable.isExpertAnswered), desc(postsTable.upvoteCount), desc(postsTable.createdAt))
+      .limit(5);
+
+    discussions = rows
+      .filter(r => r.communitySlug && r.communityName)
+      .map(r => ({
+        id: r.id,
+        title: r.title,
+        excerpt: (r.content ?? "").replace(/\s+/g, " ").slice(0, 160) + ((r.content ?? "").length > 160 ? "…" : ""),
+        communitySlug: r.communitySlug as string,
+        communityName: r.communityName as string,
+        authorName: r.authorName,
+        upvoteCount: r.upvoteCount,
+        commentCount: r.commentCount,
+        isExpertAnswered: r.isExpertAnswered,
+        createdAt: r.createdAt as Date,
+      }));
+  } catch {
+    // graceful
+  }
+
+  // ── Search log ──
   if (userId) {
     try {
       await db.insert(searchLogsTable).values({ userId, query, intent, language: language ?? "en" });
     } catch {
-      // Log gracefully fails
+      // graceful
     }
   }
 
-  const summaries: Record<SearchIntent, string> = {
-    symptom: `Based on your query about "${query}", here are AI insights, related HealthCircle communities, and verified doctors you can consult.`,
-    treatment: `Here is evidence-based information about treatment options for "${query}", with verified specialists you can book directly.`,
-    doctor: `Here are HealthCircle's verified specialists for "${query}". Tap any to view their profile and book an appointment.`,
-    lab: `Here are details about lab tests related to "${query}". Use HealthCircle to discuss with a specialist.`,
-    general: `Here is health information related to "${query}", with relevant communities and specialists you can engage with on HealthCircle.`,
-  };
+  // ── AI synthesis grounded on the actual results above ──
+  const { text: aiSummary, aiUsed } = await synthesizeSummary(query, intent, risk, providers, relatedCommunities, discussions);
 
   return {
     intent,
-    summary: summaries[intent],
+    summary: aiSummary,
     risk_level: risk,
-    recommendations,
+    recommendations: recommendations.map(sanitizeExternalRefs),
     providers,
     relatedCommunities,
+    discussions,
     mapQuery,
+    ai_synthesized: aiUsed,
   };
 }
+
+// Suppress unused-import warnings for sql (kept for potential future use)
+void sql;

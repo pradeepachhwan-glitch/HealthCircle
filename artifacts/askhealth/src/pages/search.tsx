@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Search as SearchIcon, AlertTriangle, CheckCircle, Activity,
   Stethoscope, Building2, ChevronRight, MapPin,
-  Sparkles, Navigation, Map, Loader2, Users,
+  Sparkles, Navigation, Map, Loader2, Users, MessageSquare, ThumbsUp, ShieldCheck,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -22,6 +22,19 @@ interface RelatedCommunity {
   description: string | null; iconEmoji: string | null;
 }
 
+interface Discussion {
+  id: number;
+  title: string;
+  excerpt: string;
+  communitySlug: string;
+  communityName: string;
+  authorName: string | null;
+  upvoteCount: number;
+  commentCount: number;
+  isExpertAnswered: boolean;
+  createdAt: string;
+}
+
 interface SearchResult {
   intent: string;
   summary: string;
@@ -29,7 +42,9 @@ interface SearchResult {
   recommendations: string[];
   providers: Provider[];
   relatedCommunities: RelatedCommunity[];
+  discussions: Discussion[];
   mapQuery: string;
+  ai_synthesized: boolean;
 }
 
 interface Coords { lat: number; lng: number; }
@@ -320,6 +335,43 @@ export default function SearchPage() {
                               </Badge>
                             )}
                           </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Discussions on HealthCircle — real posts matching the query */}
+              {result.discussions && result.discussions.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4 text-primary" /> Discussions on HealthCircle
+                    <span className="text-xs font-normal text-slate-400">· {result.discussions.length} match{result.discussions.length === 1 ? "" : "es"}</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {result.discussions.map(d => (
+                      <Link
+                        key={d.id}
+                        href={`/post/${d.id}`}
+                        className="block p-4 bg-white rounded-xl border border-slate-200 hover:border-primary/30 hover:shadow-sm transition-all group"
+                        data-testid={`discussion-${d.id}`}
+                      >
+                        <div className="flex items-center gap-2 mb-1.5 text-xs">
+                          <span className="text-slate-400">in</span>
+                          <span className="font-medium text-primary">{d.communityName}</span>
+                          {d.isExpertAnswered && (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1 px-1.5 py-0">
+                              <ShieldCheck className="w-2.5 h-2.5" /> Expert answered
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="font-medium text-sm text-slate-900 group-hover:text-primary transition-colors line-clamp-2">{d.title}</p>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{d.excerpt}</p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                          {d.authorName && <span>by {d.authorName}</span>}
+                          <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" />{d.upvoteCount}</span>
+                          <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{d.commentCount}</span>
                         </div>
                       </Link>
                     ))}

@@ -4,7 +4,9 @@ import { db, doctorConsultationsTable } from "@workspace/db";
 import { healthChatSessionsTable, healthChatMessagesTable } from "@workspace/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
-import { getHealthAssistantResponse, detectLanguage } from "../lib/healthAssistant";
+import { getHealthAssistantResponse } from "../lib/healthAssistant";
+import { detectLanguage } from "../lib/languageDetect";
+import { detectEmergency, buildEmergencyResponse } from "../lib/emergencyDetect";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -97,6 +99,28 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
     attachmentName: attachment?.name ?? null,
     language,
   });
+
+  // ── Emergency hard-stop ─────────────────────────────────────────────
+  // Runs BEFORE the AI call. If the user's message contains an emergency
+  // trigger (chest pain, suicidal ideation, severe bleeding, etc.), return
+  // a fixed 108/112 response. Never let the LLM soften this.
+  const emergency = detectEmergency(trimmedMessage);
+  if (emergency) {
+    const structured = buildEmergencyResponse(emergency.language);
+    const [assistantMsg] = await db
+      .insert(healthChatMessagesTable)
+      .values({
+        sessionId,
+        role: "assistant",
+        content: structured.reply,
+        intent: structured.intent,
+        structuredResponse: structured as unknown as Record<string, unknown>,
+        language: emergency.language,
+      })
+      .returning();
+    res.json({ userMessage: message, assistantMessage: assistantMsg, structured, emergency: true });
+    return;
+  }
 
   const historyRows = await db
     .select()

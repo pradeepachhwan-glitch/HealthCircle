@@ -167,9 +167,21 @@ Admin promotes users via the GODMODE dashboard Users tab. Medical pros are verif
 
 ## Environment Variables
 - `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `VITE_CLERK_PUBLISHABLE_KEY` — Auth
-- `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY` — Yukti AI
+- `AI_INTEGRATIONS_ANTHROPIC_BASE_URL`, `AI_INTEGRATIONS_ANTHROPIC_API_KEY` — Yukti AI primary (claude-haiku-4-5, fast)
+- `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY` — Yukti AI fallback (gpt-4o-mini, vision)
 - `DATABASE_URL`, `PGHOST`, `PGPORT`, etc. — PostgreSQL
 - `SESSION_SECRET` — Session
+
+## Safety, Compliance & Multi-Language (Apr 2026 hardening)
+- **Unified AI client** (`lib/aiClient.ts`): Anthropic claude-haiku-4-5 primary (≈1–2s) with OpenAI gpt-4o-mini fallback. Image attachments auto-route to OpenAI (Anthropic vision needs base64). 8s default timeout per provider.
+- **Multi-language detection** (`lib/languageDetect.ts`): 12 languages — en, hi (Devanagari), hi-Latn (Hinglish via lexicon), bn, ta, te, mr, gu, pa, kn, ml, ur. Yukti replies in user's script. Voice input also picks per-user BCP47 locale.
+- **Emergency hard-stop** (`lib/emergencyDetect.ts` + chat.ts + searchEngine.ts): Multi-language triggers (chest pain, suicide, breathing distress, severe bleeding) short-circuit BEFORE the AI in BOTH chat and search. Returns 108/AASRA/poison-control numbers in 0–2 ms. No AI cost, no latency, no soft answers.
+- **Rate limiting** (`lib/rateLimiter.ts`, IPv6-safe): /api/chat, /api/ai, /api/health-search, /api/admin, /api/auth, plus a baseline /api limiter. Tested: 100 calls → ~28 succeed, 82 throttled (429).
+- **DPDP consent**: POST/GET `/api/consents` (already in place).
+- **MedPro**: `requireMedPro` middleware + dashboard endpoints (urgent cases, expert response, queue, stats).
+- **Admin hardening**: `requireAdmin` on every /admin/* route — broadcast, stats, communities, posts, AI summaries, credits.
+- **External-referral sanitiser** (`healthAssistant.ts` + `searchEngine.ts`): regex strips Practo/1mg/Apollo 24/PharmEasy/Justdial/Lybrate/Netmeds/WebMD/Google/NHP from every AI summary; verified clean across all test queries.
+- **Voice + attachments** (`pages/chat.tsx`): browser Web Speech API for transcribed voice input (no audio file upload), image+PDF attachments validated via `/api/uploads/inline` (mime check + 4 MB cap).
 
 ## Key Commands
 - `pnpm --filter @workspace/db run push` — Push DB schema changes
