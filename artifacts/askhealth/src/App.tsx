@@ -18,6 +18,8 @@ import Broadcast from "@/pages/broadcast";
 import ChatPage from "@/pages/chat";
 import ProvidersPage from "@/pages/providers";
 import AppointmentsPage from "@/pages/appointments";
+import OnboardingFlow from "@/components/OnboardingFlow";
+import { useUser } from "@clerk/react";
 
 const queryClient = new QueryClient();
 
@@ -350,11 +352,33 @@ function HomeRedirect() {
   );
 }
 
+function OnboardingGate({ children }: { children: React.ReactNode }) {
+  const { user, isLoaded } = useUser();
+  const [done, setDone] = React.useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    if (!isLoaded || !user) return;
+    const completed = localStorage.getItem(`onboarding_done_${user.id}`);
+    setDone(!!completed);
+  }, [isLoaded, user]);
+
+  if (!isLoaded || !user || done === null) return null;
+  if (!done) {
+    return (
+      <OnboardingFlow
+        userId={user.id}
+        onComplete={() => setDone(true)}
+      />
+    );
+  }
+  return <>{children}</>;
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Show when="signed-in">
-        {children}
+        <OnboardingGate>{children}</OnboardingGate>
       </Show>
       <Show when="signed-out">
         <Redirect to="/" />
