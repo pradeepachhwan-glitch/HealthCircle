@@ -56,7 +56,7 @@ Admin promotes users via the GODMODE dashboard Users tab. Medical pros are verif
 ## Database Schema
 
 ### Core
-- `users` — Clerk-linked profiles, roles (`admin/moderator/medical_professional/member`), gamification (health_credits, level), `specialty`, `registrationNumber`, `isVerifiedPro`
+- `users` — Clerk-linked profiles, roles (`admin/moderator/medical_professional/member`), gamification (health_credits, level), `specialty`, `registrationNumber`, `isVerifiedPro`, `username` (unique), `mobileNumber` (unique)
 - `communities`, `community_members`, `posts` (`isModerated`, `isExpertAnswered` flags), `post_upvotes`, `comments`, `achievements`
 - `consents` — user consent records (post_health_data, ai_assistance)
 - `ai_summaries` — per-post AI summaries with validation workflow (`status`: pending/approved/rejected/edited, `validatedById`, `editedContent`, `validationNote`)

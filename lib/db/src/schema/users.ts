@@ -10,6 +10,8 @@ export const usersTable = pgTable("users", {
   clerkId: text("clerk_id").notNull().unique(),
   displayName: text("display_name").notNull(),
   email: text("email").notNull().unique(),
+  username: text("username").unique(),
+  mobileNumber: text("mobile_number").unique(),
   avatarUrl: text("avatar_url"),
   role: text("role", { enum: USER_ROLES }).notNull().default("member"),
   isBanned: boolean("is_banned").notNull().default(false),

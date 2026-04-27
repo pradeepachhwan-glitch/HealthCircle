@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { db, usersTable, postsTable, commentsTable, communityMembersTable, communitiesTable } from "@workspace/db";
-import { eq, desc, count, and } from "drizzle-orm";
+import { eq, desc, count, and, or } from "drizzle-orm";
 import { requireAuth, requireAdmin, getOrCreateUser } from "../lib/auth";
 
 const router = Router();
@@ -15,8 +15,35 @@ function toProfile(u: typeof usersTable.$inferSelect) {
     specialty: u.specialty ?? null,
     registrationNumber: u.registrationNumber ?? null,
     isVerifiedPro: u.isVerifiedPro ?? false,
+    username: u.username ?? null,
+    mobileNumber: u.mobileNumber ?? null,
   };
 }
+
+// Public — used by custom sign-in page to resolve username/mobile → email
+router.get("/auth/lookup", async (req, res) => {
+  const { identifier } = req.query;
+  if (!identifier || typeof identifier !== "string") {
+    res.status(400).json({ error: "identifier is required" }); return;
+  }
+  const trimmed = identifier.trim().toLowerCase();
+  try {
+    const [found] = await db.select({ email: usersTable.email })
+      .from(usersTable)
+      .where(
+        or(
+          eq(usersTable.username, trimmed),
+          eq(usersTable.mobileNumber, trimmed),
+          eq(usersTable.email, trimmed),
+        )
+      )
+      .limit(1);
+    if (!found) { res.status(404).json({ error: "No account found" }); return; }
+    res.json({ email: found.email });
+  } catch {
+    res.status(500).json({ error: "Lookup failed" });
+  }
+});
 
 router.get("/users/me", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
@@ -28,12 +55,14 @@ router.get("/users/me", requireAuth, async (req, res) => {
 router.patch("/users/me", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const { displayName, avatarUrl, specialty, registrationNumber } = req.body;
+  const { displayName, avatarUrl, specialty, registrationNumber, username, mobileNumber } = req.body;
   const updates: Record<string, unknown> = {};
   if (displayName !== undefined) updates.displayName = displayName;
   if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
   if (specialty !== undefined) updates.specialty = specialty;
   if (registrationNumber !== undefined) updates.registrationNumber = registrationNumber;
+  if (username !== undefined) updates.username = username;
+  if (mobileNumber !== undefined) updates.mobileNumber = mobileNumber;
 
   const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.clerkId, clerkId)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }

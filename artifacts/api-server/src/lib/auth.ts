@@ -12,15 +12,28 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   next();
 }
 
-export async function getOrCreateUser(clerkId: string, userData?: { displayName?: string; email?: string; avatarUrl?: string }) {
+export async function getOrCreateUser(clerkId: string, userData?: { displayName?: string; email?: string; avatarUrl?: string; username?: string; mobileNumber?: string }) {
   const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
-  if (existing.length > 0) return existing[0];
+  if (existing.length > 0) {
+    // Update username/mobile if provided and not yet set
+    const u = existing[0];
+    const updates: Record<string, unknown> = {};
+    if (userData?.username && !u.username) updates.username = userData.username;
+    if (userData?.mobileNumber && !u.mobileNumber) updates.mobileNumber = userData.mobileNumber;
+    if (Object.keys(updates).length > 0) {
+      const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.clerkId, clerkId)).returning();
+      return updated;
+    }
+    return u;
+  }
 
   const [created] = await db.insert(usersTable).values({
     clerkId,
     displayName: userData?.displayName ?? "Healthcare Member",
     email: userData?.email ?? `${clerkId}@healthcircle.ai`,
     avatarUrl: userData?.avatarUrl ?? null,
+    username: userData?.username ?? null,
+    mobileNumber: userData?.mobileNumber ?? null,
     role: "member",
     isBanned: false,
     healthCredits: 0,

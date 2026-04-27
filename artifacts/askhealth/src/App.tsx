@@ -5,7 +5,7 @@ import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import HealthCircleLogo from "@/components/HealthCircleLogo";
 import React, { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from '@clerk/react';
+import { ClerkProvider, Show, useClerk } from '@clerk/react';
 import { shadcn } from '@clerk/themes';
 import { useGetCurrentUser } from "@workspace/api-client-react";
 
@@ -28,6 +28,9 @@ import ChatPage from "@/pages/chat";
 import ProvidersPage from "@/pages/providers";
 import AppointmentsPage from "@/pages/appointments";
 import OnboardingFlow from "@/components/OnboardingFlow";
+import CustomSignIn from "@/pages/sign-in";
+import CustomSignUp from "@/pages/sign-up";
+import ForgotPassword from "@/pages/forgot-password";
 import MedPro from "@/pages/medpro";
 import { useUser } from "@clerk/react";
 
@@ -108,19 +111,11 @@ const clerkAppearance = {
 };
 
 function SignInPage() {
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4 py-12">
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
-    </div>
-  );
+  return <CustomSignIn />;
 }
 
 function SignUpPage() {
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-4 py-12">
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
-    </div>
-  );
+  return <CustomSignUp />;
 }
 
 const COMMUNITIES_PREVIEW = [
@@ -719,6 +714,7 @@ function ClerkProviderWithRoutes() {
           <Route path="/" component={HomeRedirect} />
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
+          <Route path="/forgot-password" component={ForgotPassword} />
 
           <Route path="/chat">
             <ProtectedRoute><ChatPage /></ProtectedRoute>
