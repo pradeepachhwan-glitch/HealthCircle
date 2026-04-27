@@ -312,18 +312,11 @@ export default function ProvidersPage() {
     enabled: authReady,
   });
 
-  // Client-side location filter when city detected
-  const filteredDoctors = city && !query
-    ? doctors.filter(d => d.location.toLowerCase().includes(city.split(",")[0].toLowerCase()))
-    : doctors;
-
-  const filteredHospitals = city && !query
-    ? hospitals.filter(h => h.location.toLowerCase().includes(city.split(",")[0].toLowerCase()))
-    : hospitals;
-
-  // Fall back to all if location filter returns nothing
-  const displayDoctors = filteredDoctors.length > 0 ? filteredDoctors : doctors;
-  const displayHospitals = filteredHospitals.length > 0 ? filteredHospitals : hospitals;
+  // The backend now filters by city in SQL and falls back to live OSM nearby
+  // results when the DB has no rows for that city — so we trust whatever the
+  // server returns and never silently swap in unrelated big-city dummy rows.
+  const displayDoctors = doctors;
+  const displayHospitals = hospitals;
 
   return (
     <Layout>
