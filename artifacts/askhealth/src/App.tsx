@@ -100,18 +100,33 @@ function SignUpPage() {
   );
 }
 
-const FEATURES = [
-  { icon: "💬", title: "AI Health Chat", desc: "WhatsApp-style chat with Yukti, your AI health assistant" },
-  { icon: "🔍", title: "Smart Search", desc: "Intent-aware search for symptoms, treatments, and doctors" },
-  { icon: "👨‍⚕️", title: "Find Doctors", desc: "Browse specialists and book appointments instantly" },
-  { icon: "🏥", title: "Hospital Network", desc: "Access top hospitals across India with ratings & specialties" },
-  { icon: "🏆", title: "Community", desc: "Clinical communities for healthcare professionals" },
-  { icon: "🔒", title: "Private & Secure", desc: "Your health data stays private and encrypted" },
+const COMMUNITIES_PREVIEW = [
+  { emoji: "🧠", name: "Mind Space", desc: "Talk, share, heal", slug: "mental-wellness" },
+  { emoji: "🩸", name: "Sugar Care", desc: "Manage diabetes better", slug: "diabetes-care" },
+  { emoji: "🤰", name: "Mom Journey", desc: "Pregnancy to parenting", slug: "pregnancy-motherhood" },
+  { emoji: "💼", name: "Work Reset", desc: "Beat stress & burnout", slug: "work-stress-burnout" },
+  { emoji: "🏃", name: "Fit Life", desc: "Fitness your way", slug: "weight-loss-fitness" },
+  { emoji: "❤️", name: "Heart Circle", desc: "Care for your heart", slug: "heart-health" },
+];
+
+const TRENDING_QUESTIONS = [
+  { q: "Why do I feel anxious at night?", community: "Mind Space", replies: 12 },
+  { q: "PCOS weight gain solutions?", community: "Cycle Sync", replies: 8 },
+  { q: "Chest pain after gym — should I worry?", community: "Heart Circle", replies: 5 },
+  { q: "Best diet for Type 2 diabetes?", community: "Sugar Care", replies: 19 },
+];
+
+const HOW_IT_WORKS = [
+  { step: "1", title: "Join a community", desc: "Find your tribe — by condition, goal, or life stage." },
+  { step: "2", title: "Ask your question", desc: "Share what you're experiencing. No judgment, just help." },
+  { step: "3", title: "Get AI clarity", desc: "Yukti AI summarises answers, flags risk, and guides next steps." },
+  { step: "4", title: "Take action", desc: "Book a doctor, follow up, or explore similar threads." },
 ];
 
 function Landing() {
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-[100dvh] flex flex-col bg-white">
+      {/* Header */}
       <header className="px-6 py-4 flex items-center justify-between bg-white/80 backdrop-blur border-b sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm">AH</div>
@@ -124,43 +139,102 @@ function Landing() {
       </header>
 
       <main className="flex-1">
-        <section className="max-w-4xl mx-auto text-center px-4 pt-20 pb-16">
+        {/* HERO — Community-first */}
+        <section className="max-w-4xl mx-auto text-center px-4 pt-16 pb-14">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-4 py-1.5 rounded-full mb-6">
             <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
             AI Health Guidance • Multi-language • India-first
           </div>
-          <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6 leading-tight">
-            Your Personal<br /><span className="text-primary">Health Super App</span>
+          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-5 leading-tight">
+            Ask. Share. Learn.<br />
+            <span className="text-primary">Act on your health.</span>
           </h1>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Chat with Yukti AI about your symptoms, find trusted doctors, book appointments, and connect with healthcare professionals — all in one place.
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8 leading-relaxed">
+            Join trusted health communities, ask real questions, get AI-backed clarity, and take the right next step — without confusion.
           </p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            <Link href="/sign-up" className="px-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 transition-all shadow-md hover:shadow-lg">
-              Start Chatting Free →
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Link href="/sign-up" className="px-7 py-3.5 bg-primary text-white rounded-xl font-semibold text-base hover:bg-primary/90 transition-all shadow-md hover:shadow-lg">
+              Join a Community
             </Link>
-            <Link href="/sign-in" className="px-8 py-4 bg-white text-slate-900 rounded-xl font-semibold text-lg border border-slate-200 hover:bg-slate-50 transition-all">
-              Sign In
+            <Link href="/sign-up" className="px-7 py-3.5 bg-white text-slate-900 rounded-xl font-semibold text-base border border-slate-200 hover:bg-slate-50 transition-all">
+              Ask a Question
             </Link>
           </div>
         </section>
 
-        <section className="max-w-5xl mx-auto px-4 pb-20">
-          <div className="grid md:grid-cols-3 gap-5">
-            {FEATURES.map(f => (
-              <div key={f.title} className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-primary/30 hover:shadow-md transition-all">
-                <div className="text-3xl mb-3">{f.icon}</div>
-                <h3 className="font-semibold text-slate-900 mb-1">{f.title}</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
+        {/* COMMUNITIES GRID */}
+        <section className="max-w-5xl mx-auto px-4 pb-16">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-slate-900">Explore Communities that Understand You</h2>
+            <p className="text-slate-500 mt-1">Real people. Real experiences. Backed by AI clarity.</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {COMMUNITIES_PREVIEW.map(c => (
+              <Link key={c.slug} href="/sign-up">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
+                  <div className="text-3xl mb-3">{c.emoji}</div>
+                  <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-primary transition-colors">{c.name}</h3>
+                  <p className="text-sm text-slate-500 mb-3">{c.desc}</p>
+                  <span className="text-xs font-semibold text-primary">Join →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="text-center mt-6">
+            <Link href="/sign-up" className="text-sm text-primary font-medium hover:underline">
+              See all 20 communities →
+            </Link>
+          </div>
+        </section>
+
+        {/* TRENDING QUESTIONS */}
+        <section className="bg-slate-50 border-y border-slate-100 py-14 px-4">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">What people are asking right now</h2>
+            <p className="text-slate-500 mb-6 text-sm">Real questions from real users — answered by the community and Yukti AI.</p>
+            <div className="space-y-3">
+              {TRENDING_QUESTIONS.map((item, i) => (
+                <Link key={i} href="/sign-up">
+                  <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer flex items-center justify-between gap-4 group">
+                    <div>
+                      <p className="text-slate-900 font-medium group-hover:text-primary transition-colors">{item.q}</p>
+                      <p className="text-xs text-slate-400 mt-1">{item.community}</p>
+                    </div>
+                    <div className="shrink-0 text-xs text-slate-400 font-medium">{item.replies} replies</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* HOW IT WORKS */}
+        <section className="max-w-4xl mx-auto px-4 py-16">
+          <h2 className="text-2xl font-bold text-slate-900 text-center mb-10">How it works</h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6">
+            {HOW_IT_WORKS.map(item => (
+              <div key={item.step} className="text-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-extrabold text-lg flex items-center justify-center mx-auto mb-4">
+                  {item.step}
+                </div>
+                <h3 className="font-semibold text-slate-900 mb-1">{item.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="bg-slate-900 text-white py-16 px-4">
+        {/* TRUST BLOCK */}
+        <section className="bg-slate-900 text-white py-14 px-4">
           <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-4">Join thousands of users getting better healthcare</h2>
-            <p className="text-slate-400 mb-8">Free to start. No credit card required. Available in English & Hindi.</p>
+            <div className="text-3xl mb-4">🔒</div>
+            <h2 className="text-2xl font-bold mb-3">Your health data is private.</h2>
+            <p className="text-slate-300 text-base mb-2">
+              AI guidance is safe, structured, and not a replacement for doctors.
+            </p>
+            <p className="text-slate-400 text-sm mb-8">
+              Free to join. No credit card needed. Available in English & Hindi.
+            </p>
             <Link href="/sign-up" className="inline-block px-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 transition-all">
               Get Started — It's Free
             </Link>
@@ -208,7 +282,7 @@ function HomeRedirect() {
   return (
     <>
       <Show when="signed-in">
-        <Redirect to="/chat" />
+        <Redirect to="/communities" />
       </Show>
       <Show when="signed-out">
         <Landing />
