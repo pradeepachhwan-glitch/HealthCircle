@@ -104,14 +104,15 @@ function AppointmentCard({ appointment }: { appointment: Appointment }) {
 }
 
 export default function AppointmentsPage() {
-  const { data: appointments = [], isLoading } = useQuery<Appointment[]>({
+  const { data: appointments = [], isLoading, isError, refetch } = useQuery<Appointment[]>({
     queryKey: ["appointments"],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/appointments`, { credentials: "include" });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`Failed to load appointments (${res.status})`);
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
+    retry: 1,
   });
 
   const upcoming = appointments.filter(a => a.status === "booked" && new Date(a.appointmentTime) >= new Date());
@@ -135,7 +136,16 @@ export default function AppointmentsPage() {
         <div className="space-y-6">
           {isLoading && <div className="text-center py-12 text-slate-400">Loading appointments...</div>}
 
-          {!isLoading && appointments.length === 0 && (
+          {!isLoading && isError && (
+            <div className="text-center py-16">
+              <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-300" />
+              <h3 className="font-semibold text-red-600 mb-2">Couldn't load your appointments</h3>
+              <p className="text-slate-500 text-sm mb-6">Please check your connection and try again.</p>
+              <Button onClick={() => refetch()} variant="outline">Retry</Button>
+            </div>
+          )}
+
+          {!isLoading && !isError && appointments.length === 0 && (
             <div className="text-center py-16">
               <Calendar className="w-12 h-12 mx-auto mb-4 text-slate-300" />
               <h3 className="font-semibold text-slate-700 mb-2">No appointments yet</h3>

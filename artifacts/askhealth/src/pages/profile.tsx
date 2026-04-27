@@ -48,26 +48,28 @@ export default function Profile() {
   const { data: credits, isLoading: creditsLoading } = useGetMyCreditsSummary({ query: { enabled: !!user } });
   const { data: achievements, isLoading: achievementsLoading } = useGetUserAchievements(user?.id || "", { query: { enabled: !!user?.id } });
 
-  const { data: myPosts = [], isLoading: postsLoading } = useQuery<MyPost[]>({
+  const { data: myPosts = [], isLoading: postsLoading, isError: postsError, refetch: refetchPosts } = useQuery<MyPost[]>({
     queryKey: ["me-posts"],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/users/me/posts`, { credentials: "include" });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`Failed to load posts (${res.status})`);
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user && activeTab === "posts",
+    retry: 1,
   });
 
-  const { data: myCommunities = [], isLoading: communitiesLoading } = useQuery<MyCommunity[]>({
+  const { data: myCommunities = [], isLoading: communitiesLoading, isError: communitiesError, refetch: refetchCommunities } = useQuery<MyCommunity[]>({
     queryKey: ["me-communities"],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/users/me/communities`, { credentials: "include" });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`Failed to load communities (${res.status})`);
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user && activeTab === "communities",
+    retry: 1,
   });
 
   const isLoading = userLoading || creditsLoading || achievementsLoading;
@@ -273,6 +275,15 @@ export default function Profile() {
               <div className="space-y-3">
                 {postsLoading ? (
                   [1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
+                ) : postsError ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FileText className="w-10 h-10 mx-auto mb-3 text-red-300" />
+                    <p className="font-medium text-red-600">Couldn't load your posts</p>
+                    <p className="text-sm mt-1">Check your connection and try again.</p>
+                    <button onClick={() => refetchPosts()} className="mt-4 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50">
+                      Retry
+                    </button>
+                  </div>
                 ) : myPosts.length === 0 ? (
                   <div className="text-center py-16 text-muted-foreground">
                     <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
@@ -318,6 +329,15 @@ export default function Profile() {
               <div className="space-y-3">
                 {communitiesLoading ? (
                   [1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl" />)
+                ) : communitiesError ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="w-10 h-10 mx-auto mb-3 text-red-300" />
+                    <p className="font-medium text-red-600">Couldn't load your communities</p>
+                    <p className="text-sm mt-1">Check your connection and try again.</p>
+                    <button onClick={() => refetchCommunities()} className="mt-4 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50">
+                      Retry
+                    </button>
+                  </div>
                 ) : myCommunities.length === 0 ? (
                   <div className="text-center py-16 text-muted-foreground">
                     <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />

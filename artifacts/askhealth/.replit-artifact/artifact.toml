@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "AskHealth AI"
+title = "HealthCircle"
 version = "1.0.0"
 id = "artifacts/askhealth"
 router = "path"

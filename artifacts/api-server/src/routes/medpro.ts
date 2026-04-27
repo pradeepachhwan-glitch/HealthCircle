@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { db, usersTable, communitiesTable, postsTable, aiSummariesTable, communityMembersTable, commentsTable, doctorConsultationsTable } from "@workspace/db";
-import { eq, desc, and, count, inArray, or } from "drizzle-orm";
+import { eq, desc, and, count, inArray, or, sql } from "drizzle-orm";
 import { requireMedPro, getOrCreateUser } from "../lib/auth";
 
 const router = Router();
@@ -112,7 +112,10 @@ router.post("/medpro/communities/:id/expert-response", requireMedPro, async (req
     content: `[EXPERT RESPONSE] ${content}`,
   }).returning();
 
-  await db.update(postsTable).set({ isExpertAnswered: true, commentCount: 1 }).where(eq(postsTable.id, postId));
+  await db.update(postsTable).set({
+    isExpertAnswered: true,
+    commentCount: sql`${postsTable.commentCount} + 1`,
+  }).where(eq(postsTable.id, postId));
 
   res.status(201).json(comment);
 });

@@ -670,7 +670,16 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
     setDone(!!completed);
   }, [isLoaded, user]);
 
-  if (!isLoaded || !user || done === null) return null;
+  if (!isLoaded || !user || done === null) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-slate-400">Preparing your space…</p>
+        </div>
+      </div>
+    );
+  }
   if (!done) {
     return (
       <OnboardingFlow

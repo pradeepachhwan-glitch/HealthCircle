@@ -88,21 +88,36 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
     try {
       // 1. Get communities list to resolve slugs → IDs
       const commRes = await fetch(`${API_BASE}/communities`, { credentials: "include" });
+      if (!commRes.ok) throw new Error(`Communities fetch failed (${commRes.status})`);
       const communities: { id: number; slug: string; name: string }[] = await commRes.json();
 
       const targetSlug = pickCommunitySlug(question, selectedSlugs.length > 0 ? selectedSlugs : communities.map(c => c.slug));
       const targetCommunity = communities.find(c => c.slug === targetSlug) ?? communities[0];
       if (!targetCommunity) throw new Error("No community found");
 
-      // 2. Join the target community first (idempotent)
-      await fetch(`${API_BASE}/communities/${targetCommunity.id}/join`, { method: "POST", credentials: "include" });
+      // 2. Join the target community (required — must succeed)
+      const targetJoinRes = await fetch(`${API_BASE}/communities/${targetCommunity.id}/join`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!targetJoinRes.ok && targetJoinRes.status !== 409) {
+        throw new Error(`Couldn't join ${targetCommunity.name} (${targetJoinRes.status})`);
+      }
 
-      // 3. Also join any other selected communities
-      for (const slug of selectedSlugs) {
-        const c = communities.find(x => x.slug === slug);
-        if (c && c.id !== targetCommunity.id) {
-          await fetch(`${API_BASE}/communities/${c.id}/join`, { method: "POST", credentials: "include" });
-        }
+      // 3. Join other selected communities in parallel (best-effort, non-blocking)
+      const otherIds = selectedSlugs
+        .map(slug => communities.find(x => x.slug === slug))
+        .filter((c): c is { id: number; slug: string; name: string } => !!c && c.id !== targetCommunity.id)
+        .map(c => c.id);
+      if (otherIds.length > 0) {
+        const results = await Promise.allSettled(
+          otherIds.map(id =>
+            fetch(`${API_BASE}/communities/${id}/join`, { method: "POST", credentials: "include" })
+              .then(r => { if (!r.ok && r.status !== 409) throw new Error(`status ${r.status}`); return r; })
+          )
+        );
+        const failed = results.filter(r => r.status === "rejected").length;
+        if (failed > 0) console.warn(`[onboarding] ${failed}/${otherIds.length} optional community joins failed`);
       }
 
       // 4. Post the question
@@ -116,7 +131,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
         }),
       });
 
-      if (!postRes.ok) throw new Error("Failed to post question");
+      if (!postRes.ok) throw new Error(`Post failed (${postRes.status})`);
       const post = await postRes.json();
 
       setPostResult({
@@ -126,7 +141,8 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
       });
       setStep(6);
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      console.error("[onboarding] post failed:", err);
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setPosting(false);
     }
@@ -434,11 +450,19 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
                 setPosting(true);
                 try {
                   const commRes = await fetch(`${API_BASE}/communities`, { credentials: "include" });
-                  const communities: { id: number; slug: string }[] = await commRes.json();
-                  for (const slug of selectedSlugs) {
-                    const c = communities.find(x => x.slug === slug);
-                    if (c) await fetch(`${API_BASE}/communities/${c.id}/join`, { method: "POST", credentials: "include" });
+                  if (commRes.ok) {
+                    const communities: { id: number; slug: string }[] = await commRes.json();
+                    const toJoin = selectedSlugs
+                      .map(slug => communities.find(x => x.slug === slug))
+                      .filter((c): c is { id: number; slug: string } => !!c);
+                    await Promise.allSettled(
+                      toJoin.map(c =>
+                        fetch(`${API_BASE}/communities/${c.id}/join`, { method: "POST", credentials: "include" })
+                      )
+                    );
                   }
+                } catch (err) {
+                  console.error("[onboarding] skip-join failed:", err);
                 } finally {
                   setPosting(false);
                   setStep(6);
