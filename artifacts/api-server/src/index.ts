@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { ensureHealthCommunities } from "./lib/startupSeed";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,9 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Idempotent post-listen self-heal seeds. Runs after the port is bound so
+  // a slow database can never block readiness. Failures are logged but never
+  // crash the server.
+  void ensureHealthCommunities();
 });

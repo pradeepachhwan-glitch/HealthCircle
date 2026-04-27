@@ -92,6 +92,29 @@ interface OverpassElement {
   tags?: Record<string, string>;
 }
 
+/**
+ * Strip filler / generic words from a free-text search query so we match
+ * facility names instead of looking for hospitals literally called
+ * "hospital near me".  If everything is filler, returns "" → caller should
+ * treat as a wildcard and return all results in the city.
+ */
+function cleanFreeTextQuery(raw: string | undefined): string {
+  if (!raw) return "";
+  const FILLERS = new Set([
+    "near", "me", "near-me", "nearme", "nearby",
+    "in", "at", "the", "a", "an", "of", "for", "to",
+    "hospital", "hospitals", "clinic", "clinics",
+    "doctor", "doctors", "dr", "dr.",
+    "best", "top", "good", "find", "show", "list",
+  ]);
+  const tokens = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t && !FILLERS.has(t));
+  return tokens.join(" ").trim();
+}
+
 async function overpassQuery(selectors: string[], bbox: Bbox): Promise<OverpassElement[]> {
   const bboxStr = `(${bbox.south},${bbox.west},${bbox.north},${bbox.east})`;
   const body = selectors.map((s) => `${s}${bboxStr};`).join("");
@@ -133,37 +156,45 @@ export async function fetchLiveDoctors(opts: { specialty?: string; q?: string; c
   const elements = await overpassQuery(selectors, bbox);
 
   const specialty = (opts.specialty ?? "").toLowerCase().trim();
-  const q = (opts.q ?? "").toLowerCase().trim();
+  const q = cleanFreeTextQuery(opts.q);
 
-  const list: LiveDoctor[] = elements
-    .map((el) => {
-      const t = el.tags ?? {};
-      const name = t.name || t["name:en"] || t.operator;
-      if (!name) return null;
-      const elSpecialty = (t["healthcare:speciality"] || t.speciality || t.specialty || "General Physician").replace(/_/g, " ");
-      if (specialty && !elSpecialty.toLowerCase().includes(specialty) && !name.toLowerCase().includes(specialty)) return null;
-      if (q && !name.toLowerCase().includes(q) && !elSpecialty.toLowerCase().includes(q)) return null;
-      const addr = [t["addr:street"], t["addr:suburb"], t["addr:city"]].filter(Boolean).join(", ") || city;
-      return {
-        id: `osm-d-${el.id}`,
-        name,
-        specialty: titleCase(elSpecialty),
-        experienceYears: 0,
-        consultationFee: "0",
-        rating: "0.0",
-        location: addr,
-        bio: undefined,
-        languages: ["English"],
-        available: true,
-        imageUrl: undefined,
-        source: "openstreetmap" as const,
-        sourceUrl: `https://www.openstreetmap.org/${el.type}/${el.id}`,
-        phone: t["contact:phone"] || t.phone,
-        website: t["contact:website"] || t.website,
-      } as LiveDoctor;
-    })
-    .filter((x): x is LiveDoctor => x !== null)
-    .slice(0, 30);
+  function build(applyQ: boolean): LiveDoctor[] {
+    return elements
+      .map((el) => {
+        const t = el.tags ?? {};
+        const name = t.name || t["name:en"] || t.operator;
+        if (!name) return null;
+        const elSpecialty = (t["healthcare:speciality"] || t.speciality || t.specialty || "General Physician").replace(/_/g, " ");
+        if (specialty && !elSpecialty.toLowerCase().includes(specialty) && !name.toLowerCase().includes(specialty)) return null;
+        if (applyQ && q && !name.toLowerCase().includes(q) && !elSpecialty.toLowerCase().includes(q)) return null;
+        const addr = [t["addr:street"], t["addr:suburb"], t["addr:city"]].filter(Boolean).join(", ") || city;
+        return {
+          id: `osm-d-${el.id}`,
+          name,
+          specialty: titleCase(elSpecialty),
+          experienceYears: 0,
+          consultationFee: "0",
+          rating: "0.0",
+          location: addr,
+          bio: undefined,
+          languages: ["English"],
+          available: true,
+          imageUrl: undefined,
+          source: "openstreetmap" as const,
+          sourceUrl: `https://www.openstreetmap.org/${el.type}/${el.id}`,
+          phone: t["contact:phone"] || t.phone,
+          website: t["contact:website"] || t.website,
+        } as LiveDoctor;
+      })
+      .filter((x): x is LiveDoctor => x !== null)
+      .slice(0, 30);
+  }
+
+  // First try with the cleaned q. If that yields nothing (e.g. user typed
+  // "doctor near me" → cleaned to "" or "" + filler), fall back to all
+  // facilities in the city so we always show useful results.
+  let list = build(true);
+  if (list.length === 0 && q) list = build(false);
 
   cacheSet(cacheKey, list);
   return list;
@@ -186,35 +217,43 @@ export async function fetchLiveHospitals(opts: { q?: string; city?: string; spec
   ];
   const elements = await overpassQuery(selectors, bbox);
 
-  const q = (opts.q ?? "").toLowerCase().trim();
+  const q = cleanFreeTextQuery(opts.q);
 
-  const list: LiveHospital[] = elements
-    .map((el) => {
-      const t = el.tags ?? {};
-      const name = t.name || t["name:en"] || t.operator;
-      if (!name) return null;
-      if (q && !name.toLowerCase().includes(q)) return null;
-      const addr = [t["addr:street"], t["addr:suburb"], t["addr:city"]].filter(Boolean).join(", ") || city;
-      const specialties = (t["healthcare:speciality"] || t.speciality || "")
-        .split(/[;,]/)
-        .map((s) => titleCase(s.trim().replace(/_/g, " ")))
-        .filter(Boolean);
-      return {
-        id: `osm-h-${el.id}`,
-        name,
-        location: addr,
-        specialties: specialties.length ? specialties : ["General"],
-        rating: "0.0",
-        phone: t["contact:phone"] || t.phone,
-        email: t["contact:email"] || t.email,
-        website: t["contact:website"] || t.website,
-        imageUrl: undefined,
-        source: "openstreetmap" as const,
-        sourceUrl: `https://www.openstreetmap.org/${el.type}/${el.id}`,
-      } as LiveHospital;
-    })
-    .filter((x): x is LiveHospital => x !== null)
-    .slice(0, 30);
+  function build(applyQ: boolean): LiveHospital[] {
+    return elements
+      .map((el) => {
+        const t = el.tags ?? {};
+        const name = t.name || t["name:en"] || t.operator;
+        if (!name) return null;
+        if (applyQ && q && !name.toLowerCase().includes(q)) return null;
+        const addr = [t["addr:street"], t["addr:suburb"], t["addr:city"]].filter(Boolean).join(", ") || city;
+        const specialties = (t["healthcare:speciality"] || t.speciality || "")
+          .split(/[;,]/)
+          .map((s) => titleCase(s.trim().replace(/_/g, " ")))
+          .filter(Boolean);
+        return {
+          id: `osm-h-${el.id}`,
+          name,
+          location: addr,
+          specialties: specialties.length ? specialties : ["General"],
+          rating: "0.0",
+          phone: t["contact:phone"] || t.phone,
+          email: t["contact:email"] || t.email,
+          website: t["contact:website"] || t.website,
+          imageUrl: undefined,
+          source: "openstreetmap" as const,
+          sourceUrl: `https://www.openstreetmap.org/${el.type}/${el.id}`,
+        } as LiveHospital;
+      })
+      .filter((x): x is LiveHospital => x !== null)
+      .slice(0, 30);
+  }
+
+  // Try cleaned q first; if 0 results, drop the q filter and just return all
+  // hospitals in the city.  Users searching "hospital near me" should still
+  // see results.
+  let list = build(true);
+  if (list.length === 0 && q) list = build(false);
 
   cacheSet(cacheKey, list);
   return list;
