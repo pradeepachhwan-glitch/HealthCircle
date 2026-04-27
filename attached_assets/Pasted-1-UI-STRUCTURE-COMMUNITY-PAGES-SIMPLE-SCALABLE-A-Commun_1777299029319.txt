@@ -1,0 +1,201 @@
+1️⃣ UI STRUCTURE — COMMUNITY PAGES (SIMPLE, SCALABLE)
+A. Community Home
+
+Top Bar
+
+Community Name + icon
+Join / Joined toggle
+Search within community
+
+Hero Section
+
+Short description (1 line)
+Member count + active now
+“Ask a Question” (primary CTA)
+
+Feed (Main Area)
+
+Tabs:
+Trending
+Latest
+Unanswered
+Doctor Answers
+
+Each post card:
+
+Title (user question)
+Tags (symptoms / topic)
+Snippet (2 lines)
+AI badge (if summarized)
+Engagement (replies, views)
+B. Thread View (Most Critical Screen)
+
+1. Question Block (Top)
+
+User question
+Tags
+Time posted
+
+2. AI Summary Box (Pinned on top)
+
+Simple explanation
+Risk level (color-coded)
+“What you can do next”
+Disclaimer
+
+3. Community Answers
+
+Sorted by:
+Most helpful
+Latest
+Doctor answers highlighted
+
+4. Action Panel (Sticky / Bottom)
+
+Book Doctor
+Ask AI privately
+Save / Follow thread
+C. Ask Question Flow
+Step 1: Type question (or voice)
+Step 2: Auto-tagging (AI suggests category)
+Step 3: Choose community (auto-suggested)
+Step 4: Post
+D. Minimal Navigation (Keep it tight)
+
+Bottom bar:
+
+Home
+Communities
+Ask (+)
+Chats (AI)
+Profile
+2️⃣ AI BEHAVIOR INSIDE COMMUNITIES (CRITICAL DIFFERENTIATOR)
+🎯 Core Principle
+
+AI should assist, not dominate
+
+A. Where AI appears
+On every new post (auto-summary)
+On demand (“Explain this”)
+In private chat (deep dive)
+B. AI RESPONSE STRUCTURE (STRICT FORMAT)
+
+Every AI output MUST follow:
+
+1. What this could be (simple explanation)
+2. Risk level (Low / Medium / High)
+3. What you can do now
+4. When to see a doctor
+5. Disclaimer
+C. Behavior Rules
+✅ MUST DO
+Simplify medical jargon
+Ask follow-up questions (max 2)
+Highlight red flags clearly
+Stay neutral (no panic, no overconfidence)
+❌ MUST NOT DO
+No definitive diagnosis
+No medication prescriptions
+No contradiction of doctors
+No long paragraphs
+D. Smart AI Features (High Value)
+1. Duplicate Detection
+
+If same question exists:
+
+“Similar discussions found” → show threads
+
+2. Thread Summarization
+
+Long thread → AI gives:
+
+Key takeaways
+Most agreed answers
+3. Escalation Trigger
+
+If high-risk keywords:
+
+Chest pain
+Suicidal thoughts
+Severe bleeding
+
+👉 AI forces:
+
+“Seek immediate care” + action buttons
+E. Tone Calibration
+Mental health → empathetic
+Chronic disease → guiding
+Fitness → motivating
+3️⃣ NAMING & BRANDING (FOR ALL 20 COMMUNITIES)
+🎯 Naming Strategy
+Simple
+Human
+Non-clinical
+Easy recall
+🔹 FINAL NAMES + TAGLINES
+CORE HEALTH
+Heart Circle
+“Care for your heart, every day”
+Mind Space
+“Talk it out. Feel lighter.”
+Sugar Care (Diabetes)
+“Control your sugar, control your life”
+Hormone Hub
+“Balance from within”
+Move Easy (Bone & Joint)
+“Live pain-free, move freely”
+WOMEN
+Mom Journey
+“From bump to baby and beyond”
+Cycle Sync (PCOS)
+“Understand your body better”
+Hope & Fertility
+“You’re not alone in this journey”
+FAMILY
+Little Care (Child Health)
+“Because every child matters”
+Elder Care Circle
+“Caring for those who cared for us”
+LIFESTYLE
+Fit Life
+“Your fitness, your pace”
+Eat Right
+“Simple food, better health”
+Sleep Better
+“Rest. Recover. Reset.”
+CONDITIONS
+Breathe Easy
+“Better breathing, better living”
+Cancer Support Circle
+“Strength together”
+Infection Care
+“Stay informed, stay safe”
+MODERN PROBLEMS
+Work Reset
+“Beat burnout, regain balance”
+Screen Health
+“Protect your eyes and mind”
+SPECIAL INTEREST
+Natural Healing
+“Traditional wisdom, modern life”
+Brain Matters
+“Because your mind matters”
+🎨 BRAND SYSTEM (KEEP CONSISTENT)
+Color Logic
+Red → Critical (Heart)
+Blue → Trust (General health)
+Green → Wellness
+Purple → Mental health
+Icons
+Keep simple, emoji-like
+Recognizable at small sizes
+Tone Across Platform
+Human
+Calm
+Clear
+Non-judgmental
+🔥 FINAL SIMPLIFICATION
+
+You are building:
+
+“A safe health community where people ask, learn, and act”

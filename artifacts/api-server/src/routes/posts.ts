@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { db, postsTable, usersTable, commentsTable, postUpvotesTable, communityMembersTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth, requireModeratorOrAdmin, getOrCreateUser } from "../lib/auth";
 import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
+import { generatePostSummary, getPostSummary } from "../lib/aiSummary";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -47,11 +49,14 @@ router.post("/communities/:communityId/posts", requireAuth, async (req, res) => 
 
   const [post] = await db.insert(postsTable).values({
     communityId, authorId: user.id, title, content, imageUrl: imageUrl ?? null,
-    isPinned: false, isBroadcast: false, upvoteCount: 0, commentCount: 0,
+    isPinned: false, isBroadcast: false, upvoteCount: 0, commentCount: 0, viewCount: 0,
   }).returning();
 
   await db.insert(communityMembersTable).values({ communityId, userId: user.id }).onConflictDoNothing();
   await awardCredits(user.id, CREDIT_EVENTS.START_DISCUSSION);
+
+  // Trigger AI summary generation asynchronously (non-blocking)
+  generatePostSummary(post.id, title, content).catch(err => logger.error({ err }, "Failed to generate AI summary"));
 
   res.status(201).json({
     ...post, authorId: clerkId, authorName: user.displayName,
@@ -104,6 +109,9 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
   if (!rows.length) { res.status(404).json({ error: "Not found" }); return; }
   const { post, author } = rows[0];
 
+  // Increment view count (non-blocking)
+  db.update(postsTable).set({ viewCount: sql`${postsTable.viewCount} + 1` }).where(eq(postsTable.id, postId)).catch(() => {});
+
   let hasUpvoted = false;
   if (currentUserId) {
     const upvote = await db.select().from(postUpvotesTable)
@@ -112,6 +120,13 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
   }
 
   res.json({ ...post, authorId: author.clerkId, authorName: author.displayName, authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted });
+});
+
+router.get("/posts/:postId/ai-summary", requireAuth, async (req, res) => {
+  const postId = parseInt(req.params.postId);
+  const summary = await getPostSummary(postId);
+  if (!summary) { res.status(404).json({ error: "No summary yet" }); return; }
+  res.json(summary);
 });
 
 router.patch("/posts/:postId", requireAuth, async (req, res) => {

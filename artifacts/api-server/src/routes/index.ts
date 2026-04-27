@@ -12,6 +12,7 @@ import chatRouter from "./chat";
 import providersRouter from "./providers";
 import appointmentsRouter from "./appointments";
 import healthSearchRouter from "./healthSearch";
+import consentsRouter from "./consents";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(chatRouter);
 router.use(providersRouter);
 router.use(appointmentsRouter);
 router.use(healthSearchRouter);
+router.use(consentsRouter);
 
 export default router;

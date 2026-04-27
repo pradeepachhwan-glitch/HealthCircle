@@ -12,3 +12,5 @@ export * from "./hospitals";
 export * from "./appointments";
 export * from "./health_chats";
 export * from "./analytics";
+export * from "./consents";
+export * from "./ai_summaries";

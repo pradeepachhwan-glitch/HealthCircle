@@ -2,7 +2,8 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
 import { useClerk } from "@clerk/react";
-import { Home, Search, User, Shield, LogOut, Menu, Activity } from "lucide-react";
+import { Search, User, Shield, LogOut, Menu, Activity } from "lucide-react";
+import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
@@ -121,20 +122,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Mobile Bottom Tab Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t flex items-center justify-around px-2 z-50">
-        <Link href="/communities" className={`flex flex-col items-center p-2 flex-1 ${location.startsWith("/communities") ? "text-primary" : "text-muted-foreground"}`}>
-          <Home className="w-5 h-5 mb-1" />
-          <span className="text-[10px] font-medium">Home</span>
-        </Link>
-        <Link href="/search" className={`flex flex-col items-center p-2 flex-1 ${location === "/search" ? "text-primary" : "text-muted-foreground"}`}>
-          <Search className="w-5 h-5 mb-1" />
-          <span className="text-[10px] font-medium">Search</span>
-        </Link>
-        <Link href="/profile" className={`flex flex-col items-center p-2 flex-1 ${location === "/profile" ? "text-primary" : "text-muted-foreground"}`}>
-          <User className="w-5 h-5 mb-1" />
-          <span className="text-[10px] font-medium">Profile</span>
-        </Link>
-      </div>
+      <BottomNav />
     </div>
   );
 }

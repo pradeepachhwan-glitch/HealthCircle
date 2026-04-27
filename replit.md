@@ -46,7 +46,9 @@ Database (PostgreSQL via Drizzle ORM)
 
 ### Core
 - `users` — Clerk-linked profiles, roles, gamification (health_credits, level)
-- `communities`, `community_members`, `posts`, `post_upvotes`, `comments`, `achievements`
+- `communities`, `community_members`, `posts` (viewCount added), `post_upvotes`, `comments`, `achievements`
+- `consents` — user consent records (post_health_data, ai_assistance)
+- `ai_summaries` — per-post AI summaries (whatItCouldBe, riskLevel, whatToDo, whenToSeeDoctor, disclaimer)
 
 ### Health Super App
 - `doctors` — specialist profiles (specialty, fee, rating, location, languages, available)

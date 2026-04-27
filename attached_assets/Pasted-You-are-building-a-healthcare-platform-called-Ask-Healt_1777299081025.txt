@@ -1,0 +1,120 @@
+You are building a healthcare platform called "Ask Health".
+
+This is NOT a doctor-only app.
+This is NOT a social media app.
+
+This is a COMMUNITY + AI + ACTION platform.
+
+-----------------------------------
+🎯 CORE IDEA
+-----------------------------------
+Users:
+- Join health communities
+- Ask questions
+- Read others’ experiences
+- Get AI-assisted summaries
+- Take action (consult, tests, etc.)
+
+-----------------------------------
+🧱 CORE FEATURES (MANDATORY)
+-----------------------------------
+
+1. COMMUNITIES
+- Create multiple communities (e.g., Mental Wellness, Diabetes, Pregnancy)
+- Each community has:
+  - Feed (questions)
+  - Threads (answers)
+  - Tags
+
+2. THREAD SYSTEM
+- Users can:
+  - Post questions
+  - Reply to others
+  - Upvote helpful answers
+
+3. AI LAYER
+- Auto-generate for each post:
+  - Summary
+  - Risk level (low/medium/high)
+  - Suggested next steps
+- Add “Explain this” button
+
+4. ACTION LAYER
+- From each thread:
+  - Show doctors
+  - Allow booking
+  - Suggest tests
+
+5. CHAT ASSISTANT
+- Private AI chat for deeper help
+
+-----------------------------------
+🧠 AI RULES
+-----------------------------------
+- No diagnosis
+- No prescriptions
+- Always structured output:
+  1. What this could be
+  2. Risk level
+  3. What to do
+  4. When to see doctor
+  5. Disclaimer
+
+-----------------------------------
+🗂 DATABASE (MANDATORY TABLES)
+-----------------------------------
+users
+communities
+posts
+comments
+votes
+doctors
+appointments
+ai_summaries
+consents
+
+-----------------------------------
+🎨 UI RULES
+-----------------------------------
+- Clean
+- Mobile-first
+- Simple navigation
+- WhatsApp-like ease
+
+-----------------------------------
+🔐 CONSENT SYSTEM (CRITICAL)
+-----------------------------------
+Before:
+- Posting health question
+- Uploading reports
+
+User MUST accept:
+- Data usage consent
+- AI assistance disclaimer
+
+Store in DB.
+
+-----------------------------------
+🛠 ADMIN PANEL
+-----------------------------------
+- Moderate posts
+- Remove harmful content
+- Boost trusted answers
+- Manage doctors
+
+-----------------------------------
+🚫 DO NOT BUILD
+-----------------------------------
+- Social media feed
+- Influencer profiles
+- Irrelevant engagement features
+
+-----------------------------------
+✅ SUCCESS
+-----------------------------------
+User joins community → asks question → gets answers + AI clarity → takes action
+
+Build full stack:
+React + Node + PostgreSQL
+
+Start now.
