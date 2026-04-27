@@ -106,12 +106,11 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
       }
 
       // 4. Post the question
-      const postRes = await fetch(`${API_BASE}/posts`, {
+      const postRes = await fetch(`${API_BASE}/communities/${targetCommunity.id}/posts`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          communityId: targetCommunity.id,
           title: question.trim().slice(0, 120),
           content: question.trim(),
         }),
