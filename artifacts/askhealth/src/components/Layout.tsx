@@ -2,11 +2,12 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
 import { useClerk } from "@clerk/react";
-import { Home, MessageCircle, Users, Search, User, Shield, LogOut, Menu, Activity, CalendarDays, Stethoscope } from "lucide-react";
+import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
+import HealthCircleLogo from "@/components/HealthCircleLogo";
 
 export function UserAvatar({ name, url, className = "" }: { name: string, url?: string | null, className?: string }) {
   if (url) {
@@ -49,11 +50,8 @@ function SidebarContent() {
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border text-sidebar-foreground">
       <div className="p-6 flex-1 overflow-y-auto">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-8 h-8 rounded bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold">
-            <Activity className="w-5 h-5" />
-          </div>
-          <span className="font-bold text-lg tracking-tight">AskHealth AI</span>
+        <div className="mb-8">
+          <HealthCircleLogo size="sm" animate={false} />
         </div>
 
         {/* User + Level Card */}
@@ -119,8 +117,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-2 text-sidebar-foreground">
-          <Activity className="w-5 h-5 text-sidebar-primary" />
-          <span className="font-bold">AskHealth AI</span>
+          <HealthCircleLogo size="sm" animate={false} />
         </div>
         <Sheet>
           <SheetTrigger asChild>

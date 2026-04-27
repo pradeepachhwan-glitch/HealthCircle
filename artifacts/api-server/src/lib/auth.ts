@@ -19,7 +19,7 @@ export async function getOrCreateUser(clerkId: string, userData?: { displayName?
   const [created] = await db.insert(usersTable).values({
     clerkId,
     displayName: userData?.displayName ?? "Healthcare Professional",
-    email: userData?.email ?? `${clerkId}@askhealth.ai`,
+    email: userData?.email ?? `${clerkId}@healthcircle.ai`,
     avatarUrl: userData?.avatarUrl ?? null,
     role: "member",
     isBanned: false,

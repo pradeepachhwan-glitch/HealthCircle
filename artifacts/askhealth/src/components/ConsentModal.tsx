@@ -40,7 +40,7 @@ export function ConsentModal({ open, onConsent, onCancel }: ConsentModalProps) {
             <DialogTitle className="text-lg leading-tight">Before you post</DialogTitle>
           </div>
           <DialogDescription className="text-sm leading-relaxed text-muted-foreground pt-1">
-            AskHealth AI is a peer support community. Your question will be visible to members and may be analysed by our AI to generate helpful guidance.
+            HealthCircle is a peer support community. Your question will be visible to members and may be analysed by our AI to generate helpful guidance.
           </DialogDescription>
         </DialogHeader>
 

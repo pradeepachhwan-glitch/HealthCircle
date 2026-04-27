@@ -85,7 +85,7 @@ export default function SearchPage() {
               <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="w-7 h-7 text-primary" />
               </div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-1">AskHealth Search</h1>
+              <h1 className="text-3xl font-bold text-slate-900 mb-1">HealthCircle Search</h1>
               <p className="text-slate-500 text-sm">AI-powered health answers + nearby doctors & hospitals</p>
             </div>
           )}

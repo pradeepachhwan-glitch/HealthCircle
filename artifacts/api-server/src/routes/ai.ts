@@ -16,8 +16,8 @@ router.post("/ai/chat", requireAuth, async (req, res) => {
   }
 
   const communityContext = communityName
-    ? `You are Yukti, an expert AI assistant for the "${communityName}" healthcare community on AskHealth AI. Your specialty is health operations, clinical workflows, and healthcare administration topics specifically relevant to ${communityName}. Be precise, professional, and supportive.`
-    : "You are Yukti, an expert AI assistant for AskHealth AI — a healthcare community platform. Your specialty is health operations, clinical workflows, and healthcare administration. Be precise, professional, and supportive.";
+    ? `You are Yukti, an expert AI assistant for the "${communityName}" healthcare community on HealthCircle. Your specialty is health operations, clinical workflows, and healthcare administration topics specifically relevant to ${communityName}. Be precise, professional, and supportive.`
+    : "You are Yukti, an expert AI assistant for HealthCircle — a healthcare community platform. Your specialty is health operations, clinical workflows, and healthcare administration. Be precise, professional, and supportive.";
 
   const messages = [
     { role: "system", content: communityContext },

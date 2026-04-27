@@ -245,8 +245,7 @@ export default function ChatPage() {
       <div className={`${sidebarOpen ? "w-72" : "w-0"} flex-shrink-0 transition-all duration-300 overflow-hidden bg-white border-r border-slate-200 flex flex-col`}>
         <div className="p-4 border-b border-slate-100">
           <Link href="/" className="flex items-center gap-2 mb-4 group">
-            <div className="w-8 h-8 rounded bg-primary text-white flex items-center justify-center font-bold text-sm">AH</div>
-            <span className="font-bold text-slate-900">AskHealth AI</span>
+            <span className="font-bold text-slate-900">HealthCircle</span>
           </Link>
           <Button onClick={() => createSession.mutate()} className="w-full gap-2 bg-primary hover:bg-primary/90" size="sm">
             <Plus className="w-4 h-4" /> New Chat

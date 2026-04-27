@@ -1,4 +1,4 @@
-# AskHealth AI — Healthcare Super App
+# HealthCircle — Healthcare Super App
 
 ## Overview
 

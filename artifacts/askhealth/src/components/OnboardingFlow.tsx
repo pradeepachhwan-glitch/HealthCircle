@@ -153,8 +153,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-primary text-white flex items-center justify-center font-bold text-xs">AH</div>
-          <span className="font-semibold text-slate-900 text-sm">AskHealth AI</span>
+          <span className="font-semibold text-slate-900 text-sm">HealthCircle</span>
         </div>
         <span className="text-xs text-slate-400">{step} of 6</span>
       </div>
@@ -376,7 +375,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
               <CheckCircle className="w-8 h-8 text-emerald-600" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900">Welcome to AskHealth! 🎉</h2>
+            <h2 className="text-xl font-bold text-slate-900">Welcome to HealthCircle! 🎉</h2>
             <p className="text-slate-500 text-sm">You've joined your communities. Start exploring!</p>
             <Button onClick={finish} className="bg-primary hover:bg-primary/90 w-full">
               Go to Communities
