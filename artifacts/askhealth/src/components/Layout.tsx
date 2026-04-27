@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
-import { useClerk } from "@clerk/react";
+import { useClerk, useAuth } from "@clerk/react";
 import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,9 @@ export function UserAvatar({ name, url, className = "" }: { name: string, url?: 
 
 function SidebarContent() {
   const [location] = useLocation();
-  const { data: user } = useGetCurrentUser();
+  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+  const authReady = clerkLoaded && isSignedIn;
+  const { data: user } = useGetCurrentUser({ query: { enabled: authReady } });
   const { data: credits } = useGetMyCreditsSummary({ query: { enabled: !!user } });
   const { signOut } = useClerk();
 

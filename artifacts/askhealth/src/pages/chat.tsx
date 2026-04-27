@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
-import { useClerk } from "@clerk/react";
+import { useClerk, useAuth } from "@clerk/react";
 import {
   Send, Plus, Trash2, Bot, User, AlertTriangle, CheckCircle,
   Activity, Mic, MicOff, Paperclip, Menu, X, ChevronRight, Stethoscope, ArrowLeft, UserCheck,
@@ -329,6 +329,9 @@ export default function ChatPage() {
 
   const suggestedPrompts = communityPrompts?.suggestedQuestions ?? DEFAULT_PROMPTS;
 
+  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+  const authReady = clerkLoaded && isSignedIn;
+
   const { data: sessions = [] } = useQuery<ChatSession[]>({
     queryKey: ["chat-sessions"],
     queryFn: async () => {
@@ -336,6 +339,7 @@ export default function ChatPage() {
       if (!r.ok) return [];
       return r.json();
     },
+    enabled: authReady,
   });
 
   const { data: messages = [] } = useQuery<ChatMessage[]>({

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@clerk/react";
 import { Layout } from "@/components/Layout";
 import {
   Search, Star, MapPin, Clock, Calendar,
@@ -15,8 +16,15 @@ import {
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
+function safeUrl(u: string | undefined): string | null {
+  if (!u) return null;
+  const trimmed = u.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  try { new URL(trimmed); return trimmed; } catch { return null; }
+}
+
 interface Doctor {
-  id: number;
+  id: number | string;
   name: string;
   specialty: string;
   experienceYears: number;
@@ -27,10 +35,14 @@ interface Doctor {
   languages: string[];
   available: boolean;
   imageUrl?: string;
+  source?: "openstreetmap";
+  sourceUrl?: string;
+  phone?: string;
+  website?: string;
 }
 
 interface Hospital {
-  id: number;
+  id: number | string;
   name: string;
   location: string;
   specialties: string[];
@@ -39,6 +51,8 @@ interface Hospital {
   email?: string;
   website?: string;
   imageUrl?: string;
+  source?: "openstreetmap";
+  sourceUrl?: string;
 }
 
 const SPECIALTIES = [
@@ -90,6 +104,9 @@ function DoctorCard({ doctor, onBook }: { doctor: Doctor; onBook: (doctor: Docto
             <div>
               <h3 className="font-semibold text-slate-900">{doctor.name}</h3>
               <p className="text-sm text-primary font-medium">{doctor.specialty}</p>
+              {doctor.source === "openstreetmap" && (
+                <p className="text-[11px] text-slate-400 mt-0.5">Live nearby clinic · OpenStreetMap</p>
+              )}
             </div>
             <Badge className={doctor.available ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"} variant="outline">
               {doctor.available ? "Available" : "Unavailable"}
@@ -150,8 +167,8 @@ function HospitalCard({ hospital }: { hospital: Hospital }) {
           </div>
           <div className="flex flex-wrap gap-4 mt-3 text-xs text-slate-500">
             {hospital.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{hospital.phone}</span>}
-            {hospital.website && (
-              <a href={hospital.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+            {safeUrl(hospital.website) && (
+              <a href={safeUrl(hospital.website)!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
                 <Globe className="w-3 h-3" /> Website
               </a>
             )}
@@ -169,26 +186,41 @@ function BookingDialog({ doctor, open, onClose }: { doctor: Doctor | null; open:
   const [time, setTime] = useState("10:00");
   const [notes, setNotes] = useState("");
 
+  const isLive = doctor?.source === "openstreetmap";
+
   const book = useMutation({
-    mutationFn: () =>
-      fetch(`${API_BASE}/appointments`, {
+    mutationFn: async () => {
+      if (!doctor || isLive || typeof doctor.id !== "number") {
+        throw new Error("This is a public listing. Please contact the clinic directly using the details shown.");
+      }
+      const r = await fetch(`${API_BASE}/appointments`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          doctorId: doctor?.id,
+          doctorId: doctor.id,
           appointmentTime: new Date(`${date}T${time}`).toISOString(),
           notes: notes || null,
         }),
-      }).then(r => r.json()),
+      });
+      if (!r.ok) {
+        const msg = r.status === 401 ? "Please sign in again to book." : `Booking failed (${r.status})`;
+        throw new Error(msg);
+      }
+      return r.json();
+    },
     onSuccess: () => {
       toast({ title: "Appointment Booked!", description: `Confirmed with ${doctor?.name}.` });
       qc.invalidateQueries({ queryKey: ["appointments"] });
       onClose();
       setDate(""); setTime("10:00"); setNotes("");
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to book appointment.", variant: "destructive" });
+    onError: (err: Error) => {
+      toast({
+        title: isLive ? "Public listing" : "Error",
+        description: err?.message || "Failed to book appointment.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -248,29 +280,36 @@ export default function ProvidersPage() {
 
   const locationFilter = city ?? "";
 
+  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+  const authReady = clerkLoaded && isSignedIn;
+
   const { data: doctors = [], isLoading: loadingDoctors } = useQuery<Doctor[]>({
-    queryKey: ["doctors", query, selectedSpecialty],
+    queryKey: ["doctors", query, selectedSpecialty, city],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       if (selectedSpecialty) params.set("specialty", selectedSpecialty);
+      if (city) params.set("city", city);
       const res = await fetch(`${API_BASE}/doctors?${params}`, { credentials: "include" });
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
+    enabled: authReady,
   });
 
   const { data: hospitals = [], isLoading: loadingHospitals } = useQuery<Hospital[]>({
-    queryKey: ["hospitals", query],
+    queryKey: ["hospitals", query, city],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (query) params.set("q", query);
+      if (city) params.set("city", city);
       const res = await fetch(`${API_BASE}/hospitals?${params}`, { credentials: "include" });
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
+    enabled: authReady,
   });
 
   // Client-side location filter when city detected

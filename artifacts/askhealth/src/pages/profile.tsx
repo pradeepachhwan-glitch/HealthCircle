@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGetCurrentUser, useGetMyCreditsSummary, useGetUserAchievements } from "@workspace/api-client-react";
+import { useAuth } from "@clerk/react";
 import { Layout, UserAvatar } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +45,9 @@ interface MyCommunity {
 export default function Profile() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
-  const { data: user, isLoading: userLoading } = useGetCurrentUser();
+  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+  const authReady = clerkLoaded && isSignedIn;
+  const { data: user, isLoading: userLoading } = useGetCurrentUser({ query: { enabled: authReady } });
   const { data: credits, isLoading: creditsLoading } = useGetMyCreditsSummary({ query: { enabled: !!user } });
   const { data: achievements, isLoading: achievementsLoading } = useGetUserAchievements(user?.id || "", { query: { enabled: !!user?.id } });
 

@@ -3,11 +3,12 @@ import { db } from "@workspace/db";
 import { doctorsTable, hospitalsTable, providerRankingsTable } from "@workspace/db/schema";
 import { eq, ilike, or, desc, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../lib/auth";
+import { fetchLiveDoctors, fetchLiveHospitals } from "../lib/osmProviders";
 
 const router = Router();
 
 router.get("/doctors", requireAuth, async (req, res) => {
-  const { specialty, location, available, q } = req.query;
+  const { specialty, location, available, q, city } = req.query;
 
   let query = db.select().from(doctorsTable).$dynamic();
 
@@ -22,6 +23,16 @@ router.get("/doctors", requireAuth, async (req, res) => {
   }
 
   const doctors = await query.orderBy(desc(doctorsTable.rating)).limit(50);
+
+  if (doctors.length === 0) {
+    const live = await fetchLiveDoctors({
+      specialty: typeof specialty === "string" ? specialty : undefined,
+      q: typeof q === "string" ? q : undefined,
+      city: typeof city === "string" ? city : (typeof location === "string" ? location : undefined),
+    });
+    res.json(live);
+    return;
+  }
   res.json(doctors);
 });
 
@@ -56,7 +67,7 @@ router.patch("/doctors/:doctorId", requireAdmin, async (req, res) => {
 });
 
 router.get("/hospitals", requireAuth, async (req, res) => {
-  const { location, specialty, q } = req.query;
+  const { location, specialty, q, city } = req.query;
   let query = db.select().from(hospitalsTable).$dynamic();
 
   const conditions = [];
@@ -71,6 +82,16 @@ router.get("/hospitals", requireAuth, async (req, res) => {
   }
 
   const hospitals = await query.orderBy(desc(hospitalsTable.rating)).limit(50);
+
+  if (hospitals.length === 0) {
+    const live = await fetchLiveHospitals({
+      q: typeof q === "string" ? q : undefined,
+      city: typeof city === "string" ? city : (typeof location === "string" ? location : undefined),
+      specialty: typeof specialty === "string" ? specialty : undefined,
+    });
+    res.json(live);
+    return;
+  }
   res.json(hospitals);
 });
 

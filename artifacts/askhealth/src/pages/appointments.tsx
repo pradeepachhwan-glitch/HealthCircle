@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@clerk/react";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { Calendar, Clock, MapPin, Stethoscope, Building2, CheckCircle, XCircle, AlertCircle } from "lucide-react";
@@ -31,8 +32,11 @@ function AppointmentCard({ appointment }: { appointment: Appointment }) {
   const StatusIcon = status.icon;
 
   const cancel = useMutation({
-    mutationFn: () =>
-      fetch(`${API_BASE}/appointments/${appointment.id}/cancel`, { method: "PATCH", credentials: "include" }).then(r => r.json()),
+    mutationFn: async () => {
+      const r = await fetch(`${API_BASE}/appointments/${appointment.id}/cancel`, { method: "PATCH", credentials: "include" });
+      if (!r.ok) throw new Error(`Cancel failed (${r.status})`);
+      return r.json();
+    },
     onSuccess: () => {
       toast({ title: "Appointment Cancelled" });
       qc.invalidateQueries({ queryKey: ["appointments"] });
@@ -104,6 +108,9 @@ function AppointmentCard({ appointment }: { appointment: Appointment }) {
 }
 
 export default function AppointmentsPage() {
+  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+  const authReady = clerkLoaded && isSignedIn;
+
   const { data: appointments = [], isLoading, isError, refetch } = useQuery<Appointment[]>({
     queryKey: ["appointments"],
     queryFn: async () => {
@@ -112,6 +119,7 @@ export default function AppointmentsPage() {
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
+    enabled: authReady,
     retry: 1,
   });
 
