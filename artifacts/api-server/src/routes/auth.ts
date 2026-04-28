@@ -17,6 +17,10 @@ import {
   normalizeEmail,
   setSessionCookie,
   verifyPassword,
+  checkLoginLockout,
+  recordLoginFailure,
+  clearLoginFailures,
+  LOGIN_LOCKOUT_MS,
   type OtpPurpose,
 } from "../lib/auth";
 import { buildOtpEmail, sendEmail } from "../lib/email";
@@ -249,16 +253,36 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   const email = normalizeEmail(parsed.data.email);
   if (!isValidEmail(email)) return badEmail(res);
 
+  // Per-email soft-lockout: check BEFORE touching the DB so a locked
+  // account bails out cheaply without a DB round-trip.
+  const lockout = checkLoginLockout(email);
+  if (lockout.locked) {
+    const mins = Math.max(1, Math.ceil((lockout.retryAfterMs ?? LOGIN_LOCKOUT_MS) / 60_000));
+    res.status(429).json({
+      error: `Too many failed sign-in attempts. Please wait ${mins} minute(s) and try again.`,
+      retryAfterSeconds: Math.ceil((lockout.retryAfterMs ?? LOGIN_LOCKOUT_MS) / 1000),
+    });
+    return;
+  }
+
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
 
     // Generic message for both "no such user" and "wrong password" so we
-    // don't reveal whether an email is registered.
-    const wrong = () => res.status(401).json({ error: "That email or password didn't match. Please try again." });
+    // don't reveal whether an email is registered. We still record a failure
+    // so a distributed brute-force attempt is slowed down.
+    const wrong = () => {
+      recordLoginFailure(email);
+      res.status(401).json({ error: "That email or password didn't match. Please try again." });
+    };
 
     if (!user || !user.passwordHash) return wrong();
     const ok = await verifyPassword(parsed.data.password, user.passwordHash);
     if (!ok) return wrong();
+
+    // Successful credential match — clear any accumulated failure count.
+    clearLoginFailures(email);
+
     if (user.isBanned) {
       res.status(403).json({ error: "This account has been suspended. Please contact support." });
       return;

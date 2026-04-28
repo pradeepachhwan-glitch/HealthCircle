@@ -180,6 +180,44 @@ export async function getOrCreateUser(
   return created;
 }
 
+// ---- Per-email login brute-force protection --------------------------------
+// Tracks consecutive failed password attempts per email in process memory.
+// After LOGIN_MAX_FAILS failures within a single window the account is
+// temporarily soft-locked (no DB write needed). The lock self-clears after
+// LOGIN_LOCKOUT_MS. A successful login always resets the counter.
+//
+// This runs alongside the per-IP authRateLimiter so both axes are defended:
+// a distributed attacker (many IPs, one victim email) is caught here; a
+// single IP hammering many accounts is caught by the IP limiter.
+
+const LOGIN_MAX_FAILS = 10;
+export const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 min
+
+interface LoginRecord { count: number; resetAt: number }
+const loginFailMap = new Map<string, LoginRecord>();
+
+export function checkLoginLockout(email: string): { locked: boolean; retryAfterMs?: number } {
+  const rec = loginFailMap.get(email);
+  if (!rec) return { locked: false };
+  if (Date.now() > rec.resetAt) { loginFailMap.delete(email); return { locked: false }; }
+  if (rec.count >= LOGIN_MAX_FAILS) return { locked: true, retryAfterMs: rec.resetAt - Date.now() };
+  return { locked: false };
+}
+
+export function recordLoginFailure(email: string): void {
+  const now = Date.now();
+  const rec = loginFailMap.get(email);
+  if (!rec || now > rec.resetAt) {
+    loginFailMap.set(email, { count: 1, resetAt: now + LOGIN_LOCKOUT_MS });
+  } else {
+    rec.count++;
+  }
+}
+
+export function clearLoginFailures(email: string): void {
+  loginFailMap.delete(email);
+}
+
 // ---- OTP helpers ----
 function generateOtpCode(): string {
   // 6 digit numeric, zero-padded.
@@ -187,9 +225,14 @@ function generateOtpCode(): string {
   return n.toString().padStart(6, "0");
 }
 
+// HMAC-SHA256 keyed with SESSION_SECRET gives two protections over plain SHA-256:
+// 1) A DB dump alone is not enough to brute-force the 1M possible 6-digit codes —
+//    the attacker also needs the server secret.
+// 2) Email is the HMAC message so the code is cryptographically bound to the
+//    email address it was issued for.
 function hashOtp(code: string, email: string): string {
-  // Email is included as a salt so a code is bound to its email.
-  return crypto.createHash("sha256").update(`${email}:${code}`).digest("hex");
+  const secret = process.env.SESSION_SECRET ?? "dev-fallback-secret-change-in-prod";
+  return crypto.createHmac("sha256", secret).update(`${email}:${code}`).digest("hex");
 }
 
 export type OtpPurpose = "login" | "signup" | "reset";
