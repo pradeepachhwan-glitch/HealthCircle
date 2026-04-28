@@ -5,11 +5,11 @@ import { and, eq, ilike, or, desc, sql, type SQL } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { fetchLiveDoctors, fetchLiveHospitals } from "../lib/osmProviders";
 import { inferSpecialty } from "../lib/specialtyMatcher";
+import { mergeAndRankDoctors, mergeAndRankHospitals } from "../lib/providerRanker";
 
 const router = Router();
 
-// Pull the leading city token out of values like "Faridabad, Haryana" so we
-// match DB rows that store either the short or long form.
+// Pull the leading city token out of values like "Faridabad, Haryana".
 function cityToken(raw: string | undefined): string | null {
   if (!raw || typeof raw !== "string") return null;
   const t = raw.split(",")[0].trim();
@@ -20,22 +20,20 @@ function asString(v: unknown): string | undefined {
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 }
 
+// ---- GET /doctors ----------------------------------------------------------
+// Hybrid retrieval: DB and OSM are always queried in parallel.
+// Results are merged, scored, de-duplicated, and ranked before returning.
+// DB results carry higher trust weight (+100 base) vs OSM (+20 base).
+
 router.get("/doctors", requireAuth, async (req, res) => {
-  const q = asString(req.query.q);
+  const q        = asString(req.query.q);
   const specialty = asString(req.query.specialty);
-  const cityArg = asString(req.query.city) ?? asString(req.query.location);
+  const cityArg  = asString(req.query.city) ?? asString(req.query.location);
   const available = asString(req.query.available);
   const cityShort = cityToken(cityArg);
+  const inferred  = q ? inferSpecialty(q) : null;
 
-  // The free-text search ("q") and the specialty chip used to be AND-ed,
-  // which created impossible queries like:  q="cardilogist" AND specialty="General Physician"
-  // Now we treat the two as siblings: a row matches when EITHER the chip
-  // matches OR q matches the name/specialty (with typo-tolerant inference).
-  // Within the q match we also try inferring a canonical specialty from
-  // the typed text ("cardilogist" → "Cardiologist") so common typos still
-  // surface the right specialists.
-  const inferred = q ? inferSpecialty(q) : null;
-
+  // Build DB match clauses (OR between q-variants and the specialty chip)
   const matchClauses: SQL[] = [];
   if (q) {
     matchClauses.push(ilike(doctorsTable.name, `%${q}%`));
@@ -52,47 +50,43 @@ router.get("/doctors", requireAuth, async (req, res) => {
   if (cityShort) andConditions.push(ilike(doctorsTable.location, `%${cityShort}%`));
   if (available === "true") andConditions.push(eq(doctorsTable.available, true));
 
-  let query = db.select().from(doctorsTable).$dynamic();
-  if (andConditions.length > 0) query = query.where(and(...andConditions));
+  // Fire DB (city-scoped) and OSM (city-scoped) in parallel — always.
+  const [dbDoctors, liveDoctors] = await Promise.all([
+    (() => {
+      let query = db.select().from(doctorsTable).$dynamic();
+      if (andConditions.length > 0) query = query.where(and(...andConditions));
+      return query.orderBy(desc(doctorsTable.rating)).limit(50);
+    })(),
+    fetchLiveDoctors({ specialty: inferred ?? specialty, q, city: cityArg }).catch(() => []),
+  ]);
 
-  let doctors = await query.orderBy(desc(doctorsTable.rating)).limit(50);
+  const rankOpts = { q, inferred, chip: specialty, cityShort };
+  let ranked = mergeAndRankDoctors(dbDoctors, liveDoctors, rankOpts);
 
-  // If the city filter zeroed us out but we have specialty/q hits elsewhere
-  // in the DB, surface those (without the city filter) so the user still sees
-  // *some* relevant specialists alongside the live OSM results.
-  let dbWideMatches: typeof doctors = [];
-  if (doctors.length === 0 && cityShort && (q || specialty)) {
-    let wide = db.select().from(doctorsTable).$dynamic();
+  // Coverage fill-in: when both parallel queries return few results and the
+  // user supplied a city filter, run a second DB query without the city
+  // constraint so we surface relevant specialists from other cities.
+  // These score lower (no city-match bonus) so they naturally sit at the
+  // bottom of the ranked list, acting as a "nearby / best match" supplement.
+  if (ranked.length < 5 && cityShort && (q || specialty)) {
     const wideConds: SQL[] = [];
     if (matchClauses.length === 1) wideConds.push(matchClauses[0]);
     else if (matchClauses.length > 1) wideConds.push(or(...matchClauses)!);
+    if (available === "true") wideConds.push(eq(doctorsTable.available, true));
+    let wide = db.select().from(doctorsTable).$dynamic();
     if (wideConds.length) wide = wide.where(and(...wideConds));
-    dbWideMatches = await wide.orderBy(desc(doctorsTable.rating)).limit(20);
+    const wideDb = await wide.orderBy(desc(doctorsTable.rating)).limit(20);
+    ranked = mergeAndRankDoctors(
+      [...dbDoctors, ...wideDb],
+      liveDoctors,
+      rankOpts,
+    );
   }
 
-  // Always also pull live OSM nearby clinics when a city is supplied AND we
-  // either had nothing in the DB for that city, or we explicitly want
-  // location-aware results (the chip / q is set). Combining DB + OSM gives
-  // the user the maximum chance of finding what they typed.
-  let live: Awaited<ReturnType<typeof fetchLiveDoctors>> = [];
-  if (cityArg && doctors.length === 0) {
-    live = await fetchLiveDoctors({
-      specialty: inferred ?? specialty,
-      q,
-      city: cityArg,
-    });
-  } else if (!cityArg && doctors.length === 0) {
-    live = await fetchLiveDoctors({ specialty: inferred ?? specialty, q });
-  }
-
-  if (doctors.length === 0) {
-    // Prefer DB-wide matches first (they're real records with bookable
-    // appointments), then the live OSM listings.
-    res.json([...dbWideMatches, ...live]);
-    return;
-  }
-  res.json(doctors);
+  res.json(ranked);
 });
+
+// ---- GET /doctors/:doctorId ------------------------------------------------
 
 router.get("/doctors/:doctorId", requireAuth, async (req, res) => {
   const [doctor] = await db
@@ -104,6 +98,8 @@ router.get("/doctors/:doctorId", requireAuth, async (req, res) => {
   res.json(doctor);
 });
 
+// ---- POST /doctors (admin) -------------------------------------------------
+
 router.post("/doctors", requireAdmin, async (req, res) => {
   const { name, specialty, experienceYears, consultationFee, rating, location, bio, languages, available, imageUrl } = req.body;
   const [doctor] = await db
@@ -112,6 +108,8 @@ router.post("/doctors", requireAdmin, async (req, res) => {
     .returning();
   res.status(201).json(doctor);
 });
+
+// ---- PATCH /doctors/:doctorId (admin) --------------------------------------
 
 router.patch("/doctors/:doctorId", requireAdmin, async (req, res) => {
   const { name, specialty, experienceYears, consultationFee, rating, location, bio, available } = req.body;
@@ -124,40 +122,44 @@ router.patch("/doctors/:doctorId", requireAdmin, async (req, res) => {
   res.json(updated);
 });
 
+// ---- GET /hospitals --------------------------------------------------------
+// Same hybrid approach: DB + OSM in parallel, merged and ranked.
+
 router.get("/hospitals", requireAuth, async (req, res) => {
-  const q = asString(req.query.q);
+  const q        = asString(req.query.q);
   const specialty = asString(req.query.specialty);
-  const cityArg = asString(req.query.city) ?? asString(req.query.location);
+  const cityArg  = asString(req.query.city) ?? asString(req.query.location);
   const cityShort = cityToken(cityArg);
-  const inferred = q ? inferSpecialty(q) : null;
+  const inferred  = q ? inferSpecialty(q) : null;
 
   const matchClauses: SQL[] = [];
   if (q) matchClauses.push(ilike(hospitalsTable.name, `%${q}%`));
   if (specialty) matchClauses.push(sql`${hospitalsTable.specialties} && ARRAY[${specialty}]::text[]`);
-  if (inferred) matchClauses.push(sql`EXISTS (SELECT 1 FROM unnest(${hospitalsTable.specialties}) s WHERE s ILIKE ${'%' + inferred + '%'})`);
+  if (inferred) matchClauses.push(
+    sql`EXISTS (SELECT 1 FROM unnest(${hospitalsTable.specialties}) s WHERE s ILIKE ${"%" + inferred + "%"})`,
+  );
 
   const andConditions: SQL[] = [];
   if (matchClauses.length === 1) andConditions.push(matchClauses[0]);
   else if (matchClauses.length > 1) andConditions.push(or(...matchClauses)!);
   if (cityShort) andConditions.push(ilike(hospitalsTable.location, `%${cityShort}%`));
 
-  let query = db.select().from(hospitalsTable).$dynamic();
-  if (andConditions.length > 0) query = query.where(and(...andConditions));
+  // Fire DB and OSM in parallel — always.
+  const [dbHospitals, liveHospitals] = await Promise.all([
+    (() => {
+      let query = db.select().from(hospitalsTable).$dynamic();
+      if (andConditions.length > 0) query = query.where(and(...andConditions));
+      return query.orderBy(desc(hospitalsTable.rating)).limit(50);
+    })(),
+    fetchLiveHospitals({ q, city: cityArg, specialty: inferred ?? specialty }).catch(() => []),
+  ]);
 
-  const hospitals = await query.orderBy(desc(hospitalsTable.rating)).limit(50);
-
-  if (hospitals.length === 0) {
-    const live = await fetchLiveHospitals({
-      q,
-      city: cityArg,
-      specialty: inferred ?? specialty,
-    });
-    res.json(live);
-    return;
-  }
-
-  res.json(hospitals);
+  const rankOpts = { q, inferred, chip: specialty, cityShort };
+  const ranked = mergeAndRankHospitals(dbHospitals, liveHospitals, rankOpts);
+  res.json(ranked);
 });
+
+// ---- POST /hospitals (admin) -----------------------------------------------
 
 router.post("/hospitals", requireAdmin, async (req, res) => {
   const { name, location, specialties, rating, phone, email, website, imageUrl } = req.body;
@@ -167,6 +169,8 @@ router.post("/hospitals", requireAdmin, async (req, res) => {
     .returning();
   res.status(201).json(hospital);
 });
+
+// ---- Admin rankings --------------------------------------------------------
 
 router.get("/admin/rankings", requireAdmin, async (req, res) => {
   const rankings = await db.select().from(providerRankingsTable).orderBy(desc(providerRankingsTable.boostScore));
