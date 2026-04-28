@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { doctorsTable, hospitalsTable, providerRankingsTable } from "@workspace/db/schema";
-import { and, eq, ilike, or, desc, sql } from "drizzle-orm";
+import { and, eq, ilike, or, desc, sql, type SQL } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { fetchLiveDoctors, fetchLiveHospitals } from "../lib/osmProviders";
+import { inferSpecialty } from "../lib/specialtyMatcher";
 
 const router = Router();
 
@@ -15,51 +16,81 @@ function cityToken(raw: string | undefined): string | null {
   return t.length > 0 ? t : null;
 }
 
-router.get("/doctors", requireAuth, async (req, res) => {
-  const { specialty, location, available, q, city } = req.query;
+function asString(v: unknown): string | undefined {
+  return typeof v === "string" && v.trim() ? v.trim() : undefined;
+}
 
-  const cityArg = typeof city === "string" ? city : (typeof location === "string" ? location : undefined);
+router.get("/doctors", requireAuth, async (req, res) => {
+  const q = asString(req.query.q);
+  const specialty = asString(req.query.specialty);
+  const cityArg = asString(req.query.city) ?? asString(req.query.location);
+  const available = asString(req.query.available);
   const cityShort = cityToken(cityArg);
 
-  // AND-combined conditions so city actually narrows the result set instead
-  // of OR-ing it with q/specialty (which would surface big-city dummy rows
-  // for any user typing a known specialty).
-  const andConditions = [];
-  if (q) andConditions.push(or(ilike(doctorsTable.name, `%${q}%`), ilike(doctorsTable.specialty, `%${q}%`)));
-  if (specialty) andConditions.push(ilike(doctorsTable.specialty, `%${specialty}%`));
+  // The free-text search ("q") and the specialty chip used to be AND-ed,
+  // which created impossible queries like:  q="cardilogist" AND specialty="General Physician"
+  // Now we treat the two as siblings: a row matches when EITHER the chip
+  // matches OR q matches the name/specialty (with typo-tolerant inference).
+  // Within the q match we also try inferring a canonical specialty from
+  // the typed text ("cardilogist" → "Cardiologist") so common typos still
+  // surface the right specialists.
+  const inferred = q ? inferSpecialty(q) : null;
+
+  const matchClauses: SQL[] = [];
+  if (q) {
+    matchClauses.push(ilike(doctorsTable.name, `%${q}%`));
+    matchClauses.push(ilike(doctorsTable.specialty, `%${q}%`));
+    if (inferred) matchClauses.push(ilike(doctorsTable.specialty, `%${inferred}%`));
+  }
+  if (specialty) {
+    matchClauses.push(ilike(doctorsTable.specialty, `%${specialty}%`));
+  }
+
+  const andConditions: SQL[] = [];
+  if (matchClauses.length === 1) andConditions.push(matchClauses[0]);
+  else if (matchClauses.length > 1) andConditions.push(or(...matchClauses)!);
   if (cityShort) andConditions.push(ilike(doctorsTable.location, `%${cityShort}%`));
   if (available === "true") andConditions.push(eq(doctorsTable.available, true));
 
   let query = db.select().from(doctorsTable).$dynamic();
   if (andConditions.length > 0) query = query.where(and(...andConditions));
 
-  const doctors = await query.orderBy(desc(doctorsTable.rating)).limit(50);
+  let doctors = await query.orderBy(desc(doctorsTable.rating)).limit(50);
 
-  // Fall back to live OpenStreetMap whenever we have no city-relevant DB
-  // matches. The fallback always runs when a city is supplied, even if the
-  // DB returned a few stale national rows that don't correspond to that
-  // city (the city-AND filter above guarantees those rows already match the
-  // city, so no need for additional checks).
-  if (doctors.length === 0 && cityArg) {
-    const live = await fetchLiveDoctors({
-      specialty: typeof specialty === "string" ? specialty : undefined,
-      q: typeof q === "string" ? q : undefined,
+  // If the city filter zeroed us out but we have specialty/q hits elsewhere
+  // in the DB, surface those (without the city filter) so the user still sees
+  // *some* relevant specialists alongside the live OSM results.
+  let dbWideMatches: typeof doctors = [];
+  if (doctors.length === 0 && cityShort && (q || specialty)) {
+    let wide = db.select().from(doctorsTable).$dynamic();
+    const wideConds: SQL[] = [];
+    if (matchClauses.length === 1) wideConds.push(matchClauses[0]);
+    else if (matchClauses.length > 1) wideConds.push(or(...matchClauses)!);
+    if (wideConds.length) wide = wide.where(and(...wideConds));
+    dbWideMatches = await wide.orderBy(desc(doctorsTable.rating)).limit(20);
+  }
+
+  // Always also pull live OSM nearby clinics when a city is supplied AND we
+  // either had nothing in the DB for that city, or we explicitly want
+  // location-aware results (the chip / q is set). Combining DB + OSM gives
+  // the user the maximum chance of finding what they typed.
+  let live: Awaited<ReturnType<typeof fetchLiveDoctors>> = [];
+  if (cityArg && doctors.length === 0) {
+    live = await fetchLiveDoctors({
+      specialty: inferred ?? specialty,
+      q,
       city: cityArg,
     });
-    res.json(live);
-    return;
+  } else if (!cityArg && doctors.length === 0) {
+    live = await fetchLiveDoctors({ specialty: inferred ?? specialty, q });
   }
 
-  // No city supplied and DB empty: still try OSM with a default
   if (doctors.length === 0) {
-    const live = await fetchLiveDoctors({
-      specialty: typeof specialty === "string" ? specialty : undefined,
-      q: typeof q === "string" ? q : undefined,
-    });
-    res.json(live);
+    // Prefer DB-wide matches first (they're real records with bookable
+    // appointments), then the live OSM listings.
+    res.json([...dbWideMatches, ...live]);
     return;
   }
-
   res.json(doctors);
 });
 
@@ -94,37 +125,32 @@ router.patch("/doctors/:doctorId", requireAdmin, async (req, res) => {
 });
 
 router.get("/hospitals", requireAuth, async (req, res) => {
-  const { location, specialty, q, city } = req.query;
-
-  const cityArg = typeof city === "string" ? city : (typeof location === "string" ? location : undefined);
+  const q = asString(req.query.q);
+  const specialty = asString(req.query.specialty);
+  const cityArg = asString(req.query.city) ?? asString(req.query.location);
   const cityShort = cityToken(cityArg);
+  const inferred = q ? inferSpecialty(q) : null;
 
-  const andConditions = [];
-  if (q) andConditions.push(ilike(hospitalsTable.name, `%${q}%`));
+  const matchClauses: SQL[] = [];
+  if (q) matchClauses.push(ilike(hospitalsTable.name, `%${q}%`));
+  if (specialty) matchClauses.push(sql`${hospitalsTable.specialties} && ARRAY[${specialty}]::text[]`);
+  if (inferred) matchClauses.push(sql`EXISTS (SELECT 1 FROM unnest(${hospitalsTable.specialties}) s WHERE s ILIKE ${'%' + inferred + '%'})`);
+
+  const andConditions: SQL[] = [];
+  if (matchClauses.length === 1) andConditions.push(matchClauses[0]);
+  else if (matchClauses.length > 1) andConditions.push(or(...matchClauses)!);
   if (cityShort) andConditions.push(ilike(hospitalsTable.location, `%${cityShort}%`));
-  if (specialty) {
-    andConditions.push(sql`${hospitalsTable.specialties} && ARRAY[${specialty}]::text[]`);
-  }
 
   let query = db.select().from(hospitalsTable).$dynamic();
   if (andConditions.length > 0) query = query.where(and(...andConditions));
 
   const hospitals = await query.orderBy(desc(hospitalsTable.rating)).limit(50);
 
-  if (hospitals.length === 0 && cityArg) {
-    const live = await fetchLiveHospitals({
-      q: typeof q === "string" ? q : undefined,
-      city: cityArg,
-      specialty: typeof specialty === "string" ? specialty : undefined,
-    });
-    res.json(live);
-    return;
-  }
-
   if (hospitals.length === 0) {
     const live = await fetchLiveHospitals({
-      q: typeof q === "string" ? q : undefined,
-      specialty: typeof specialty === "string" ? specialty : undefined,
+      q,
+      city: cityArg,
+      specialty: inferred ?? specialty,
     });
     res.json(live);
     return;

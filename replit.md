@@ -204,11 +204,34 @@ Admins can attach a YouTube video, web article (in-app webview), or audio episod
 - `/broadcast` UI: a Tabs row (Discussion/Video/Article/Audio); the legacy "discussion" path is the default and renders unchanged.
 - Strictly additive — when `contentType` is 'discussion' OR `contentUrl` is null, PostCard renders the legacy discussion view exactly as before.
 
-## Auth — Sign-in/Sign-up (Clerk Prebuilt Components)
-- `pages/sign-in.tsx` and `pages/sign-up.tsx` are thin brand wrappers around Clerk's hosted `<SignIn />` and `<SignUp />` from `@clerk/react` v6. We swapped out a hand-rolled future-API flow because the custom OTP/resend/session paths were brittle (`signIn.create({password})` silently dropped the password, resend cooldown was unreliable, OTP delivery edge cases were leaking errors).
-- Wouter routes use wildcards (`/sign-in/*?`, `/sign-up/*?`) so Clerk sub-routes (factor-one, factor-two, verify-email-address, reset-password) resolve under the page. Pages pass `path={`${basePath}/sign-in`}` + `routing="path"` + `forceRedirectUrl={`${basePath}/communities`}`. ClerkProvider in `App.tsx` wires `routerPush`/`routerReplace` (using `stripBase` before `setLocation`) and the brand `appearance`.
-- `/sso-callback` route remains for any external OAuth callback that lands outside the sign-in subtree.
-- Bootstrap admin: backend `requireAdmin` (`api-server/src/lib/auth.ts`) accepts `x-admin-token: $ADMIN_TOKEN` header and auto-promotes the signed-in Clerk user to `role='admin'` on first valid use. Recovery token entry UI is built into `<AdminGate>` in `App.tsx`. Direct DB promotion: `UPDATE users SET role='admin' WHERE clerk_id='user_...'`.
+## Auth — Email + Password with OTP Verification (Apr 2026)
+Clerk and Replit OIDC have both been removed. Auth is now first-party, stored in the project's PostgreSQL DB and runs through `artifacts/api-server`.
+
+- **Schema** (`lib/db/src/schema/users.ts`, `lib/db/src/schema/auth.ts`):
+  - `users.password_hash` (text, nullable), `users.email_verified_at` (timestamptz, nullable)
+  - `email_otps.purpose` (varchar(20) NOT NULL DEFAULT 'login') — values: `login` (passwordless magic-code), `signup` (email verification), `reset` (password reset). Each purpose has its own cool-down so flows don't interfere.
+- **Password hashing** (`api-server/src/lib/auth.ts`): Node built-in `scrypt` (no third-party dep). Stored format: `scrypt$<saltB64>$<derivedB64>` (16-byte salt, 64-byte derived key). Constant-time compare via `timingSafeEqual`. Min 8 / max 128 characters.
+- **Endpoints** (`api-server/src/routes/auth.ts`):
+  - `POST /api/auth/signup` { email, password, displayName? } — creates row, sends signup OTP. Returns 409 if `email_verified_at` is already set (prevents takeover of legacy passwordless accounts).
+  - `POST /api/auth/verify-email` { email, code } — consumes signup OTP, marks verified, creates session.
+  - `POST /api/auth/login` { email, password } — verifies password; if user exists but unverified, re-issues a signup OTP and returns 403 `needsVerification:true`. Generic 401 message for both unknown email and wrong password.
+  - `POST /api/auth/request-password-reset` { email } — ALWAYS returns generic 200 (no enumeration leak via status, body, or cooldown).
+  - `POST /api/auth/reset-password` { email, code, newPassword } — consumes reset OTP, updates `password_hash`, signs in.
+  - `POST /api/auth/resend-verification` { email } — silently re-sends signup OTP for unverified accounts; identical 200 envelope for unknown/verified/banned users.
+  - `POST /api/auth/request-otp` + `POST /api/auth/verify-otp` — passwordless magic-code option, kept for backward compat. Magic-code login also marks `email_verified_at`.
+  - `POST /api/auth/logout`, `GET /api/logout`.
+- **Frontend hook** (`lib/replit-auth-web/src/use-auth.tsx`): `signup`, `verifyEmail`, `resendVerification`, `login`, `requestPasswordReset`, `resetPassword`, plus the existing `requestOtp`/`verifyOtp`. Clerk-compat aliases (`isLoaded`, `isSignedIn`, `signOut`, `useClerk`) preserved so migrated pages still work.
+- **Sign-in page** (`artifacts/askhealth/src/pages/sign-in.tsx`): three-mode state machine (login | signup | forgot) × three stages (form | code | newPassword). Shared `<EmailField>`, `<PasswordField>`, `<CodeField>` components. Resend cool-down counter (30s) and an in-page "needs verification" branch when login surfaces an unverified account.
+- **Email** (`api-server/src/lib/email.ts`): Resend HTTP API (`RESEND_API_KEY`). Per-purpose copy variants: `buildOtpEmail(code, "login"|"signup"|"reset")`. When `RESEND_API_KEY` is unset and `NODE_ENV !== "production"`, the OTP is logged to the server console for dev convenience.
+- **Bootstrap admin**: backend `requireAdmin` (`api-server/src/lib/auth.ts`) accepts `x-admin-token: $ADMIN_TOKEN` header and auto-promotes the signed-in user to `role='admin'` on first valid use. Direct DB promotion: `UPDATE users SET role='admin' WHERE email='...'`.
+
+## Provider Search — Typo & Synonym Tolerance (Apr 2026)
+The Find Doctors / Find Hospitals search no longer AND-combines `q + specialty + city`, which previously produced impossible queries (e.g. `q="cardilogist" AND specialty="General Physician" AND city="Ghaziabad"` → 0 hits). Implementation in `artifacts/api-server/src/routes/providers.ts`:
+
+- `q` and the specialty chip are OR-ed together at the SQL level: a row matches when EITHER the chip's specialty is contained, OR `q` matches name/specialty.
+- `lib/specialtyMatcher.ts` exposes `inferSpecialty(q)` which maps free-text (with common typos and synonyms) to a canonical specialty label — `cardilogist|heart → Cardiologist`, `skin|derm → Dermatologist`, `ear|nose|throat|ent → ENT Specialist`, `child|paediat → Pediatrician`, `gp|family doc → General Physician`, etc. The inferred label is added as an additional OR clause.
+- City + availability remain hard AND filters; if the city zeroes the DB out, the server falls back to (a) DB-wide matches without the city filter, then (b) live OpenStreetMap nearby clinics through `lib/osmProviders.ts`. Both paths are returned together so users in cities without seeded providers still see relevant results.
+- Hospitals use the same OR/inference approach, applied to the Postgres `text[]` `specialties` array via `unnest` + `ILIKE`.
 
 ## Public Yukti Demo on Landing Page (Apr 2026)
 - **Backend**: `POST /api/public/ask` (no auth) in `routes/publicAi.ts`. Calls `getHealthAssistantResponse` and returns `{ reply, summary, recommendations[≤3], risk_level, emergency }`. Length-validated (3–500 chars). Emergency triggers short-circuit to the fixed 108/AASRA response.

@@ -22,32 +22,42 @@ export interface AuthUser {
   mobileNumber?: string | null;
   healthCredits?: number;
   level?: number;
+  emailVerifiedAt?: string | Date | null;
 }
 
-export interface OtpRequestResult {
+export interface ApiResult {
   ok: boolean;
   message?: string;
   error?: string;
   retryAfterSeconds?: number;
+  needsVerification?: boolean;
 }
 
-export interface OtpVerifyResult {
-  ok: boolean;
+export interface ApiUserResult extends ApiResult {
   user?: AuthUser;
-  error?: string;
 }
 
 export interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  requestOtp: (email: string) => Promise<OtpRequestResult>;
-  verifyOtp: (email: string, code: string) => Promise<OtpVerifyResult>;
+
+  // Password-based flows
+  signup: (email: string, password: string, displayName?: string) => Promise<ApiResult>;
+  verifyEmail: (email: string, code: string) => Promise<ApiUserResult>;
+  resendVerification: (email: string) => Promise<ApiResult>;
+  login: (email: string, password: string) => Promise<ApiUserResult>;
+  requestPasswordReset: (email: string) => Promise<ApiResult>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<ApiUserResult>;
+
+  // Optional passwordless ("magic code") flow
+  requestOtp: (email: string) => Promise<ApiResult>;
+  verifyOtp: (email: string, code: string) => Promise<ApiUserResult>;
+
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
-  // Clerk-compatible aliases — let migrated pages keep their existing
-  // destructuring patterns (`isLoaded`, `isSignedIn`, `signOut`) and switch
-  // only the import path.
+
+  // Clerk-compatible aliases — let migrated pages keep destructuring patterns.
   isLoaded: boolean;
   isSignedIn: boolean;
   signOut: () => Promise<void>;
@@ -55,20 +65,52 @@ export interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-async function postJson<T = unknown>(url: string, body: unknown): Promise<{ status: number; json: T | null }> {
-  const res = await fetch(url, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  let json: T | null = null;
+interface RawResponse {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  user?: AuthUser;
+  retryAfterSeconds?: number;
+  needsVerification?: boolean;
+}
+
+async function postJson(url: string, body: unknown): Promise<{ status: number; json: RawResponse | null }> {
   try {
-    json = (await res.json()) as T;
+    const res = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    let json: RawResponse | null = null;
+    try {
+      json = (await res.json()) as RawResponse;
+    } catch {
+      json = null;
+    }
+    return { status: res.status, json };
   } catch {
-    json = null;
+    return { status: 0, json: null };
   }
-  return { status: res.status, json };
+}
+
+function toResult(status: number, json: RawResponse | null, fallbackError: string): ApiResult {
+  if (status === 0 && !json) return { ok: false, error: "Network error. Please check your connection and try again." };
+  if (status >= 200 && status < 300 && json?.success) {
+    return { ok: true, message: json.message };
+  }
+  return {
+    ok: false,
+    error: json?.error ?? fallbackError,
+    retryAfterSeconds: json?.retryAfterSeconds,
+    needsVerification: json?.needsVerification,
+  };
+}
+
+function toUserResult(status: number, json: RawResponse | null, fallbackError: string): ApiUserResult {
+  const base = toResult(status, json, fallbackError);
+  if (base.ok && json?.user) return { ...base, user: json.user };
+  return base;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -92,54 +134,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const requestOtp = useCallback(async (email: string): Promise<OtpRequestResult> => {
+  // ---- Password flow -----------------------------------------------------
+
+  const signup = useCallback(async (email: string, password: string, displayName?: string) => {
     const trimmed = email.trim();
-    if (!trimmed) return { ok: false, error: "Please enter your email address." };
-    try {
-      const { status, json } = await postJson<{
-        success?: boolean;
-        message?: string;
-        error?: string;
-        retryAfterSeconds?: number;
-      }>("/api/auth/request-otp", { email: trimmed });
-      if (status >= 200 && status < 300 && json?.success) {
-        return { ok: true, message: json.message ?? "Check your email for the code." };
-      }
-      return {
-        ok: false,
-        error: json?.error ?? "Could not send code right now. Please try again.",
-        retryAfterSeconds: json?.retryAfterSeconds,
-      };
-    } catch {
-      return { ok: false, error: "Network error. Please check your connection and try again." };
-    }
+    if (!trimmed) return { ok: false, error: "Please enter your email address." } as ApiResult;
+    const { status, json } = await postJson("/api/auth/signup", { email: trimmed, password, displayName });
+    return toResult(status, json, "Could not create your account right now.");
   }, []);
 
-  const verifyOtp = useCallback(
-    async (email: string, code: string): Promise<OtpVerifyResult> => {
-      try {
-        const { status, json } = await postJson<{
-          success?: boolean;
-          user?: AuthUser;
-          error?: string;
-        }>("/api/auth/verify-otp", { email: email.trim(), code: code.trim() });
-        if (status >= 200 && status < 300 && json?.success && json.user) {
-          setUser(json.user);
-          return { ok: true, user: json.user };
-        }
-        return { ok: false, error: json?.error ?? "That code didn't work. Please try again." };
-      } catch {
-        return { ok: false, error: "Network error. Please check your connection and try again." };
-      }
-    },
-    [],
-  );
+  const verifyEmail = useCallback(async (email: string, code: string) => {
+    const { status, json } = await postJson("/api/auth/verify-email", { email: email.trim(), code: code.trim() });
+    const result = toUserResult(status, json, "That code didn't work.");
+    if (result.ok && result.user) setUser(result.user);
+    return result;
+  }, []);
+
+  const resendVerification = useCallback(async (email: string) => {
+    const { status, json } = await postJson("/api/auth/resend-verification", { email: email.trim() });
+    return toResult(status, json, "Could not resend code right now.");
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const { status, json } = await postJson("/api/auth/login", { email: email.trim(), password });
+    const result = toUserResult(status, json, "That email or password didn't match.");
+    if (result.ok && result.user) setUser(result.user);
+    return result;
+  }, []);
+
+  const requestPasswordReset = useCallback(async (email: string) => {
+    const { status, json } = await postJson("/api/auth/request-password-reset", { email: email.trim() });
+    return toResult(status, json, "Could not send reset code right now.");
+  }, []);
+
+  const resetPassword = useCallback(async (email: string, code: string, newPassword: string) => {
+    const { status, json } = await postJson("/api/auth/reset-password", {
+      email: email.trim(),
+      code: code.trim(),
+      newPassword,
+    });
+    const result = toUserResult(status, json, "Could not reset your password right now.");
+    if (result.ok && result.user) setUser(result.user);
+    return result;
+  }, []);
+
+  // ---- Passwordless / magic code flow ------------------------------------
+
+  const requestOtp = useCallback(async (email: string) => {
+    const trimmed = email.trim();
+    if (!trimmed) return { ok: false, error: "Please enter your email address." } as ApiResult;
+    const { status, json } = await postJson("/api/auth/request-otp", { email: trimmed });
+    return toResult(status, json, "Could not send code right now.");
+  }, []);
+
+  const verifyOtp = useCallback(async (email: string, code: string) => {
+    const { status, json } = await postJson("/api/auth/verify-otp", { email: email.trim(), code: code.trim() });
+    const result = toUserResult(status, json, "That code didn't work.");
+    if (result.ok && result.user) setUser(result.user);
+    return result;
+  }, []);
 
   const logout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } catch {
-      /* ignore — clear local state anyway */
+      /* clear local state regardless */
     }
     setUser(null);
   }, []);
@@ -149,6 +208,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isLoading,
       isAuthenticated: !!user,
+      signup,
+      verifyEmail,
+      resendVerification,
+      login,
+      requestPasswordReset,
+      resetPassword,
       requestOtp,
       verifyOtp,
       logout,
@@ -157,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSignedIn: !!user,
       signOut: logout,
     }),
-    [user, isLoading, requestOtp, verifyOtp, logout, refresh],
+    [user, isLoading, signup, verifyEmail, resendVerification, login, requestPasswordReset, resetPassword, requestOtp, verifyOtp, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

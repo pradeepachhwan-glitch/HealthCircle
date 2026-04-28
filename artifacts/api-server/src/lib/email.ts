@@ -51,18 +51,39 @@ export async function sendEmail({ to, subject, text, html }: SendArgs): Promise<
   }
 }
 
-export function buildOtpEmail(code: string) {
-  const subject = `${code} is your ${APP_NAME} sign-in code`;
-  const text = `Your ${APP_NAME} sign-in code is ${code}.\n\nIt expires in 10 minutes. If you did not try to sign in, you can ignore this email.`;
+type OtpPurposeLabel = "login" | "signup" | "reset";
+
+const PURPOSE_COPY: Record<OtpPurposeLabel, { headline: string; subjectVerb: string; intro: string }> = {
+  login: {
+    headline: "Your sign-in code",
+    subjectVerb: "sign-in",
+    intro: "Enter this code in the app to finish signing in. It expires in 10 minutes.",
+  },
+  signup: {
+    headline: "Verify your email",
+    subjectVerb: "verification",
+    intro: "Enter this code in the app to verify your email and finish creating your account. It expires in 10 minutes.",
+  },
+  reset: {
+    headline: "Reset your password",
+    subjectVerb: "password reset",
+    intro: "Enter this code in the app to reset your password. It expires in 10 minutes. If you did not request a reset, ignore this email and your password will stay unchanged.",
+  },
+};
+
+export function buildOtpEmail(code: string, purpose: OtpPurposeLabel = "login") {
+  const copy = PURPOSE_COPY[purpose] ?? PURPOSE_COPY.login;
+  const subject = `${code} is your ${APP_NAME} ${copy.subjectVerb} code`;
+  const text = `Your ${APP_NAME} ${copy.subjectVerb} code is ${code}.\n\nIt expires in 10 minutes. If you did not request this, you can ignore this email.`;
   const html = `<!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f8fafc;margin:0;padding:32px 16px;">
   <table role="presentation" align="center" style="max-width:480px;background:#fff;border-radius:14px;padding:32px;box-shadow:0 1px 2px rgba(0,0,0,0.04);">
     <tr><td>
       <p style="margin:0 0 8px;color:#0f172a;font-size:14px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">${APP_NAME}</p>
-      <h1 style="margin:0 0 8px;color:#0f172a;font-size:22px;line-height:1.3;">Your sign-in code</h1>
-      <p style="margin:0 0 24px;color:#475569;font-size:14px;line-height:1.6;">Enter this code in the app to finish signing in. It expires in 10 minutes.</p>
+      <h1 style="margin:0 0 8px;color:#0f172a;font-size:22px;line-height:1.3;">${copy.headline}</h1>
+      <p style="margin:0 0 24px;color:#475569;font-size:14px;line-height:1.6;">${copy.intro}</p>
       <div style="text-align:center;background:#eef2ff;border-radius:10px;padding:18px 0;font-size:30px;letter-spacing:0.4em;font-weight:700;color:#1e293b;">${code}</div>
-      <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;line-height:1.6;">If you did not try to sign in, you can safely ignore this email.</p>
+      <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;line-height:1.6;">If you did not request this, you can safely ignore this email.</p>
     </td></tr>
   </table>
 </body></html>`;

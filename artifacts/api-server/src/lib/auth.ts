@@ -1,9 +1,47 @@
 import crypto from "node:crypto";
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual, scrypt as scryptCb, randomBytes } from "node:crypto";
+import { promisify } from "node:util";
 import type { Request, Response, NextFunction } from "express";
 import { db, usersTable, sessionsTable, emailOtpsTable } from "@workspace/db";
 import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { logger } from "./logger";
+
+const scrypt = promisify(scryptCb) as (
+  pw: string | Buffer,
+  salt: Buffer,
+  keyLen: number,
+) => Promise<Buffer>;
+
+// ---- Password hashing (Node built-in scrypt — no third-party dep) ----
+// Stored format: `scrypt$<saltB64>$<derivedB64>`. We pin the parameters in
+// code so we can rotate them later by versioning the prefix.
+const SCRYPT_KEYLEN = 64;
+
+export async function hashPassword(plain: string): Promise<string> {
+  const salt = randomBytes(16);
+  const derived = await scrypt(plain, salt, SCRYPT_KEYLEN);
+  return `scrypt$${salt.toString("base64")}$${derived.toString("base64")}`;
+}
+
+export async function verifyPassword(plain: string, stored: string | null | undefined): Promise<boolean> {
+  if (!stored || typeof stored !== "string") return false;
+  const parts = stored.split("$");
+  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
+  try {
+    const salt = Buffer.from(parts[1], "base64");
+    const expected = Buffer.from(parts[2], "base64");
+    const got = await scrypt(plain, salt, expected.length);
+    return expected.length === got.length && timingSafeEqual(expected, got);
+  } catch {
+    return false;
+  }
+}
+
+export const PASSWORD_MIN_LEN = 8;
+export const PASSWORD_MAX_LEN = 128;
+export function isValidPassword(value: unknown): value is string {
+  return typeof value === "string" && value.length >= PASSWORD_MIN_LEN && value.length <= PASSWORD_MAX_LEN;
+}
 
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -154,6 +192,8 @@ function hashOtp(code: string, email: string): string {
   return crypto.createHash("sha256").update(`${email}:${code}`).digest("hex");
 }
 
+export type OtpPurpose = "login" | "signup" | "reset";
+
 export interface IssueOtpResult {
   ok: boolean;
   reason?: "cooldown" | "invalid_email";
@@ -161,15 +201,18 @@ export interface IssueOtpResult {
   code?: string; // present so caller can send the email; never returned to client
 }
 
-export async function issueOtpForEmail(email: string): Promise<IssueOtpResult> {
+export async function issueOtpForEmail(email: string, purpose: OtpPurpose = "login"): Promise<IssueOtpResult> {
   const normalized = normalizeEmail(email);
   if (!isValidEmail(normalized)) return { ok: false, reason: "invalid_email" };
 
-  // Check cooldown — most recent issuance for this email.
+  // Check cooldown — most recent issuance for this email+purpose. Different
+  // purposes have independent cooldowns so a user mid-signup can also start
+  // a password reset flow without hitting the cool-down meant for re-issuing
+  // the same code.
   const [recent] = await db
     .select()
     .from(emailOtpsTable)
-    .where(eq(emailOtpsTable.email, normalized))
+    .where(and(eq(emailOtpsTable.email, normalized), eq(emailOtpsTable.purpose, purpose)))
     .orderBy(desc(emailOtpsTable.createdAt))
     .limit(1);
 
@@ -184,6 +227,7 @@ export async function issueOtpForEmail(email: string): Promise<IssueOtpResult> {
   await db.insert(emailOtpsTable).values({
     email: normalized,
     codeHash: hashOtp(code, normalized),
+    purpose,
     expiresAt: new Date(Date.now() + OTP_TTL_MS),
     consumed: false,
     attempts: 0,
@@ -200,19 +244,23 @@ export interface ConsumeOtpResult {
   reason?: "no_otp" | "expired" | "too_many_attempts" | "wrong_code";
 }
 
-export async function consumeOtp(email: string, providedCode: string): Promise<ConsumeOtpResult> {
+export async function consumeOtp(email: string, providedCode: string, purpose: OtpPurpose = "login"): Promise<ConsumeOtpResult> {
   const normalized = normalizeEmail(email);
   const code = String(providedCode ?? "").trim();
   if (!/^\d{4,8}$/.test(code)) return { ok: false, reason: "wrong_code" };
 
-  // Look at the most recent un-consumed OTP for this email so we can return
-  // accurate reasons (expired, too_many_attempts, etc). The actual consume is
-  // done atomically below via a conditional UPDATE so concurrent verify
-  // requests cannot double-spend a code.
+  // Look at the most recent un-consumed OTP for this email+purpose so we can
+  // return accurate reasons (expired, too_many_attempts, etc). The actual
+  // consume is done atomically below via a conditional UPDATE so concurrent
+  // verify requests cannot double-spend a code.
   const [row] = await db
     .select()
     .from(emailOtpsTable)
-    .where(and(eq(emailOtpsTable.email, normalized), eq(emailOtpsTable.consumed, false)))
+    .where(and(
+      eq(emailOtpsTable.email, normalized),
+      eq(emailOtpsTable.purpose, purpose),
+      eq(emailOtpsTable.consumed, false),
+    ))
     .orderBy(desc(emailOtpsTable.createdAt))
     .limit(1);
 
