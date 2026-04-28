@@ -1,0 +1,190 @@
+What you already have is too fragmented for an AI agent to execute reliably in one pass. Replit AI works best when the prompt is:
+
+single coherent instruction block
+strict “do this / don’t touch this” boundaries
+explicit folder + API + DB + UI rules
+minimal narrative sections
+
+So the right approach is:
+
+✔️ What to share with Replit AI
+
+You should share a condensed “execution prompt” only, not architecture + Figma + revenue in full detail.
+
+Keep:
+
+System rules (non-breaking extension)
+Folder structure (/teleconsult)
+Yukti triage logic
+API routes
+DB schema
+UI pages list
+External integrations
+Build constraints
+
+Remove from Replit prompt:
+
+Investor architecture diagrams
+Revenue model
+Doctor strategy narrative
+Figma deep UX explanation
+🧠 WHAT REPLIT SHOULD RECEIVE (CLEAN VERSION)
+
+Below is the ONLY prompt you should paste into Replit AI Agent:
+
+🚀 REPLIT AI MASTER BUILD PROMPT
+
+You are working inside an existing production app called HealthCircle.
+
+CRITICAL RULES
+DO NOT modify existing modules, DB, auth, or UI
+DO NOT refactor existing code
+ONLY ADD new module
+Must be fully backward compatible
+Everything new must live under /teleconsult
+🧩 BUILD NEW MODULE: TELECONSULTING SYSTEM
+
+Create a complete Tele-Consulting system inside HealthCircle.
+
+📁 STRUCTURE (MANDATORY)
+Frontend routes:
+/teleconsult
+/teleconsult/triage
+/teleconsult/doctors
+/teleconsult/session/:id
+/teleconsult/prescription/:id
+/teleconsult/summary/:id
+Backend APIs:
+
+All under:
+/api/tc/*
+
+🧠 CORE FEATURE: YUKTI TRIAGE ENGINE
+
+Build AI-assisted pre-consultation system:
+
+Input:
+Symptoms (text + structured)
+Duration
+Severity (1–10)
+Medical history
+Medications
+Optional vitals
+Output:
+Structured clinical summary
+Risk level:
+LOW → Async consult
+MEDIUM → Video consult
+HIGH → Emergency suggestion
+Suggested specialty
+Doctor recommendations
+👨‍⚕️ CONSULTATION FLOW
+User starts from /teleconsult
+Completes Yukti triage
+Gets doctor suggestions
+Books consultation
+Enters consultation room
+📞 CONSULTATION ROOM UI
+
+Split screen:
+
+LEFT:
+Yukti summary
+Patient history
+Reports
+ICD suggestions
+RIGHT:
+Video call (Agora or Daily.co integration)
+Chat
+Prescription builder
+Actions:
+Diagnose
+Prescribe
+Order tests
+Close consultation
+💊 PRESCRIPTION MODULE
+Structured prescription builder
+Drug search
+Dosage + frequency
+ICD-10 tagging
+PDF generation
+📄 POST CONSULT SUMMARY
+
+Generate:
+
+Diagnosis summary (simple language)
+Medication plan
+Follow-up instructions
+Red flags
+🔁 CONTINUITY CARE (INTEGRATE WITH EXISTING CIRCLES)
+
+After consultation:
+
+Auto-enroll user into relevant HealthCircle group
+Enable follow-up tracking
+Link consultation history to circle profile
+🗄️ DATABASE (NEW TABLES ONLY)
+
+Create ONLY:
+
+tc_consultations
+id
+user_id
+doctor_id
+type
+status
+triage_score
+created_at
+tc_triage_sessions
+id
+user_id
+symptoms_json
+risk_level
+summary
+suggested_specialty
+tc_prescriptions
+id
+consultation_id
+icd_codes
+medications_json
+pdf_url
+tc_messages
+id
+consultation_id
+sender_id
+message
+timestamp
+🔌 API ENDPOINTS
+POST /api/tc/triage/start
+POST /api/tc/triage/submit
+GET /api/tc/doctors
+POST /api/tc/consultation/book
+GET /api/tc/consultation/:id
+POST /api/tc/message
+POST /api/tc/prescription/generate
+POST /api/tc/consultation/close
+🎨 UI REQUIREMENTS
+Match existing HealthCircle UI style exactly
+Clean medical UI (blue/white/grey)
+Mobile responsive
+Card-based layout
+Chat-first triage UX
+No redesign of existing app
+🔐 COMPLIANCE
+Add consent checkbox before consultation:
+“I consent to telemedical consultation and data processing”
+Maintain audit logs
+Role-based access control
+⚙️ INTEGRATIONS
+Video: Agora or Daily.co
+AI: Yukti LLM summarization only
+PDF generation backend service
+🧠 SUCCESS CRITERIA
+Existing HealthCircle remains unchanged
+Teleconsult module works independently
+Yukti reduces doctor workload via structured triage
+End-to-end flow works:
+Community → Triage → Doctor → Prescription → Circle
+🚫 ABSOLUTE CONSTRAINT
+
+Do not rewrite or refactor existing codebase. Only extend.
