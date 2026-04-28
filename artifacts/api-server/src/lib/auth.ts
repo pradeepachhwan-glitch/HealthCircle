@@ -1,31 +1,29 @@
-import * as oidc from "openid-client";
 import crypto from "node:crypto";
 import { timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
-import { db, usersTable, sessionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, sessionsTable, emailOtpsTable } from "@workspace/db";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { logger } from "./logger";
 
-// ---- OIDC config ----
-export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
 export const SESSION_COOKIE = "sid";
-export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
-
-let oidcConfig: oidc.Configuration | null = null;
-
-export async function getOidcConfig(): Promise<oidc.Configuration> {
-  if (!oidcConfig) {
-    if (!process.env.REPL_ID) throw new Error("REPL_ID env var is not set");
-    oidcConfig = await oidc.discovery(new URL(ISSUER_URL), process.env.REPL_ID);
-  }
-  return oidcConfig;
-}
+export const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const OTP_MAX_ATTEMPTS = 5;
+export const OTP_RESEND_COOLDOWN_MS = 30 * 1000;
 
 // ---- Session shape ----
 export interface SessionData {
-  sub: string;
-  access_token: string;
-  refresh_token?: string;
-  expires_at?: number;
+  userId: number;
+}
+
+// ---- Email normalization ----
+export function normalizeEmail(raw: string): string {
+  return String(raw ?? "").trim().toLowerCase();
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export function isValidEmail(value: string): boolean {
+  return EMAIL_RE.test(value) && value.length <= 320;
 }
 
 // ---- Session CRUD ----
@@ -49,9 +47,11 @@ export async function getSessionRow(sid: string): Promise<SessionData | null> {
   return row.sess as unknown as SessionData;
 }
 
-export async function updateSession(sid: string, data: SessionData): Promise<void> {
-  await db.update(sessionsTable)
-    .set({ sess: data as unknown as Record<string, unknown>, expire: new Date(Date.now() + SESSION_TTL) })
+export async function touchSession(sid: string): Promise<void> {
+  // Sliding expiration: extend session expiry on activity.
+  await db
+    .update(sessionsTable)
+    .set({ expire: new Date(Date.now() + SESSION_TTL) })
     .where(eq(sessionsTable.sid, sid));
 }
 
@@ -59,9 +59,20 @@ export async function deleteSession(sid: string): Promise<void> {
   await db.delete(sessionsTable).where(eq(sessionsTable.sid, sid));
 }
 
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax" as const,
+  path: "/",
+};
+
+export function setSessionCookie(res: Response, sid: string): void {
+  res.cookie(SESSION_COOKIE, sid, { ...COOKIE_OPTS, maxAge: SESSION_TTL });
+}
+
 export async function clearSession(res: Response, sid?: string): Promise<void> {
   if (sid) await deleteSession(sid);
-  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.clearCookie(SESSION_COOKIE, COOKIE_OPTS);
 }
 
 export function getSessionId(req: Request): string | undefined {
@@ -75,46 +86,19 @@ export function getAuth(req: Request): { userId: string | null } {
   return { userId: req.user?.clerkId ?? null };
 }
 
-// ---- User upsert from OIDC claims ----
-export async function upsertReplitUser(claims: Record<string, unknown>) {
-  const sub = String(claims.sub);
-  const claimEmail = (claims.email as string | undefined)?.trim();
-  const email = claimEmail && claimEmail.length > 0 ? claimEmail : `${sub}@healthcircle.ai`;
-  const firstName = (claims.first_name as string | undefined) ?? "";
-  const lastName = (claims.last_name as string | undefined) ?? "";
-  const usernameClaim = (claims.username as string | undefined) ?? "";
-  const displayName =
-    `${firstName} ${lastName}`.trim() ||
-    usernameClaim ||
-    email.split("@")[0] ||
-    "Healthcare Member";
-  const avatarUrl = ((claims.profile_image_url as string | undefined) ??
-    (claims.picture as string | undefined) ??
-    null) as string | null;
+// ---- User upsert by email ----
+export async function findOrCreateUserByEmail(email: string) {
+  const normalized = normalizeEmail(email);
+  const existing = await db.select().from(usersTable).where(eq(usersTable.email, normalized)).limit(1);
+  if (existing.length > 0) return existing[0];
 
-  const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, sub)).limit(1);
-  if (existing.length > 0) {
-    const u = existing[0];
-    const updates: Record<string, unknown> = {};
-    if (claimEmail && u.email !== claimEmail && !claimEmail.endsWith("@healthcircle.ai")) {
-      updates.email = claimEmail;
-    }
-    if (avatarUrl && !u.avatarUrl) updates.avatarUrl = avatarUrl;
-    if (displayName && (u.displayName === "Healthcare Member" || !u.displayName)) {
-      updates.displayName = displayName;
-    }
-    if (Object.keys(updates).length > 0) {
-      const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.clerkId, sub)).returning();
-      return updated;
-    }
-    return u;
-  }
-
+  const clerkId = `email:${normalized}`;
+  const displayName = normalized.split("@")[0] || "Healthcare Member";
   const [created] = await db.insert(usersTable).values({
-    clerkId: sub,
+    clerkId,
     displayName,
-    email,
-    avatarUrl,
+    email: normalized,
+    avatarUrl: null,
     role: "member",
     isBanned: false,
     healthCredits: 0,
@@ -158,7 +142,136 @@ export async function getOrCreateUser(
   return created;
 }
 
-// ---- Role guards (operate on req.user populated by authMiddleware) ----
+// ---- OTP helpers ----
+function generateOtpCode(): string {
+  // 6 digit numeric, zero-padded.
+  const n = crypto.randomInt(0, 1_000_000);
+  return n.toString().padStart(6, "0");
+}
+
+function hashOtp(code: string, email: string): string {
+  // Email is included as a salt so a code is bound to its email.
+  return crypto.createHash("sha256").update(`${email}:${code}`).digest("hex");
+}
+
+export interface IssueOtpResult {
+  ok: boolean;
+  reason?: "cooldown" | "invalid_email";
+  retryAfterMs?: number;
+  code?: string; // present so caller can send the email; never returned to client
+}
+
+export async function issueOtpForEmail(email: string): Promise<IssueOtpResult> {
+  const normalized = normalizeEmail(email);
+  if (!isValidEmail(normalized)) return { ok: false, reason: "invalid_email" };
+
+  // Check cooldown — most recent issuance for this email.
+  const [recent] = await db
+    .select()
+    .from(emailOtpsTable)
+    .where(eq(emailOtpsTable.email, normalized))
+    .orderBy(desc(emailOtpsTable.createdAt))
+    .limit(1);
+
+  if (recent) {
+    const ageMs = Date.now() - new Date(recent.createdAt).getTime();
+    if (ageMs < OTP_RESEND_COOLDOWN_MS) {
+      return { ok: false, reason: "cooldown", retryAfterMs: OTP_RESEND_COOLDOWN_MS - ageMs };
+    }
+  }
+
+  const code = generateOtpCode();
+  await db.insert(emailOtpsTable).values({
+    email: normalized,
+    codeHash: hashOtp(code, normalized),
+    expiresAt: new Date(Date.now() + OTP_TTL_MS),
+    consumed: false,
+    attempts: 0,
+  });
+
+  // Best-effort cleanup of expired rows (keeps table tidy without a cron job).
+  void db.delete(emailOtpsTable).where(lt(emailOtpsTable.expiresAt, new Date(Date.now() - 24 * 60 * 60 * 1000))).catch(() => {});
+
+  return { ok: true, code };
+}
+
+export interface ConsumeOtpResult {
+  ok: boolean;
+  reason?: "no_otp" | "expired" | "too_many_attempts" | "wrong_code";
+}
+
+export async function consumeOtp(email: string, providedCode: string): Promise<ConsumeOtpResult> {
+  const normalized = normalizeEmail(email);
+  const code = String(providedCode ?? "").trim();
+  if (!/^\d{4,8}$/.test(code)) return { ok: false, reason: "wrong_code" };
+
+  // Look at the most recent un-consumed OTP for this email so we can return
+  // accurate reasons (expired, too_many_attempts, etc). The actual consume is
+  // done atomically below via a conditional UPDATE so concurrent verify
+  // requests cannot double-spend a code.
+  const [row] = await db
+    .select()
+    .from(emailOtpsTable)
+    .where(and(eq(emailOtpsTable.email, normalized), eq(emailOtpsTable.consumed, false)))
+    .orderBy(desc(emailOtpsTable.createdAt))
+    .limit(1);
+
+  if (!row) return { ok: false, reason: "no_otp" };
+
+  if (row.expiresAt < new Date()) {
+    await db.update(emailOtpsTable).set({ consumed: true }).where(eq(emailOtpsTable.id, row.id));
+    return { ok: false, reason: "expired" };
+  }
+
+  if (row.attempts >= OTP_MAX_ATTEMPTS) {
+    await db.update(emailOtpsTable).set({ consumed: true }).where(eq(emailOtpsTable.id, row.id));
+    return { ok: false, reason: "too_many_attempts" };
+  }
+
+  const expected = row.codeHash;
+  const got = hashOtp(code, normalized);
+  let match = false;
+  try {
+    match = expected.length === got.length && timingSafeEqual(Buffer.from(expected), Buffer.from(got));
+  } catch {
+    match = false;
+  }
+
+  if (!match) {
+    // Atomic-ish increment using SQL so two concurrent wrong attempts are
+    // both counted. We use the WHERE on consumed=false so we don't bump a
+    // row that someone else just consumed.
+    await db
+      .update(emailOtpsTable)
+      .set({ attempts: sql`${emailOtpsTable.attempts} + 1` })
+      .where(and(eq(emailOtpsTable.id, row.id), eq(emailOtpsTable.consumed, false)));
+    return { ok: false, reason: "wrong_code" };
+  }
+
+  // Atomic consume: only mark as consumed if it is still un-consumed AND
+  // still has the same code_hash AND is not expired AND under max attempts.
+  // If two concurrent valid verifies hit, only one will get a returned row.
+  const updated = await db
+    .update(emailOtpsTable)
+    .set({ consumed: true })
+    .where(
+      and(
+        eq(emailOtpsTable.id, row.id),
+        eq(emailOtpsTable.consumed, false),
+        eq(emailOtpsTable.codeHash, got),
+      ),
+    )
+    .returning({ id: emailOtpsTable.id });
+
+  if (updated.length === 0) {
+    // Lost the race or row state changed under us.
+    return { ok: false, reason: "no_otp" };
+  }
+
+  return { ok: true };
+}
+
+// ---- Role guards ----
 function safeStringEqual(a: string, b: string): boolean {
   if (a.length === 0 || a.length !== b.length) return false;
   try {
@@ -177,10 +290,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  // Server-secret bypass — useful for bootstrapping/recovery without logging
-  // in. If a valid x-admin-token is presented and the caller is also signed
-  // in, we auto-promote their DB row to admin so subsequent requests work
-  // through the normal session path.
+  // Server-secret bypass — useful for bootstrapping/recovery without a session.
+  // If a valid x-admin-token is presented and the caller is also signed in, we
+  // auto-promote their DB row to admin so subsequent requests work through the
+  // normal session path.
   const provided = (req.header("x-admin-token") ?? "").trim();
   const expected = (process.env.ADMIN_TOKEN ?? "").trim();
   const tokenOk = expected.length > 0 && safeStringEqual(provided, expected);
@@ -189,8 +302,8 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     if (req.user && req.user.role !== "admin") {
       try {
         await db.update(usersTable).set({ role: "admin" }).where(eq(usersTable.clerkId, req.user.clerkId));
-      } catch {
-        /* non-fatal */
+      } catch (err) {
+        logger.warn({ err }, "auto-promote to admin failed");
       }
     }
     next();

@@ -12,7 +12,7 @@ A full-featured healthcare super app combining WhatsApp-style AI chat, a doctor/
 - **TypeScript version**: 5.9
 - **API framework**: Express 5 (Node.js backend)
 - **Database**: PostgreSQL + Drizzle ORM
-- **Authentication**: Replit OIDC (one-tap sign-in via the workspace identity, no passwords/OTP). Server-side session cookies (HttpOnly, Secure, SameSite=Lax) backed by a `sessions` table. Web client uses the local `@workspace/replit-auth-web` hook (`useAuth`).
+- **Authentication**: Email + 6-digit OTP (no passwords, no OAuth, no third-party consent screens). Server endpoints: `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `POST /api/auth/logout`, `GET /api/auth/user`. Server-side session cookies (HttpOnly, Secure, SameSite=Lax, 30-day sliding TTL) backed by a `sessions` table. OTPs are stored hashed (SHA-256 salted with email) in `email_otps`, single-use with atomic conditional UPDATE consume, 10-minute expiry, 5-attempt limit, 30-second resend cooldown. OTP emails sent via Resend (`RESEND_API_KEY`); in development without that key the OTP is logged to the API server console for easy testing. Web client uses the local `@workspace/replit-auth-web` hook (`useAuth().requestOtp(email)` then `useAuth().verifyOtp(email, code)`).
 - **AI**: OpenAI via Replit AI Integrations (Yukti AI assistant)
 - **Frontend**: React + Vite + Tailwind CSS v4 + shadcn/ui
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`

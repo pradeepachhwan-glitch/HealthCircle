@@ -1,14 +1,12 @@
-import * as oidc from "openid-client";
 import type { Request, Response, NextFunction } from "express";
 import { db, usersTable, type User as DbUser } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   clearSession,
-  getOidcConfig,
   getSessionId,
   getSessionRow,
-  updateSession,
-  type SessionData,
+  setSessionCookie,
+  touchSession,
 } from "../lib/auth";
 
 declare global {
@@ -27,24 +25,6 @@ declare global {
   }
 }
 
-async function refreshIfExpired(sid: string, session: SessionData): Promise<SessionData | null> {
-  const now = Math.floor(Date.now() / 1000);
-  if (!session.expires_at || now <= session.expires_at) return session;
-  if (!session.refresh_token) return null;
-  try {
-    const config = await getOidcConfig();
-    const tokens = await oidc.refreshTokenGrant(config, session.refresh_token);
-    session.access_token = tokens.access_token;
-    session.refresh_token = tokens.refresh_token ?? session.refresh_token;
-    const exp = tokens.expiresIn();
-    session.expires_at = exp ? now + exp : session.expires_at;
-    await updateSession(sid, session);
-    return session;
-  } catch {
-    return null;
-  }
-}
-
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   req.isAuthenticated = function (this: Request) {
     return this.user != null;
@@ -57,20 +37,13 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   }
 
   const session = await getSessionRow(sid);
-  if (!session?.sub) {
+  if (!session?.userId) {
     await clearSession(res, sid);
     next();
     return;
   }
 
-  const refreshed = await refreshIfExpired(sid, session);
-  if (!refreshed) {
-    await clearSession(res, sid);
-    next();
-    return;
-  }
-
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, refreshed.sub)).limit(1);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, session.userId)).limit(1);
   if (!user) {
     await clearSession(res, sid);
     next();
@@ -78,5 +51,14 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   }
 
   req.user = user as Express.User;
+  // Slide both server-side session expiry AND the browser cookie expiry
+  // forward so active users don't get logged out at the 30-day mark. Both are
+  // best-effort and must not block the request.
+  void touchSession(sid).catch(() => {});
+  try {
+    setSessionCookie(res, sid);
+  } catch {
+    /* response may already be committed by then in rare paths */
+  }
   next();
 }

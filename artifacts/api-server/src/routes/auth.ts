@@ -1,49 +1,41 @@
-import * as oidc from "openid-client";
 import { Router, type IRouter, type Request, type Response } from "express";
+import { z } from "zod/v4";
 import {
   clearSession,
+  consumeOtp,
   createSession,
-  getOidcConfig,
+  findOrCreateUserByEmail,
   getSessionId,
-  upsertReplitUser,
-  SESSION_COOKIE,
-  SESSION_TTL,
-  type SessionData,
+  isValidEmail,
+  issueOtpForEmail,
+  normalizeEmail,
+  setSessionCookie,
 } from "../lib/auth";
-
-const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+import { buildOtpEmail, sendEmail } from "../lib/email";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-function getOrigin(req: Request): string {
-  const proto = (req.headers["x-forwarded-proto"] as string | undefined) || "https";
-  const host = (req.headers["x-forwarded-host"] as string | undefined) || req.headers["host"] || "localhost";
-  return `${proto}://${host}`;
-}
+const requestOtpSchema = z.object({ email: z.string().min(3).max(320) });
+const verifyOtpSchema = z.object({
+  email: z.string().min(3).max(320),
+  code: z.string().min(4).max(8),
+});
 
-function setSessionCookie(res: Response, sid: string) {
-  res.cookie(SESSION_COOKIE, sid, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_TTL,
-  });
-}
-
-function setOidcCookie(res: Response, name: string, value: string) {
-  res.cookie(name, value, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: OIDC_COOKIE_TTL,
-  });
-}
-
-function getSafeReturnTo(value: unknown): string {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return "/";
-  return value;
+function userResponse(u: NonNullable<Request["user"]>) {
+  return {
+    id: u.id,
+    clerkId: u.clerkId,
+    email: u.email,
+    displayName: u.displayName,
+    avatarUrl: u.avatarUrl,
+    role: u.role,
+    isBanned: u.isBanned,
+    username: u.username,
+    mobileNumber: u.mobileNumber,
+    healthCredits: u.healthCredits,
+    level: u.level,
+  };
 }
 
 router.get("/auth/user", (req: Request, res: Response) => {
@@ -51,136 +43,123 @@ router.get("/auth/user", (req: Request, res: Response) => {
     res.json({ user: null });
     return;
   }
-  const u = req.user;
-  res.json({
-    user: {
-      id: u.id,
-      clerkId: u.clerkId,
-      email: u.email,
-      displayName: u.displayName,
-      avatarUrl: u.avatarUrl,
-      role: u.role,
-      isBanned: u.isBanned,
-      username: u.username,
-      mobileNumber: u.mobileNumber,
-      healthCredits: u.healthCredits,
-      level: u.level,
-    },
-  });
+  res.json({ user: userResponse(req.user) });
 });
 
-router.get("/login", async (req: Request, res: Response) => {
-  try {
-    const config = await getOidcConfig();
-    const callbackUrl = `${getOrigin(req)}/api/callback`;
-    const returnTo = getSafeReturnTo(req.query.returnTo);
-
-    const state = oidc.randomState();
-    const nonce = oidc.randomNonce();
-    const codeVerifier = oidc.randomPKCECodeVerifier();
-    const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
-
-    const redirectTo = oidc.buildAuthorizationUrl(config, {
-      redirect_uri: callbackUrl,
-      scope: "openid email profile offline_access",
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-      prompt: "login consent",
-      state,
-      nonce,
-    });
-
-    setOidcCookie(res, "code_verifier", codeVerifier);
-    setOidcCookie(res, "nonce", nonce);
-    setOidcCookie(res, "state", state);
-    setOidcCookie(res, "return_to", returnTo);
-
-    res.redirect(redirectTo.href);
-  } catch (err) {
-    req.log?.error?.({ err }, "Login init error");
-    res.status(500).send("Login init failed");
+router.post("/auth/request-otp", async (req: Request, res: Response) => {
+  const parsed = requestOtpSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Please enter a valid email address." });
+    return;
   }
-});
+  const email = normalizeEmail(parsed.data.email);
+  if (!isValidEmail(email)) {
+    res.status(400).json({ error: "Please enter a valid email address." });
+    return;
+  }
 
-// Query params not Zod-validated — OIDC providers may include arbitrary fields.
-router.get("/callback", async (req: Request, res: Response) => {
   try {
-    const config = await getOidcConfig();
-    const callbackUrl = `${getOrigin(req)}/api/callback`;
-
-    const codeVerifier = req.cookies?.code_verifier;
-    const nonce = req.cookies?.nonce;
-    const expectedState = req.cookies?.state;
-
-    if (!codeVerifier || !expectedState) {
-      res.redirect("/api/login");
+    const result = await issueOtpForEmail(email);
+    if (!result.ok) {
+      if (result.reason === "cooldown") {
+        const seconds = Math.max(1, Math.ceil((result.retryAfterMs ?? 30_000) / 1000));
+        res.status(429).json({ error: `Please wait ${seconds}s before requesting another code.`, retryAfterSeconds: seconds });
+        return;
+      }
+      res.status(400).json({ error: "Please enter a valid email address." });
       return;
     }
 
-    const currentUrl = new URL(
-      `${callbackUrl}?${new URL(req.url, `http://${req.headers.host}`).searchParams}`,
-    );
+    const code = result.code!;
+    const { subject, text, html } = buildOtpEmail(code);
 
-    let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
+    // Audit log: NEVER log the raw code in production. In dev (no email
+    // provider configured) we surface it so a developer can sign in without
+    // a real inbox; in prod we only log metadata so log access cannot lead
+    // to account takeover.
+    const isDevNoEmail = !process.env.RESEND_API_KEY && process.env.NODE_ENV !== "production";
+    if (isDevNoEmail) {
+      logger.info({ to: email, code }, "[auth] OTP issued (dev mode — code shown in logs)");
+    } else {
+      logger.info({ to: email }, "[auth] OTP issued");
+    }
+
     try {
-      tokens = await oidc.authorizationCodeGrant(config, currentUrl, {
-        pkceCodeVerifier: codeVerifier,
-        expectedNonce: nonce,
-        expectedState,
-        idTokenExpected: true,
-      });
+      await sendEmail({ to: email, subject, text, html });
     } catch (err) {
-      req.log?.error?.({ err }, "Authorization code grant failed");
-      res.redirect("/api/login");
-      return;
+      // Don't 500 if email send fails — the OTP is still valid; the user can
+      // ask for another one. Operators see the failure in logs.
+      logger.error({ err, to: email }, "[auth] OTP email send failed");
     }
 
-    const returnTo = getSafeReturnTo(req.cookies?.return_to);
-    res.clearCookie("code_verifier", { path: "/" });
-    res.clearCookie("nonce", { path: "/" });
-    res.clearCookie("state", { path: "/" });
-    res.clearCookie("return_to", { path: "/" });
-
-    const claims = tokens.claims();
-    if (!claims) {
-      res.redirect("/api/login");
-      return;
-    }
-
-    const dbUser = await upsertReplitUser(claims as unknown as Record<string, unknown>);
-    const now = Math.floor(Date.now() / 1000);
-    const expIn = tokens.expiresIn();
-    const sessionData: SessionData = {
-      sub: dbUser.clerkId,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: expIn ? now + expIn : (claims.exp as number | undefined),
-    };
-
-    const sid = await createSession(sessionData);
-    setSessionCookie(res, sid);
-    res.redirect(returnTo);
+    res.json({
+      success: true,
+      message: "If that email is valid, we've sent you a 6-digit sign-in code.",
+    });
   } catch (err) {
-    req.log?.error?.({ err }, "Callback error");
-    res.redirect("/api/login");
+    logger.error({ err }, "[auth] request-otp failed");
+    res.status(500).json({ error: "Could not send code right now. Please try again." });
   }
 });
 
-router.get("/logout", async (req: Request, res: Response) => {
+router.post("/auth/verify-otp", async (req: Request, res: Response) => {
+  const parsed = verifyOtpSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Please enter the 6-digit code from your email." });
+    return;
+  }
+  const email = normalizeEmail(parsed.data.email);
+  const code = parsed.data.code.trim();
+  if (!isValidEmail(email)) {
+    res.status(400).json({ error: "Please enter a valid email address." });
+    return;
+  }
+
   try {
-    const config = await getOidcConfig();
-    const origin = getOrigin(req);
+    const result = await consumeOtp(email, code);
+    if (!result.ok) {
+      const map: Record<string, string> = {
+        no_otp: "No active code for this email. Please request a new one.",
+        expired: "That code has expired. Please request a new one.",
+        too_many_attempts: "Too many wrong attempts. Please request a new code.",
+        wrong_code: "That code is incorrect. Please try again.",
+      };
+      res.status(400).json({ error: map[result.reason ?? "wrong_code"] ?? "Invalid code." });
+      return;
+    }
+
+    const user = await findOrCreateUserByEmail(email);
+    if (user.isBanned) {
+      res.status(403).json({ error: "This account has been suspended. Please contact support." });
+      return;
+    }
+
+    const sid = await createSession({ userId: user.id });
+    setSessionCookie(res, sid);
+
+    res.json({ success: true, user: userResponse(user as NonNullable<Request["user"]>) });
+  } catch (err) {
+    logger.error({ err }, "[auth] verify-otp failed");
+    res.status(500).json({ error: "Could not verify your code right now. Please try again." });
+  }
+});
+
+router.post("/auth/logout", async (req: Request, res: Response) => {
+  try {
     const sid = getSessionId(req);
     await clearSession(res, sid);
-    const endSessionUrl = oidc.buildEndSessionUrl(config, {
-      client_id: process.env.REPL_ID!,
-      post_logout_redirect_uri: origin,
-    });
-    res.redirect(endSessionUrl.href);
+    res.json({ success: true });
   } catch (err) {
-    req.log?.error?.({ err }, "Logout error");
-    res.redirect("/");
+    logger.error({ err }, "[auth] logout failed");
+    res.json({ success: true });
   }
+});
+
+// Backward-compat: some old clients hit GET /api/logout. Keep it working.
+router.get("/logout", async (req: Request, res: Response) => {
+  const sid = getSessionId(req);
+  await clearSession(res, sid).catch(() => {});
+  res.redirect("/");
 });
 
 export default router;
