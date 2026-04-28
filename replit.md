@@ -12,7 +12,7 @@ A full-featured healthcare super app combining WhatsApp-style AI chat, a doctor/
 - **TypeScript version**: 5.9
 - **API framework**: Express 5 (Node.js backend)
 - **Database**: PostgreSQL + Drizzle ORM
-- **Authentication**: Clerk (Replit-managed)
+- **Authentication**: Replit OIDC (one-tap sign-in via the workspace identity, no passwords/OTP). Server-side session cookies (HttpOnly, Secure, SameSite=Lax) backed by a `sessions` table. Web client uses the local `@workspace/replit-auth-web` hook (`useAuth`).
 - **AI**: OpenAI via Replit AI Integrations (Yukti AI assistant)
 - **Frontend**: React + Vite + Tailwind CSS v4 + shadcn/ui
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`

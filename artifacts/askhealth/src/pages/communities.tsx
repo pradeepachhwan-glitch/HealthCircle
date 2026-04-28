@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { useClerk, useAuth } from "@clerk/react";
+import { useClerk, useAuth } from "@workspace/replit-auth-web";
 import { MessageSquare, Users, Search, CheckCircle, Plus, Crown } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";

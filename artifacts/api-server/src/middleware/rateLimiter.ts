@@ -1,6 +1,6 @@
 import rateLimit, { ipKeyGenerator, type Options } from "express-rate-limit";
 import type { Request, Response } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth } from "../lib/auth";
 
 /**
  * Rate-limiter middlewares for HealthCircle.

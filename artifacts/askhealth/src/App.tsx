@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Link, useLocation, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Link, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
@@ -7,8 +7,7 @@ import HealthCircleLogo from "@/components/HealthCircleLogo";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import { ContactModal, type ContactChannel } from "@/components/ContactModal";
 import React, { useEffect, useRef, useState } from "react";
-import { ClerkProvider, Show, useClerk, AuthenticateWithRedirectCallback } from '@clerk/react';
-import { shadcn } from '@clerk/themes';
+import { AuthProvider, useAuth } from "@workspace/replit-auth-web";
 import { useGetCurrentUser, setExtraHeadersGetter } from "@workspace/api-client-react";
 
 // Forward the admin bypass token (stored in localStorage by the admin page)
@@ -40,12 +39,9 @@ import AppointmentsPage from "@/pages/appointments";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import { LandingYuktiDemo } from "@/components/LandingYuktiDemo";
 import CustomSignIn from "@/pages/sign-in";
-import CustomSignUp from "@/pages/sign-up";
 import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
-import ForgotPassword from "@/pages/forgot-password";
 import MedPro from "@/pages/medpro";
-import { useUser } from "@clerk/react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,75 +56,10 @@ const queryClient = new QueryClient({
   },
 });
 
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function stripBase(path: string): string {
-  return basePath && path.startsWith(basePath)
-    ? path.slice(basePath.length) || "/"
-    : path;
-}
-
-if (!clerkPubKey) {
-  throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in .env file');
-}
-
-const clerkAppearance = {
-  theme: shadcn,
-  cssLayerName: "clerk",
-  options: {
-    logoPlacement: "inside" as const,
-    logoLinkUrl: basePath || "/",
-    logoImageUrl: `${window.location.origin}${basePath}/favicon.svg`,
-  },
-  variables: {
-    colorPrimary: "hsl(224, 76%, 48%)",
-    colorForeground: "hsl(222, 47%, 11%)",
-    colorMutedForeground: "hsl(215.4, 16.3%, 46.9%)",
-    colorDanger: "hsl(0, 84.2%, 60.2%)",
-    colorBackground: "hsl(0, 0%, 100%)",
-    colorInput: "hsl(0, 0%, 100%)",
-    colorInputForeground: "hsl(222, 47%, 11%)",
-    colorNeutral: "hsl(214, 32%, 91%)",
-    fontFamily: "'Inter', sans-serif",
-    borderRadius: "0.5rem",
-  },
-  elements: {
-    rootBox: "w-full",
-    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-lg border border-border",
-    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    headerTitle: "text-foreground font-bold",
-    headerSubtitle: "text-muted-foreground",
-    socialButtonsBlockButtonText: "text-foreground font-medium",
-    formFieldLabel: "text-foreground font-medium",
-    footerActionLink: "text-primary hover:text-primary/90 font-medium",
-    footerActionText: "text-muted-foreground",
-    dividerText: "text-muted-foreground",
-    identityPreviewEditButton: "text-primary hover:text-primary/90",
-    formFieldSuccessText: "text-green-600",
-    alertText: "text-destructive-foreground",
-    logoBox: "mb-6",
-    logoImage: "h-8 w-auto",
-    socialButtonsBlockButton: "border-border hover:bg-muted/50",
-    formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90 font-medium",
-    formFieldInput: "border-input bg-background focus:ring-ring",
-    footerAction: "pt-6 pb-2",
-    dividerLine: "bg-border",
-    alert: "bg-destructive text-destructive-foreground border-destructive-border",
-    otpCodeFieldInput: "border-input",
-    formFieldRow: "space-y-4",
-    main: "p-8",
-  },
-};
 
 function SignInPage() {
   return <CustomSignIn />;
-}
-
-function SignUpPage() {
-  return <CustomSignUp />;
 }
 
 const COMMUNITIES_PREVIEW = [
@@ -194,7 +125,7 @@ function Landing() {
             Admin
           </Link>
           <Link href="/sign-in" className="text-sm font-medium px-5 py-2.5 text-slate-600 hover:text-primary transition-colors duration-200 rounded-xl hover:bg-slate-50">Sign In</Link>
-          <Link href="/sign-up" className="text-sm font-semibold px-6 py-2.5 bg-ai-gradient text-white rounded-xl shadow-card hover:shadow-hover-lift hover:-translate-y-px transition-default">Get Started Free</Link>
+          <Link href="/sign-in" className="text-sm font-semibold px-6 py-2.5 bg-ai-gradient text-white rounded-xl shadow-card hover:shadow-hover-lift hover:-translate-y-px transition-default">Get Started Free</Link>
         </div>
         <div className="md:hidden flex items-center gap-2">
           <PWAInstallButton variant="compact" label="Install" />
@@ -216,7 +147,7 @@ function Landing() {
           ))}
           <div className="pt-3 border-t border-slate-100 flex gap-2">
             <Link href="/sign-in" className="flex-1 text-center text-sm font-medium px-4 py-2.5 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors">Sign In</Link>
-            <Link href="/sign-up" className="flex-1 text-center text-sm font-semibold px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors">Get Started</Link>
+            <Link href="/sign-in" className="flex-1 text-center text-sm font-semibold px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors">Get Started</Link>
           </div>
           <Link href="/admin" className="block w-full text-center text-xs font-medium px-4 py-2 text-slate-500 hover:text-primary hover:bg-slate-50 rounded-xl transition-colors mt-1" data-testid="landing-admin-link-mobile">
             Admin
@@ -240,10 +171,10 @@ function Landing() {
               Join trusted health communities, get AI-backed clarity, and take confident next steps — without confusion.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href="/sign-up" className="px-8 py-3.5 bg-primary text-white rounded-xl font-semibold text-base hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5">
+              <Link href="/sign-in" className="px-8 py-3.5 bg-primary text-white rounded-xl font-semibold text-base hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5">
                 Join a Community
               </Link>
-              <Link href="/sign-up" className="px-8 py-3.5 bg-white text-slate-800 rounded-xl font-semibold text-base border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 hover:-translate-y-0.5">
+              <Link href="/sign-in" className="px-8 py-3.5 bg-white text-slate-800 rounded-xl font-semibold text-base border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 hover:-translate-y-0.5">
                 Ask a Question
               </Link>
             </div>
@@ -261,7 +192,7 @@ function Landing() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
             {COMMUNITIES_PREVIEW.map(c => (
-              <Link key={c.slug} href="/sign-up">
+              <Link key={c.slug} href="/sign-in">
                 <div className="group bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 cursor-pointer">
                   <div className={`bg-gradient-to-br ${c.accent} h-32 flex items-center justify-center overflow-hidden`}>
                     <img src={c.img} alt={c.name} className="h-24 w-24 object-contain group-hover:scale-105 transition-transform duration-300" />
@@ -277,7 +208,7 @@ function Landing() {
             ))}
           </div>
           <div className="text-center mt-8">
-            <Link href="/sign-up" className="inline-flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline underline-offset-2 transition-all">
+            <Link href="/sign-in" className="inline-flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline underline-offset-2 transition-all">
               See all 20 communities →
             </Link>
           </div>
@@ -290,7 +221,7 @@ function Landing() {
             <p className="text-slate-500 mb-8">Real questions — answered by the community and Yukti AI.</p>
             <div className="space-y-3">
               {TRENDING_QUESTIONS.map((item, i) => (
-                <Link key={i} href="/sign-up">
+                <Link key={i} href="/sign-in">
                   <div className="bg-white border border-slate-200 rounded-2xl px-6 py-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex items-center justify-between gap-4 group">
                     <div>
                       <p className="text-slate-900 font-semibold text-sm group-hover:text-primary transition-colors">{item.q}</p>
@@ -372,7 +303,7 @@ function Landing() {
                   ))}
                 </ul>
                 <div className="mt-9">
-                  <Link href="/sign-up" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5">
+                  <Link href="/sign-in" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5">
                     Join as a Medical Professional →
                   </Link>
                 </div>
@@ -499,7 +430,7 @@ function Landing() {
                 <h3 className="font-semibold text-slate-900 mb-2">Doctor Onboarding</h3>
                 <p className="text-sm text-slate-500 mb-5 leading-relaxed">Join as a verified medical professional and help thousands of patients across India.</p>
                 <div className="flex flex-col items-center gap-2">
-                  <Link href="/sign-up" className="text-sm text-primary font-semibold hover:underline underline-offset-2 transition-colors">
+                  <Link href="/sign-in" className="text-sm text-primary font-semibold hover:underline underline-offset-2 transition-colors">
                     Create an account →
                   </Link>
                   <button
@@ -546,7 +477,7 @@ function Landing() {
               AI guidance is safe, structured, and never a replacement for real doctors.
             </p>
             <p className="text-primary-foreground/50 text-sm mb-10">Free to join • No credit card • English & Hindi</p>
-            <Link href="/sign-up" className="inline-block px-8 py-4 bg-white text-primary rounded-xl font-semibold text-base hover:bg-white/95 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5">
+            <Link href="/sign-in" className="inline-block px-8 py-4 bg-white text-primary rounded-xl font-semibold text-base hover:bg-white/95 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5">
               Get Started — It's Free
             </Link>
           </div>
@@ -768,49 +699,46 @@ function MedProGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function ClerkQueryClientCacheInvalidator() {
-  const { addListener } = useClerk();
+function AuthQueryCacheInvalidator() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const prevUserIdRef = useRef<string | null | undefined>(undefined);
+  const prevUserIdRef = useRef<number | null | undefined>(undefined);
 
   useEffect(() => {
-    const unsubscribe = addListener(({ user }) => {
-      const userId = user?.id ?? null;
-      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
-        queryClient.clear();
-      }
-      prevUserIdRef.current = userId;
-    });
-    return unsubscribe;
-  }, [addListener, queryClient]);
+    const userId = user?.id ?? null;
+    if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
+      queryClient.clear();
+    }
+    prevUserIdRef.current = userId;
+  }, [user, queryClient]);
 
   return null;
 }
 
 function HomeRedirect() {
-  return (
-    <>
-      <Show when="signed-in">
-        <Redirect to="/communities" />
-      </Show>
-      <Show when="signed-out">
-        <Landing />
-      </Show>
-    </>
-  );
+  const { isLoading, isAuthenticated } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (isAuthenticated) return <Redirect to="/communities" />;
+  return <Landing />;
 }
 
 function OnboardingGate({ children }: { children: React.ReactNode }) {
-  const { user, isLoaded } = useUser();
+  const { user, isLoading } = useAuth();
   const [done, setDone] = React.useState<boolean | null>(null);
 
   React.useEffect(() => {
-    if (!isLoaded || !user) return;
-    const completed = localStorage.getItem(`onboarding_done_${user.id}`);
+    if (isLoading || !user) return;
+    const completed = localStorage.getItem(`onboarding_done_${user.clerkId}`);
     setDone(!!completed);
-  }, [isLoaded, user]);
+  }, [isLoading, user]);
 
-  if (!isLoaded || !user || done === null) {
+  if (isLoading || !user || done === null) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-3">
@@ -823,7 +751,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   if (!done) {
     return (
       <OnboardingFlow
-        userId={user.id}
+        userId={user.clerkId}
         onComplete={() => setDone(true)}
       />
     );
@@ -832,46 +760,28 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <Show when="signed-in">
-        <OnboardingGate>{children}</OnboardingGate>
-      </Show>
-      <Show when="signed-out">
-        <Redirect to="/" />
-      </Show>
-    </>
-  );
+  const { isLoading, isAuthenticated } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!isAuthenticated) return <Redirect to="/" />;
+  return <OnboardingGate>{children}</OnboardingGate>;
 }
 
-function ClerkProviderWithRoutes() {
-  const [, setLocation] = useLocation();
-
+function AppRoutes() {
   return (
-    <ClerkProvider
-      publishableKey={clerkPubKey}
-      proxyUrl={clerkProxyUrl}
-      appearance={clerkAppearance}
-      signInUrl={`${basePath}/sign-in`}
-      signUpUrl={`${basePath}/sign-up`}
-      routerPush={(to: string) => setLocation(stripBase(to))}
-      routerReplace={(to: string) => setLocation(stripBase(to), { replace: true })}
-    >
-      <QueryClientProvider client={queryClient}>
-        <ClerkQueryClientCacheInvalidator />
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AuthQueryCacheInvalidator />
         <Switch>
           <Route path="/" component={HomeRedirect} />
           <Route path="/sign-in/*?" component={SignInPage} />
-          <Route path="/sign-up/*?" component={SignUpPage} />
-          <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/terms" component={TermsPage} />
           <Route path="/privacy" component={PrivacyPage} />
-          <Route path="/sso-callback">
-            <AuthenticateWithRedirectCallback
-              signInForceRedirectUrl={`${basePath}/`}
-              signUpForceRedirectUrl={`${basePath}/`}
-            />
-          </Route>
 
           <Route path="/chat">
             <ProtectedRoute><ChatPage /></ProtectedRoute>
@@ -919,8 +829,8 @@ function ClerkProviderWithRoutes() {
 
           <Route component={NotFound} />
         </Switch>
-      </QueryClientProvider>
-    </ClerkProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -928,7 +838,7 @@ function App() {
   return (
     <TooltipProvider>
       <WouterRouter base={basePath}>
-        <ClerkProviderWithRoutes />
+        <AppRoutes />
       </WouterRouter>
       <Toaster />
       <SonnerToaster position="top-right" richColors closeButton />

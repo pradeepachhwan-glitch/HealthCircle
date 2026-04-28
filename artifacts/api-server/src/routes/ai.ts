@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth } from "../lib/auth";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { checkQuota, consumeQuota } from "../lib/quota";
 import { logger } from "../lib/logger";

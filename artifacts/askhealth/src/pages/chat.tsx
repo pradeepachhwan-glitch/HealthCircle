@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
-import { useClerk, useAuth } from "@clerk/react";
+import { useClerk, useAuth } from "@workspace/replit-auth-web";
 import { QuotaExhaustedModal, type QuotaInfo } from "@/components/QuotaExhaustedModal";
 import {
   Send, Plus, Trash2, Bot, User, AlertTriangle, CheckCircle,

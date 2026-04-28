@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
-import { useClerk, useAuth } from "@clerk/react";
+import { useClerk, useAuth } from "@workspace/replit-auth-web";
 import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";

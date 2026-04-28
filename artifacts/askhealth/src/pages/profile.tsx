@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGetCurrentUser, useGetMyCreditsSummary, useGetUserAchievements } from "@workspace/api-client-react";
-import { useAuth } from "@clerk/react";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Layout, UserAvatar } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

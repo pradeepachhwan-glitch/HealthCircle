@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@clerk/react";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Link } from "wouter";
 import { Layout } from "@/components/Layout";
 import { Calendar, Clock, MapPin, Stethoscope, Building2, CheckCircle, XCircle, AlertCircle } from "lucide-react";

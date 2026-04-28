@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth } from "../lib/auth";
 import { db, usersTable, communitiesTable, postsTable, aiSummariesTable, communityMembersTable, commentsTable, doctorConsultationsTable } from "@workspace/db";
 import { eq, desc, and, count, inArray, or, sql } from "drizzle-orm";
 import { requireMedPro, getOrCreateUser } from "../lib/auth";

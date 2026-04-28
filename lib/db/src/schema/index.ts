@@ -1,4 +1,5 @@
 export * from "./users";
+export * from "./auth";
 export * from "./communities";
 export * from "./community_members";
 export * from "./posts";

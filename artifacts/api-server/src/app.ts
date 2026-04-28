@@ -1,8 +1,8 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
-import { clerkMiddleware } from "@clerk/express";
-import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
+import { authMiddleware } from "./middlewares/authMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { generalRateLimiter, aiRateLimiter, adminRateLimiter, authRateLimiter, publicAiRateLimiter } from "./middleware/rateLimiter";
@@ -29,13 +29,12 @@ app.use(
   }),
 );
 
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-
 app.use(cors({ credentials: true, origin: true }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(clerkMiddleware());
+app.use(authMiddleware);
 
 // Rate limiting — additive guards, not changing route logic. Order matters:
 // the most specific limiters (AI, admin, auth) MUST be registered before the

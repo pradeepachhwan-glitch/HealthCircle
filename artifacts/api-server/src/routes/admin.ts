@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, usersTable, communitiesTable, postsTable, commentsTable, communityMembersTable, aiSummariesTable } from "@workspace/db";
 import { count, eq, gte, desc, and, sql } from "drizzle-orm";
-import { requireAdmin } from "../lib/auth";
+import { getAuth, requireAdmin } from "../lib/auth";
 import { normaliseContentFields } from "../lib/contentMeta";
 import { aiChat } from "../lib/aiClient";
 import { logger } from "../lib/logger";
@@ -9,7 +9,6 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 router.post("/admin/broadcast", requireAdmin, async (req, res) => {
-  const { getAuth } = await import("@clerk/express");
   const { userId } = getAuth(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const [admin] = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);

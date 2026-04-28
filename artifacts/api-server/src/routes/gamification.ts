@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, usersTable, achievementsTable, postsTable, commentsTable } from "@workspace/db";
 import { eq, desc, gte, sql } from "drizzle-orm";
-import { requireAuth } from "../lib/auth";
+import { getAuth, requireAuth } from "../lib/auth";
 import { calculateLevel, getLevelProgress, getCreditsToNextLevel, LEVEL_NAMES } from "../lib/gamification";
 
 const router = Router();
@@ -59,7 +59,6 @@ router.get("/users/:userId/achievements", requireAuth, async (req, res) => {
 });
 
 router.get("/users/me/credits-summary", requireAuth, async (req, res) => {
-  const { getAuth } = await import("@clerk/express");
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
