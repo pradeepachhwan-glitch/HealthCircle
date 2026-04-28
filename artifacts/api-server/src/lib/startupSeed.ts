@@ -1,5 +1,32 @@
-import { db, communitiesTable } from "@workspace/db";
+import { db, communitiesTable, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { logger } from "./logger";
+
+export const YUKTI_BOT_CLERK_ID = "bot:yukti";
+
+export async function ensureYuktiBot(): Promise<number> {
+  const existing = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.clerkId, YUKTI_BOT_CLERK_ID))
+    .limit(1);
+  if (existing.length) return existing[0].id;
+
+  const [row] = await db
+    .insert(usersTable)
+    .values({
+      clerkId: YUKTI_BOT_CLERK_ID,
+      displayName: "Yukti AI",
+      email: "yukti@askhealth.ai",
+      emailVerifiedAt: new Date(),
+      role: "member",
+      healthCredits: 0,
+      level: 1,
+    })
+    .onConflictDoNothing()
+    .returning({ id: usersTable.id });
+  return row?.id ?? (await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.clerkId, YUKTI_BOT_CLERK_ID)).limit(1))[0].id;
+}
 
 const HEALTH_COMMUNITIES = [
   { name: "Heart Circle",          slug: "heart-health",          description: "Care for your heart, every day. Hypertension, chest pain, heart disease prevention and lifestyle support.",                          iconEmoji: "🫀", coverColor: "#ef4444" },

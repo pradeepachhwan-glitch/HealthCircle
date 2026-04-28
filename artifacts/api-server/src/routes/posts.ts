@@ -5,6 +5,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth, requireModeratorOrAdmin, getOrCreateUser } from "../lib/auth";
 import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
 import { generatePostSummary, getPostSummary } from "../lib/aiSummary";
+import { generateYuktiPostReply, mentionsYukti } from "../lib/yuktiReply";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -57,6 +58,11 @@ router.post("/communities/:communityId/posts", requireAuth, async (req, res) => 
 
   // Trigger AI summary generation asynchronously (non-blocking)
   generatePostSummary(post.id, title, content).catch(err => logger.error({ err }, "Failed to generate AI summary"));
+
+  // If the post mentions @askYukti, trigger an async Yukti reply
+  if (mentionsYukti(title) || mentionsYukti(content)) {
+    generateYuktiPostReply(post.id, title, content).catch(err => logger.error({ err }, "Yukti post reply failed"));
+  }
 
   res.status(201).json({
     ...post, authorId: clerkId, authorName: user.displayName,

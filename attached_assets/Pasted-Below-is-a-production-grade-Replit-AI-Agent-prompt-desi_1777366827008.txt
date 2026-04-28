@@ -1,0 +1,312 @@
+Below is a **production-grade Replit AI Agent prompt** designed to **extend existing HealthCircle without breaking current modules**, and add a full **Tele-Consulting + Yukti triage system**.
+
+You can directly paste this into Replit AI.
+
+---
+
+# ✅ REPLIT AI PROMPT — HealthCircle Tele-Consulting Module (Non-Disruptive Extension)
+
+## SYSTEM ROLE
+
+You are extending an existing production web application called **HealthCircle**.
+Your task is to **ADD a new Tele-Consulting module** without modifying or breaking any existing functionality, database tables, or UI flows.
+
+You must follow:
+
+* Zero disruption to existing modules
+* Additive architecture only
+* Modular, isolated services
+* Clean UI consistency with current HealthCircle design
+* Healthcare-grade security and consent flows
+
+---
+
+# 🧠 CORE OBJECTIVE
+
+Build a **Tele-Consulting System inside HealthCircle** with:
+
+### 1. Doctor Consultation (Video + Async)
+
+### 2. AI Pre-Consult Triage (Yukti Engine)
+
+### 3. Structured Clinical Workflow
+
+### 4. Prescription + Report Generation
+
+### 5. Continuity Care via Circles
+
+---
+
+# 🧩 ARCHITECTURE RULE (CRITICAL)
+
+DO NOT:
+
+* Modify existing database tables
+* Modify existing authentication system
+* Change existing community/circle logic
+* Overwrite UI components already present
+
+DO:
+
+* Create a new module namespace:
+  `teleconsult/`
+* Create new DB tables prefixed:
+  `tc_*`
+* Create new API routes prefixed:
+  `/api/tc/*`
+* Create new UI pages under:
+  `/teleconsult/*`
+
+---
+
+# 🧑‍⚕️ MODULES TO BUILD
+
+## 1. TELECONSULT HOME DASHBOARD
+
+Route: `/teleconsult`
+
+UI Components:
+
+* “Start Consultation”
+* “My Consultations”
+* “Emergency Care”
+* “Specialty Circles”
+* Doctor availability feed
+
+---
+
+## 2. YUKTI TRIAGE ENGINE (CORE INNOVATION)
+
+Route: `/teleconsult/triage`
+
+### FUNCTION:
+
+AI-based pre-consultation intake system.
+
+### INPUTS:
+
+* Chief complaint (text + voice optional)
+* Symptom selection (multi-select)
+* Duration
+* Severity scale (1–10)
+* Past medical history
+* Medications
+* Optional vitals
+
+### OUTPUTS:
+
+* Structured clinical summary
+* Risk score:
+
+  * LOW → Async consult
+  * MEDIUM → Video consult
+  * HIGH → Emergency suggestion
+* Suggested specialty
+* Auto-generated doctor match list
+
+### UI STYLE:
+
+Chat-like conversational flow + progress tracker
+
+---
+
+## 3. DOCTOR DISCOVERY + BOOKING
+
+Route: `/teleconsult/doctors`
+
+Features:
+
+* Specialty filters
+* Availability calendar
+* Experience + rating
+* Consultation type selector:
+
+  * Video
+  * Chat async (4-hour SLA)
+* Instant booking flow
+
+---
+
+## 4. CONSULTATION ROOM (VIDEO + CHAT)
+
+Route: `/teleconsult/session/:id`
+
+### LEFT PANEL (Doctor View):
+
+* Yukti summary
+* Patient history
+* Reports upload
+* Structured notes (ClaimIQ-style format)
+* ICD-10 tagging assistant
+
+### RIGHT PANEL:
+
+* Video call (use Agora/Daily API integration)
+* Chat window
+* Prescription builder
+
+### ACTIONS:
+
+* Diagnose
+* Prescribe
+* Order lab tests
+* Refer to Circle
+* Close consultation
+
+---
+
+## 5. PRESCRIPTION ENGINE
+
+Route: `/teleconsult/prescription/:id`
+
+Features:
+
+* Template-based prescriptions
+* Drug search + dosage builder
+* ICD-10 linking
+* Downloadable PDF
+* Digital signature placeholder
+
+---
+
+## 6. POST-CONSULT SUMMARY
+
+Route: `/teleconsult/summary/:id`
+
+Displays:
+
+* Diagnosis summary (patient-friendly)
+* Prescription
+* Follow-up instructions
+* Red flags
+* Care plan timeline
+
+---
+
+## 7. CONTINUITY CARE INTEGRATION (CIRCLES LINK)
+
+After consultation:
+
+* Auto-enroll patient into relevant Circle:
+
+  * Diabetes Circle
+  * Cardiac Circle
+  * Post-op Circle
+* Enable:
+
+  * Follow-up reminders
+  * Progress tracking
+  * Community Q&A
+
+---
+
+# 🗄️ DATABASE DESIGN (NEW TABLES ONLY)
+
+Create only new tables:
+
+### tc_consultations
+
+* id
+* user_id
+* doctor_id
+* type (video/chat)
+* status
+* triage_score
+* created_at
+
+### tc_triage_sessions
+
+* id
+* user_id
+* symptoms_json
+* risk_level
+* summary
+* suggested_specialty
+
+### tc_prescriptions
+
+* id
+* consultation_id
+* icd_codes
+* medications_json
+* pdf_url
+
+### tc_messages (optional for async consult)
+
+* id
+* consultation_id
+* sender_id
+* message
+* timestamp
+
+---
+
+# 🔌 API ROUTES (NEW ONLY)
+
+All under `/api/tc/`
+
+* POST `/triage/start`
+* POST `/triage/submit`
+* GET `/doctors/list`
+* POST `/consultation/book`
+* GET `/consultation/:id`
+* POST `/consultation/message`
+* POST `/prescription/generate`
+* POST `/consultation/close`
+
+---
+
+# 🎨 UI / UX RULES
+
+* Must match existing HealthCircle UI theme
+* Use card-based layout
+* Mobile-first responsive design
+* Minimal medical-grade aesthetic (white, blue, soft grey)
+* No cluttered dashboards
+* Chat-first triage UX
+
+---
+
+# 🔐 COMPLIANCE & SAFETY
+
+* Add consent checkbox before consultation:
+  “I consent to telemedical consultation and data processing”
+* Log all consultations
+* Maintain audit trail
+* Do not expose raw medical data in public circles
+
+---
+
+# ⚙️ INTEGRATIONS
+
+Use external APIs (DO NOT build from scratch):
+
+* Video: Agora OR Daily.co
+* PDF generation: server-side service
+* Optional AI layer: Yukti can use LLM API for summarization only
+
+---
+
+# 🚀 SUCCESS CRITERIA
+
+The system is successful if:
+
+* Existing HealthCircle works unchanged
+* New Teleconsult module is fully functional
+* Yukti triage reduces consultation time
+* Doctor workflow is structured (not chat chaos)
+* Patient can move:
+  Community → Triage → Doctor → Prescription → Circle
+
+---
+
+# 🧠 FINAL INSTRUCTION TO REPLIT AGENT
+
+Build this as a **modular extension**, not a rewrite.
+All new features must be isolated under `teleconsult/`.
+
+Do not touch existing code unless explicitly required for routing integration only.
+
+---
+
+If needed next step: I can convert this into a **Figma-level UI system (screen-by-screen components + states + interactions)** or a **system architecture diagram for investors / hospital pilots**.

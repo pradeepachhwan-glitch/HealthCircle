@@ -477,7 +477,8 @@ export default function Community() {
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-start gap-2">
               <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Yukti AI will automatically generate a health summary for your post to help the community respond better.
+                Yukti AI will automatically generate a health summary for your post.
+                Type <span className="font-semibold text-primary">@askYukti</span> anywhere in your question to get a personal AI reply from Yukti in the thread.
               </p>
             </div>
           </div>

@@ -339,12 +339,15 @@ export default function PostDetail() {
           <Card>
             <CardContent className="p-4 space-y-3">
               <Textarea
-                placeholder="Share your experience or advice — be kind and constructive..."
+                placeholder="Share your experience or advice — be kind and constructive... (type @askYukti to get a reply from Yukti AI)"
                 value={commentContent}
                 onChange={e => setCommentContent(e.target.value)}
                 className="min-h-[90px] resize-y bg-background text-sm"
               />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Tip: mention <span className="font-semibold text-primary">@askYukti</span> for an AI-guided response in this thread
+                </p>
                 <Button
                   size="sm"
                   onClick={handleComment}
@@ -379,6 +382,25 @@ export default function PostDetail() {
 
 function CommentCard({ comment }: { comment: any }) {
   const isDoctor = comment.authorRole === "doctor" || (comment as any).isDoctor;
+  const isYuktiBot = comment.authorId === "bot:yukti" || comment.authorName === "Yukti AI";
+
+  if (isYuktiBot) {
+    return (
+      <div className="flex gap-3 p-4 rounded-xl border bg-primary/5 border-primary/20">
+        <div className="shrink-0 w-8 h-8 mt-0.5 rounded-full bg-ai-gradient flex items-center justify-center shadow-sm">
+          <Bot className="w-4 h-4 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            <span className="text-sm font-semibold text-primary">Yukti AI</span>
+            <Badge className="text-[9px] h-4 px-1.5 bg-primary/10 text-primary border border-primary/20">AI Response</Badge>
+            <span className="text-xs text-muted-foreground ml-auto">{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
+          </div>
+          <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{comment.content}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn(

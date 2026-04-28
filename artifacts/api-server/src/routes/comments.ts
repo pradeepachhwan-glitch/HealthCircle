@@ -4,6 +4,7 @@ import { db, commentsTable, usersTable, postsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
+import { generateYuktiCommentReply, mentionsYukti } from "../lib/yuktiReply";
 
 const router = Router();
 
@@ -34,6 +35,14 @@ router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
 
   await db.update(postsTable).set({ commentCount: sql`${postsTable.commentCount} + 1` }).where(eq(postsTable.id, postId));
   await awardCredits(user.id, CREDIT_EVENTS.COMMENT);
+
+  // If the comment mentions @askYukti, trigger an async Yukti reply
+  if (mentionsYukti(content)) {
+    const [post] = await db.select({ title: postsTable.title, content: postsTable.content }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+    if (post) {
+      generateYuktiCommentReply(postId, content, post.title, post.content).catch(() => {});
+    }
+  }
 
   res.status(201).json({
     ...comment, authorId: clerkId, authorName: user.displayName,

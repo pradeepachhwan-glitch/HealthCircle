@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { ensureHealthCommunities } from "./lib/startupSeed";
+import { ensureHealthCommunities, ensureYuktiBot } from "./lib/startupSeed";
 
 const rawPort = process.env["PORT"];
 
@@ -28,4 +28,5 @@ app.listen(port, (err) => {
   // a slow database can never block readiness. Failures are logged but never
   // crash the server.
   void ensureHealthCommunities();
+  void ensureYuktiBot().catch(err => logger.warn({ err }, "ensureYuktiBot failed (non-fatal)"));
 });
