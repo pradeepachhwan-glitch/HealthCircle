@@ -21,6 +21,7 @@ import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ConsentModal } from "@/components/ConsentModal";
+import { ContentEmbed } from "@/components/ContentEmbed";
 import { cn } from "@/lib/utils";
 
 type Tab = "trending" | "latest" | "unanswered" | "doctor";
@@ -378,7 +379,7 @@ export default function Community() {
                       </div>
                     ) : (
                       sortedPosts.map(post => (
-                        <PostCard key={post.id} post={post} communityId={communityId} />
+                        <PostCard key={post.id} post={post} communityId={communityId} communitySlug={community.slug} communityName={community.name} />
                       ))
                     )}
                   </div>
@@ -560,13 +561,18 @@ export default function Community() {
   );
 }
 
-function PostCard({ post, communityId }: { post: any; communityId: number }) {
+function PostCard({ post, communityId, communitySlug, communityName }: { post: any; communityId: number; communitySlug?: string; communityName?: string }) {
   const riskColors: Record<string, string> = {
     low: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400",
     medium: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400",
     high: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400",
     emergency: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400",
   };
+
+  // A post is a "content card" when admin attached an embeddable payload.
+  // Falsy / 'discussion' contentType keeps the legacy text-only render.
+  const hasContent = post.contentType && post.contentType !== "discussion" && post.contentUrl;
+  const contentTypeLabel: Record<string, string> = { video: "VIDEO", article: "ARTICLE", audio: "PODCAST" };
 
   return (
     <Link href={`/communities/${communityId}/post/${post.id}`}>
@@ -587,6 +593,11 @@ function PostCard({ post, communityId }: { post: any; communityId: number }) {
                 {post.isBroadcast && (
                   <Badge className="text-[9px] h-4 px-1.5 bg-blue-600">ANNOUNCEMENT</Badge>
                 )}
+                {hasContent && (
+                  <Badge className="text-[9px] h-4 px-1.5 bg-purple-600">
+                    {contentTypeLabel[post.contentType] ?? post.contentType.toUpperCase()}
+                  </Badge>
+                )}
                 <span className="text-muted-foreground/50">•</span>
                 <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
               </div>
@@ -595,11 +606,32 @@ function PostCard({ post, communityId }: { post: any; communityId: number }) {
                 {post.title}
               </h3>
 
-              <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
-                {post.content}
-              </p>
+              {/* Hide the long body when there's an embed — the embed + summary
+                  carry the message, and we don't want a wall of duplicated copy
+                  above an inline player. */}
+              {!hasContent && (
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                  {post.content}
+                </p>
+              )}
 
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {hasContent && (
+                <ContentEmbed
+                  title={post.title}
+                  payload={{
+                    contentType: post.contentType,
+                    contentUrl: post.contentUrl,
+                    contentSource: post.contentSource ?? null,
+                    contentThumbnail: post.contentThumbnail ?? null,
+                    contentDurationSec: post.contentDurationSec ?? null,
+                    contentSummary: post.contentSummary ?? post.content ?? null,
+                  }}
+                  communitySlug={communitySlug}
+                  communityName={communityName}
+                />
+              )}
+
+              <div className={cn("flex items-center gap-3 text-xs text-muted-foreground", hasContent ? "mt-3" : "")}> 
                 <span className="flex items-center gap-1">
                   <MessageSquare className="w-3.5 h-3.5" /> {post.commentCount}
                 </span>

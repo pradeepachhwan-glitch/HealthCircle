@@ -25,6 +25,8 @@ import type {
   Comment,
   Community,
   CommunityStats,
+  ContentSummarizeBody,
+  ContentSummarizeResult,
   CreateCommentBody,
   CreateCommunityBody,
   CreatePostBody,
@@ -2651,6 +2653,92 @@ export const useBroadcastAnnouncement = <
   TContext
 > => {
   return useMutation(getBroadcastAnnouncementMutationOptions(options));
+};
+
+/**
+ * @summary Generate an AI summary for an attached content item (admin only)
+ */
+export const getSummarizeContentUrl = () => {
+  return `/api/admin/content/summarize`;
+};
+
+export const summarizeContent = async (
+  contentSummarizeBody: ContentSummarizeBody,
+  options?: RequestInit,
+): Promise<ContentSummarizeResult> => {
+  return customFetch<ContentSummarizeResult>(getSummarizeContentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(contentSummarizeBody),
+  });
+};
+
+export const getSummarizeContentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof summarizeContent>>,
+    TError,
+    { data: BodyType<ContentSummarizeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof summarizeContent>>,
+  TError,
+  { data: BodyType<ContentSummarizeBody> },
+  TContext
+> => {
+  const mutationKey = ["summarizeContent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof summarizeContent>>,
+    { data: BodyType<ContentSummarizeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return summarizeContent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SummarizeContentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof summarizeContent>>
+>;
+export type SummarizeContentMutationBody = BodyType<ContentSummarizeBody>;
+export type SummarizeContentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate an AI summary for an attached content item (admin only)
+ */
+export const useSummarizeContent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof summarizeContent>>,
+    TError,
+    { data: BodyType<ContentSummarizeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof summarizeContent>>,
+  TError,
+  { data: BodyType<ContentSummarizeBody> },
+  TContext
+> => {
+  return useMutation(getSummarizeContentMutationOptions(options));
 };
 
 /**

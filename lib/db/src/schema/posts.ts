@@ -18,6 +18,16 @@ export const postsTable = pgTable("posts", {
   upvoteCount: integer("upvote_count").notNull().default(0),
   commentCount: integer("comment_count").notNull().default(0),
   viewCount: integer("view_count").notNull().default(0),
+  // --- In-app content layer (optional; null/'discussion' for legacy posts) ---
+  // Posts can carry an embedded content payload (YouTube video, audio, or
+  // sandboxed article) that is rendered inline in the feed. When contentType
+  // is 'discussion' (default) the post behaves exactly as before.
+  contentType: text("content_type").notNull().default("discussion"), // 'discussion' | 'video' | 'article' | 'audio'
+  contentUrl: text("content_url"),
+  contentSource: text("content_source"),                              // 'youtube' | 'ted' | 'vimeo' | 'spotify' | 'external'
+  contentThumbnail: text("content_thumbnail"),
+  contentDurationSec: integer("content_duration_sec"),
+  contentSummary: text("content_summary"),                            // AI-generated or admin-curated summary
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

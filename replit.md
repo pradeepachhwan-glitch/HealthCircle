@@ -195,6 +195,15 @@ Admin promotes users via the GODMODE dashboard Users tab. Medical pros are verif
 - **Frontend** (`components/QuotaExhaustedModal.tsx`, mounted in `pages/chat.tsx`): on a 429 from send-message, the modal shows current usage, the limit hit, the reset time, and a CTA "Subscribe to three month plan" → opens the existing UPI flow (link / copy UPI ID + reference / paste UTR). On confirm, modal closes and quota query is invalidated.
 - **Known limitation (pre-existing)**: UPI confirm trusts the user-supplied UTR (no provider verification yet). Same trust model as the existing community-premium flow; should be replaced with a provider webhook before scaling.
 
+## In-App Content System (Apr 2026)
+Admins can attach a YouTube video, web article (in-app webview), or audio episode to a broadcast post. Members watch/read/listen inside the app and tap "Ask Yukti about this" to deep-link into the chat with a pre-filled prompt + community context.
+- Posts table extended with 6 columns: `contentType` (NOT NULL DEFAULT 'discussion'), `contentUrl`, `contentSource`, `contentThumbnail`, `contentDurationSec`, `contentSummary` (all other 5 nullable).
+- Backend: `POST /api/admin/content/summarize` (admin-gated; uses aiChat) generates a 2-3 sentence editorial summary; `POST /api/admin/broadcast` accepts the same content fields and persists them via `lib/contentMeta.ts` (`normaliseContentFields`, `extractYouTubeId`, `deriveYouTubeThumbnail`, `buildYouTubeEmbedUrl`, `detectContentSource`).
+- Frontend: `<ContentEmbed>` (YouTube nocookie iframe with lazy thumbnail-first activation, HTML5 audio, sandboxed article webview Dialog) + a gradient "Ask Yukti about this" CTA → `/chat?prompt=...&community=<slug>&communityName=<name>`.
+- `/chat` reads `?prompt=` once, prefills the input, focuses it, and `history.replaceState` strips the param so refresh doesn't re-prefill.
+- `/broadcast` UI: a Tabs row (Discussion/Video/Article/Audio); the legacy "discussion" path is the default and renders unchanged.
+- Strictly additive — when `contentType` is 'discussion' OR `contentUrl` is null, PostCard renders the legacy discussion view exactly as before.
+
 ## Public Yukti Demo on Landing Page (Apr 2026)
 - **Backend**: `POST /api/public/ask` (no auth) in `routes/publicAi.ts`. Calls `getHealthAssistantResponse` and returns `{ reply, summary, recommendations[≤3], risk_level, emergency }`. Length-validated (3–500 chars). Emergency triggers short-circuit to the fixed 108/AASRA response.
 - **Rate limit**: `publicAiRateLimiter` in `middleware/rateLimiter.ts` — 5 req/hour per IP (IPv6-safe key). Wired in `app.ts` on `/api/public` BEFORE the general limiter.

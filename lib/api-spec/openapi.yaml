@@ -630,6 +630,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/BroadcastResult"
 
+  /admin/content/summarize:
+    post:
+      operationId: summarizeContent
+      tags: [admin]
+      summary: Generate an AI summary for an attached content item (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContentSummarizeBody"
+      responses:
+        "200":
+          description: Generated summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentSummarizeResult"
+
   /admin/stats:
     get:
       operationId: getAdminStats
@@ -794,6 +813,20 @@ components:
           type: boolean
         isBroadcast:
           type: boolean
+        contentType:
+          type: string
+          description: 'discussion (default) | video | article | audio'
+        contentUrl:
+          type: ["string", "null"]
+        contentSource:
+          type: ["string", "null"]
+          description: 'youtube | ted | vimeo | spotify | external'
+        contentThumbnail:
+          type: ["string", "null"]
+        contentDurationSec:
+          type: ["integer", "null"]
+        contentSummary:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -812,6 +845,7 @@ components:
         - commentCount
         - hasUpvoted
         - isBroadcast
+        - contentType
         - createdAt
         - updatedAt
 
@@ -1069,10 +1103,45 @@ components:
             type: integer
         postToAll:
           type: boolean
+        contentType:
+          type: ["string", "null"]
+          description: 'discussion (default) | video | article | audio'
+        contentUrl:
+          type: ["string", "null"]
+        contentSource:
+          type: ["string", "null"]
+        contentThumbnail:
+          type: ["string", "null"]
+        contentDurationSec:
+          type: ["integer", "null"]
+        contentSummary:
+          type: ["string", "null"]
       required:
         - title
         - content
         - postToAll
+
+    ContentSummarizeBody:
+      type: object
+      properties:
+        title:
+          type: string
+        url:
+          type: ["string", "null"]
+        contentType:
+          type: ["string", "null"]
+        transcript:
+          type: ["string", "null"]
+      required:
+        - title
+
+    ContentSummarizeResult:
+      type: object
+      properties:
+        summary:
+          type: string
+      required:
+        - summary
 
     BroadcastResult:
       type: object

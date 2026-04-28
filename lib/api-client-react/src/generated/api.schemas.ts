@@ -76,6 +76,21 @@ export interface Post {
   commentCount: number;
   hasUpvoted: boolean;
   isBroadcast: boolean;
+  /** discussion (default) | video | article | audio */
+  contentType: string;
+  /** @nullable */
+  contentUrl?: string | null;
+  /**
+   * youtube | ted | vimeo | spotify | external
+   * @nullable
+   */
+  contentSource?: string | null;
+  /** @nullable */
+  contentThumbnail?: string | null;
+  /** @nullable */
+  contentDurationSec?: number | null;
+  /** @nullable */
+  contentSummary?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -127,7 +142,6 @@ export type UserProfileRole =
 export const UserProfileRole = {
   admin: "admin",
   moderator: "moderator",
-  medical_professional: "medical_professional",
   member: "member",
 } as const;
 
@@ -144,9 +158,6 @@ export interface UserProfile {
   level: number;
   weeklyCredits: number;
   createdAt: string;
-  specialty?: string | null;
-  registrationNumber?: string | null;
-  isVerifiedPro?: boolean;
 }
 
 export interface UpdateUserBody {
@@ -162,7 +173,6 @@ export type UpdateUserRoleBodyRole =
 export const UpdateUserRoleBodyRole = {
   admin: "admin",
   moderator: "moderator",
-  medical_professional: "medical_professional",
   member: "member",
 } as const;
 
@@ -217,6 +227,35 @@ export interface BroadcastBody {
   /** @nullable */
   communityIds?: number[] | null;
   postToAll: boolean;
+  /**
+   * discussion (default) | video | article | audio
+   * @nullable
+   */
+  contentType?: string | null;
+  /** @nullable */
+  contentUrl?: string | null;
+  /** @nullable */
+  contentSource?: string | null;
+  /** @nullable */
+  contentThumbnail?: string | null;
+  /** @nullable */
+  contentDurationSec?: number | null;
+  /** @nullable */
+  contentSummary?: string | null;
+}
+
+export interface ContentSummarizeBody {
+  title: string;
+  /** @nullable */
+  url?: string | null;
+  /** @nullable */
+  contentType?: string | null;
+  /** @nullable */
+  transcript?: string | null;
+}
+
+export interface ContentSummarizeResult {
+  summary: string;
 }
 
 export interface BroadcastResult {

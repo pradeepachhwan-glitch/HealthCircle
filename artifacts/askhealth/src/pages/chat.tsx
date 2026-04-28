@@ -204,6 +204,17 @@ function getCommunityFromUrl(): { slug: string; name: string } | null {
   return null;
 }
 
+function getInitialPromptFromUrl(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("prompt");
+  if (!raw) return null;
+  // Defensive: cap the deep-link prompt length so a runaway URL can't dump
+  // multi-KB into the input. 800 chars is plenty for "summarise this video"
+  // type CTAs from the content cards.
+  const trimmed = raw.trim().slice(0, 800);
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export default function ChatPage() {
   const { toast } = useToast();
   const { signOut } = useClerk();
@@ -229,6 +240,31 @@ export default function ChatPage() {
     return () => {
       try { recognitionRef.current?.stop?.(); } catch { /* noop */ }
     };
+  }, []);
+
+  // Deep-link from a content card (or any external link) can pre-fill the
+  // input box via ?prompt=... — we DON'T auto-send so the user can edit
+  // before submitting (consistent with the follow-up-chip behaviour).
+  // Strip the prompt from the URL after applying it so a refresh doesn't
+  // keep re-prefilling over user edits.
+  useEffect(() => {
+    const initialPrompt = getInitialPromptFromUrl();
+    if (!initialPrompt) return;
+    setInput(initialPrompt);
+    requestAnimationFrame(() => {
+      const el = messageInputRef.current;
+      if (!el) return;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+    });
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("prompt");
+      window.history.replaceState({}, "", url.toString());
+    } catch { /* noop */ }
+    // Empty deps: run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggleVoice() {

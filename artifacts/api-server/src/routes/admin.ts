@@ -2,6 +2,9 @@ import { Router } from "express";
 import { db, usersTable, communitiesTable, postsTable, commentsTable, communityMembersTable, aiSummariesTable } from "@workspace/db";
 import { count, eq, gte, desc, and, sql } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
+import { normaliseContentFields } from "../lib/contentMeta";
+import { aiChat } from "../lib/aiClient";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -21,13 +24,63 @@ router.post("/admin/broadcast", requireAdmin, async (req, res) => {
     targetCommunityIds = communityIds;
   }
 
+  // Optional in-app content payload — videos, articles, audio. When absent
+  // (legacy broadcasts) the helper returns all-null, preserving the existing
+  // discussion-style behaviour exactly.
+  const contentFields = normaliseContentFields(req.body);
+
   const insertedPosts = await Promise.all(targetCommunityIds.map(communityId =>
     db.insert(postsTable).values({
       communityId, authorId: admin.id, title, content,
       isPinned: false, isBroadcast: true, upvoteCount: 0, commentCount: 0,
+      ...contentFields,
     }).returning()
   ));
   res.status(201).json({ postsCreated: insertedPosts.length, communityIds: targetCommunityIds });
+});
+
+// ─── Content summary helper ──────────────────────────────────────────────
+// Used by the broadcast UI to pre-fill an AI summary for the attached video/
+// article/audio so admins don't have to write one from scratch. Stays admin-
+// gated because it consumes paid tokens; output is plain text (not the
+// structured Yukti contract) since this is editorial copy, not medical advice.
+router.post("/admin/content/summarize", requireAdmin, async (req, res) => {
+  const body = (req.body ?? {}) as {
+    title?: unknown;
+    url?: unknown;
+    contentType?: unknown;
+    transcript?: unknown;
+  };
+
+  const title = typeof body.title === "string" ? body.title.trim().slice(0, 280) : "";
+  if (!title) { res.status(400).json({ error: "title is required" }); return; }
+  const url = typeof body.url === "string" ? body.url.trim().slice(0, 2048) : "";
+  const contentType = typeof body.contentType === "string" ? body.contentType.trim().slice(0, 32) : "content";
+  const transcript = typeof body.transcript === "string" ? body.transcript.trim().slice(0, 8000) : "";
+
+  const userPrompt = [
+    `Write a concise 2-3 sentence neutral summary of this ${contentType} for an Indian healthcare-app user.`,
+    `Title: ${title}`,
+    url ? `URL: ${url}` : "",
+    transcript ? `Excerpt / transcript:\n${transcript}` : "",
+    "Stay factual, do not invent claims, do not give medical advice, do not include emojis or markdown.",
+  ].filter(Boolean).join("\n\n");
+
+  const result = await aiChat({
+    systemPrompt: "You are an editorial assistant for HealthCircle, an Indian healthcare super-app. You produce short, neutral, factual summaries of health-related videos and articles. You never give medical advice — your job is purely descriptive editorial copy.",
+    userPrompt,
+    history: [],
+    timeoutMs: 12000,
+    maxTokens: 220,
+    jsonMode: false,
+  });
+
+  if (!result.ok) {
+    logger.warn({ err: result.error }, "content summarize failed");
+    res.status(503).json({ error: "AI service unavailable" }); return;
+  }
+  const summary = result.text.trim().replace(/^["']|["']$/g, "").slice(0, 800);
+  res.json({ summary });
 });
 
 router.get("/admin/stats", requireAdmin, async (req, res) => {

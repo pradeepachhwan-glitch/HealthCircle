@@ -169,6 +169,17 @@ export const ListPostsResponseItem = zod.object({
   commentCount: zod.number(),
   hasUpvoted: zod.boolean(),
   isBroadcast: zod.boolean(),
+  contentType: zod
+    .string()
+    .describe("discussion (default) | video | article | audio"),
+  contentUrl: zod.string().nullish(),
+  contentSource: zod
+    .string()
+    .nullish()
+    .describe("youtube | ted | vimeo | spotify | external"),
+  contentThumbnail: zod.string().nullish(),
+  contentDurationSec: zod.number().nullish(),
+  contentSummary: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -209,6 +220,17 @@ export const GetPinnedPostsResponseItem = zod.object({
   commentCount: zod.number(),
   hasUpvoted: zod.boolean(),
   isBroadcast: zod.boolean(),
+  contentType: zod
+    .string()
+    .describe("discussion (default) | video | article | audio"),
+  contentUrl: zod.string().nullish(),
+  contentSource: zod
+    .string()
+    .nullish()
+    .describe("youtube | ted | vimeo | spotify | external"),
+  contentThumbnail: zod.string().nullish(),
+  contentDurationSec: zod.number().nullish(),
+  contentSummary: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -236,6 +258,17 @@ export const GetPostResponse = zod.object({
   commentCount: zod.number(),
   hasUpvoted: zod.boolean(),
   isBroadcast: zod.boolean(),
+  contentType: zod
+    .string()
+    .describe("discussion (default) | video | article | audio"),
+  contentUrl: zod.string().nullish(),
+  contentSource: zod
+    .string()
+    .nullish()
+    .describe("youtube | ted | vimeo | spotify | external"),
+  contentThumbnail: zod.string().nullish(),
+  contentDurationSec: zod.number().nullish(),
+  contentSummary: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -268,6 +301,17 @@ export const UpdatePostResponse = zod.object({
   commentCount: zod.number(),
   hasUpvoted: zod.boolean(),
   isBroadcast: zod.boolean(),
+  contentType: zod
+    .string()
+    .describe("discussion (default) | video | article | audio"),
+  contentUrl: zod.string().nullish(),
+  contentSource: zod
+    .string()
+    .nullish()
+    .describe("youtube | ted | vimeo | spotify | external"),
+  contentThumbnail: zod.string().nullish(),
+  contentDurationSec: zod.number().nullish(),
+  contentSummary: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -305,6 +349,17 @@ export const PinPostResponse = zod.object({
   commentCount: zod.number(),
   hasUpvoted: zod.boolean(),
   isBroadcast: zod.boolean(),
+  contentType: zod
+    .string()
+    .describe("discussion (default) | video | article | audio"),
+  contentUrl: zod.string().nullish(),
+  contentSource: zod
+    .string()
+    .nullish()
+    .describe("youtube | ted | vimeo | spotify | external"),
+  contentThumbnail: zod.string().nullish(),
+  contentDurationSec: zod.number().nullish(),
+  contentSummary: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -575,6 +630,17 @@ export const GlobalSearchResponse = zod.object({
       commentCount: zod.number(),
       hasUpvoted: zod.boolean(),
       isBroadcast: zod.boolean(),
+      contentType: zod
+        .string()
+        .describe("discussion (default) | video | article | audio"),
+      contentUrl: zod.string().nullish(),
+      contentSource: zod
+        .string()
+        .nullish()
+        .describe("youtube | ted | vimeo | spotify | external"),
+      contentThumbnail: zod.string().nullish(),
+      contentDurationSec: zod.number().nullish(),
+      contentSummary: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
@@ -605,6 +671,29 @@ export const BroadcastAnnouncementBody = zod.object({
   content: zod.string(),
   communityIds: zod.array(zod.number()).nullish(),
   postToAll: zod.boolean(),
+  contentType: zod
+    .string()
+    .nullish()
+    .describe("discussion (default) | video | article | audio"),
+  contentUrl: zod.string().nullish(),
+  contentSource: zod.string().nullish(),
+  contentThumbnail: zod.string().nullish(),
+  contentDurationSec: zod.number().nullish(),
+  contentSummary: zod.string().nullish(),
+});
+
+/**
+ * @summary Generate an AI summary for an attached content item (admin only)
+ */
+export const SummarizeContentBody = zod.object({
+  title: zod.string(),
+  url: zod.string().nullish(),
+  contentType: zod.string().nullish(),
+  transcript: zod.string().nullish(),
+});
+
+export const SummarizeContentResponse = zod.object({
+  summary: zod.string(),
 });
 
 /**
