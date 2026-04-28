@@ -204,6 +204,13 @@ Admins can attach a YouTube video, web article (in-app webview), or audio episod
 - `/broadcast` UI: a Tabs row (Discussion/Video/Article/Audio); the legacy "discussion" path is the default and renders unchanged.
 - Strictly additive — when `contentType` is 'discussion' OR `contentUrl` is null, PostCard renders the legacy discussion view exactly as before.
 
+## Auth — Custom Sign-in/Sign-up (Clerk v6 Future API)
+- `useSignIn()` / `useSignUp()` from `@clerk/react` v6 return `SignInSignalValue` / `SignUpSignalValue`. The inner `signIn` / `signUp` are `SignInFutureResource` / `SignUpFutureResource` — the new signals API, NOT the legacy resource. Methods return `{ error: ClerkError | null }` rather than throwing, and live signals (`status`, `createdSessionId`, `supportedFirstFactors`) update after each awaited call.
+- **Critical gotcha (sign-in)**: `signIn.create({ identifier, password })` does NOT exist in the future API — `SignInFutureCreateParams` only accepts identifier + OAuth/SAML/passkey/ticket/transfer. Submitting password via `create()` silently drops the password, leaves `status='needs_first_factor'`, and breaks login. **Always use `signIn.password({ identifier, password })`** for credential login.
+- `pages/sign-in.tsx` flow: `signIn.password()` → branch on `signIn.status`: `complete` → `signIn.finalize({navigate})`; `needs_first_factor` → find `email_code` factor in `supportedFirstFactors` → `signIn.emailCode.sendCode({emailAddressId})` → switch UI to verify_email stage → `signIn.emailCode.verifyCode({code})` → `finalize`. `needs_second_factor`/`needs_new_password` show actionable errors. Both `finalize()` and `sso()` returns are checked for `{error}` (non-throwing failure path).
+- Google OAuth uses `signIn.sso({ strategy: 'oauth_google', redirectUrl, redirectCallbackUrl })` (replaces legacy `authenticateWithRedirect`).
+- Username/mobile-number identifiers are resolved to email server-side via `GET /api/auth/lookup?identifier=...` before being passed to Clerk.
+
 ## Public Yukti Demo on Landing Page (Apr 2026)
 - **Backend**: `POST /api/public/ask` (no auth) in `routes/publicAi.ts`. Calls `getHealthAssistantResponse` and returns `{ reply, summary, recommendations[≤3], risk_level, emergency }`. Length-validated (3–500 chars). Emergency triggers short-circuit to the fixed 108/AASRA response.
 - **Rate limit**: `publicAiRateLimiter` in `middleware/rateLimiter.ts` — 5 req/hour per IP (IPv6-safe key). Wired in `app.ts` on `/api/public` BEFORE the general limiter.
