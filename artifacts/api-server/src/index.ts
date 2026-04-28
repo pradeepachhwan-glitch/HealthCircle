@@ -1,6 +1,8 @@
+import { createServer } from "http";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { ensureHealthCommunities, ensureYuktiBot } from "./lib/startupSeed";
+import { attachTeleconsultSignaling } from "./lib/teleconsultSignaling";
 
 const rawPort = process.env["PORT"];
 
@@ -16,7 +18,13 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+const server = createServer(app);
+
+// Attach WebSocket signaling for tele-consult video/audio/chat. Listens on
+// /api/tc/ws/session/:id only; non-matching upgrade requests are ignored.
+attachTeleconsultSignaling(server);
+
+server.listen(port, (err?: Error) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
