@@ -116,7 +116,7 @@ function Landing() {
           <HealthCircleLogo size="sm" animate={false} />
         </button>
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-500">
-          {[["solutions","Solutions"],["for-doctors","For Doctors"],["about","About"],["support","Support"]].map(([id,label]) => (
+          {[["solutions","Solutions"],["teleconsult","Tele-Consult"],["for-doctors","For Doctors"],["about","About"],["support","Support"]].map(([id,label]) => (
             <button key={id} onClick={() => scrollTo(id)} className="hover:text-primary transition-colors duration-200 relative group">
               {label}
               <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-primary rounded-full transition-all duration-200 group-hover:w-full" />
@@ -145,7 +145,7 @@ function Landing() {
       {/* Mobile Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed top-[65px] left-0 right-0 z-10 bg-white border-b border-slate-100 shadow-xl rounded-b-2xl p-5 space-y-1">
-          {[["solutions","Solutions"],["for-doctors","For Doctors"],["about","About"],["support","Support"]].map(([id,label]) => (
+          {[["solutions","Solutions"],["teleconsult","Tele-Consult"],["for-doctors","For Doctors"],["about","About"],["support","Support"]].map(([id,label]) => (
             <button key={id} onClick={() => scrollTo(id)} className="w-full text-left px-4 py-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-primary transition-all duration-200">
               {label}
             </button>
@@ -175,12 +175,16 @@ function Landing() {
             <p className="text-lg md:text-xl text-slate-500 max-w-xl mx-auto mb-10 leading-relaxed">
               Join trusted health communities, get AI-backed clarity, and take confident next steps — without confusion.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
               <Link href="/sign-in" className="px-8 py-3.5 bg-primary text-white rounded-xl font-semibold text-base hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5">
                 Join a Community
               </Link>
               <Link href="/sign-in" className="px-8 py-3.5 bg-white text-slate-800 rounded-xl font-semibold text-base border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 hover:-translate-y-0.5">
                 Ask a Question
+              </Link>
+              <Link href="/sign-in" className="px-8 py-3.5 bg-emerald-600 text-white rounded-xl font-semibold text-base hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 inline-flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                Book a Tele-Consult
               </Link>
             </div>
             <p className="text-xs text-slate-400 mt-5">Free forever. No credit card needed.</p>
@@ -285,8 +289,65 @@ function Landing() {
           </div>
         </section>
 
+        {/* ── TELE-CONSULT ── */}
+        <section id="teleconsult" className="py-20 md:py-28 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-16 items-center">
+              <div className="bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-2xl p-8 border border-emerald-100 shadow-sm order-2 md:order-1">
+                <div className="space-y-4">
+                  {[
+                    { icon: "🤖", label: "AI Triage by Yukti", value: "4-step symptom check assigns severity & specialty" },
+                    { icon: "📹", label: "Video, Audio or Chat", value: "Choose how you want to talk to your doctor" },
+                    { icon: "💊", label: "Digital Prescription", value: "Medications, dosage and red-flag warnings — saved to your records" },
+                    { icon: "🔒", label: "Consent-First", value: "Your data is shared only after you explicitly approve it" },
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-emerald-100 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="text-2xl w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center flex-shrink-0">{item.icon}</div>
+                      <div>
+                        <div className="font-semibold text-slate-900 text-sm">{item.label}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{item.value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="order-1 md:order-2">
+                <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                  Tele-Consulting
+                </div>
+                <h2 className="text-2xl md:text-3xl font-semibold text-slate-900 mb-4 leading-tight">Talk to a verified doctor — in minutes, from anywhere</h2>
+                <p className="text-slate-500 mb-7 leading-relaxed max-w-md">
+                  Start with a quick AI triage, get matched to the right specialist, and consult over video, audio or chat. Receive a digital prescription right after — all inside HealthCircle.
+                </p>
+                <ul className="space-y-3.5">
+                  {[
+                    "Yukti AI triage flags severity (low / medium / high) and routes you to the right specialty",
+                    "Browse 8+ verified doctors with their fees, languages and availability",
+                    "End-to-end consultation room: live messaging, secure notes, video placeholder",
+                    "Prescriptions and red-flag warnings saved to your consultation history",
+                  ].map(f => (
+                    <li key={f} className="flex items-start gap-3 text-sm text-slate-700">
+                      <span className="flex-shrink-0 w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-9 flex flex-col sm:flex-row gap-3">
+                  <Link href="/sign-in" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5">
+                    Book a Tele-Consult →
+                  </Link>
+                  <Link href="/sign-in" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-800 rounded-xl font-semibold text-sm border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200">
+                    Try AI Triage first
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── FOR DOCTORS ── */}
-        <section id="for-doctors" className="py-20 md:py-28 px-4">
+        <section id="for-doctors" className="bg-slate-50 border-y border-slate-100 py-20 md:py-28 px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-16 items-center">
               <div>
