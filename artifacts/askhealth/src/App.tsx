@@ -591,6 +591,11 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   const [bootstrapStatus, setBootstrapStatus] = React.useState<{ adminExists: boolean } | null>(null);
   const [bootstrapError, setBootstrapError] = React.useState<string | null>(null);
 
+  const [showTokenForm, setShowTokenForm] = React.useState(false);
+  const [tokenInput, setTokenInput] = React.useState("");
+  const [tokenSubmitting, setTokenSubmitting] = React.useState(false);
+  const [tokenError, setTokenError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     if (!isLoading && user && user.role !== "admin") {
       fetch("/api/admin/bootstrap/status")
@@ -615,6 +620,41 @@ function AdminGate({ children }: { children: React.ReactNode }) {
       setBootstrapError("Network error. Please try again.");
     } finally {
       setBootstrapping(false);
+    }
+  };
+
+  const handleTokenSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = tokenInput.trim();
+    if (!t) { setTokenError("Please paste the admin token."); return; }
+    setTokenSubmitting(true);
+    setTokenError(null);
+    try {
+      // Store the token first so setExtraHeadersGetter forwards it on the
+      // probe call below. The backend's requireAdmin will (a) verify the
+      // token in constant time and (b) auto-promote the signed-in Clerk
+      // user's DB role to "admin" so the normal Clerk-based path works on
+      // every subsequent request.
+      window.localStorage.setItem("healthcircle:adminToken", t);
+      const res = await fetch("/api/admin/stats", { headers: { "x-admin-token": t } });
+      if (res.status === 401 || res.status === 403) {
+        window.localStorage.removeItem("healthcircle:adminToken");
+        setTokenError("That token is incorrect. Please double-check and try again.");
+        return;
+      }
+      if (!res.ok) {
+        setTokenError(`Unexpected response (${res.status}). Please try again.`);
+        return;
+      }
+      // Token accepted + role promoted server-side → refetch the user so the
+      // gate flips open.
+      await refetch();
+      setTokenInput("");
+      setShowTokenForm(false);
+    } catch {
+      setTokenError("Network error. Please try again.");
+    } finally {
+      setTokenSubmitting(false);
     }
   };
 
@@ -644,6 +684,51 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 
         {bootstrapStatus?.adminExists && (
           <p className="text-xs text-slate-400 max-w-sm">An admin already exists. Contact them to grant you access.</p>
+        )}
+
+        {!showTokenForm ? (
+          <button
+            onClick={() => { setShowTokenForm(true); setTokenError(null); }}
+            className="text-xs text-primary hover:underline mt-1"
+            data-testid="open-admin-token-form"
+          >
+            Have a recovery admin token? Use it
+          </button>
+        ) : (
+          <form onSubmit={handleTokenSubmit} className="mt-2 p-4 bg-slate-50 border border-slate-200 rounded-xl max-w-sm w-full text-left">
+            <p className="text-sm text-slate-700 font-medium mb-1">Recovery: enter admin token</p>
+            <p className="text-xs text-slate-500 mb-3">
+              Paste the server-side <code className="font-mono">ADMIN_TOKEN</code> to unlock and promote your account to admin.
+              The token stays only in your browser.
+            </p>
+            <input
+              type="password"
+              value={tokenInput}
+              onChange={e => setTokenInput(e.target.value)}
+              placeholder="Paste admin token…"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              autoFocus
+              data-testid="admin-token-input"
+            />
+            {tokenError && <p className="text-xs text-red-500 mb-2" data-testid="admin-token-error">{tokenError}</p>}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={tokenSubmitting || !tokenInput.trim()}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-60"
+                data-testid="admin-token-submit"
+              >
+                {tokenSubmitting ? "Verifying…" : "Unlock & Promote"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowTokenForm(false); setTokenInput(""); setTokenError(null); }}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         )}
 
         <Link href="/communities">
