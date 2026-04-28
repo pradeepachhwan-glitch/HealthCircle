@@ -18,3 +18,7 @@ export * from "./ai_summaries";
 export * from "./consultations";
 export * from "./payments";
 export * from "./api_usage";
+export * from "./tc_consultations";
+export * from "./tc_triage_sessions";
+export * from "./tc_prescriptions";
+export * from "./tc_messages";

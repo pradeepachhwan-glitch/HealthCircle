@@ -243,3 +243,33 @@ The Find Doctors / Find Hospitals search no longer AND-combines `q + specialty +
 - `pnpm --filter @workspace/db run push` — Push DB schema changes
 - `pnpm --filter @workspace/db run seed-providers` — Re-seed doctors/hospitals
 - `pnpm --filter @workspace/api-spec run codegen` — Regenerate API client hooks
+
+## Tele-Consulting + Yukti Triage Module (Apr 2026)
+Non-disruptive extension. New routes under `/teleconsult/*`, API namespace `/api/tc/*`, four new `tc_*` tables. Zero changes to existing modules, auth, or UI styles.
+
+- **Schema** (`lib/db/src/schema/tc_*.ts`):
+  - `tc_triage_sessions` — chiefComplaint, symptoms[], duration, severity, history, AI parsed JSON (riskLevel/specialty/consultType/redFlags/summary).
+  - `tc_consultations` — userId, doctorId, triageSessionId?, type (video|audio|chat), status (booked|in-progress|completed|cancelled), chiefComplaint, consentGiven, scheduledAt, startedAt, endedAt.
+  - `tc_messages` — consultationId, senderId, senderRole, message, attachmentUrl.
+  - `tc_prescriptions` — consultationId, icdCodes, medicationsJson, instructions, followUpDate, redFlags.
+
+- **API** (`artifacts/api-server/src/routes/teleconsult.ts`, all under `/api/tc`, all `requireAuth`):
+  - `POST /tc/triage/start` — runs Yukti via `aiChatJson()`, persists session with parsed result.
+  - `GET /tc/triage/:id`
+  - `GET /tc/doctors` — re-uses the existing `doctors` table (sorted by rating).
+  - `POST /tc/consultation/book` — requires `consentGiven:true`, optional `triageSessionId` link.
+  - `GET /tc/consultation/:id` — returns `{consultation, doctor, triageSession, messages, prescription}` stitched together.
+  - `POST /tc/consultation/:id/start` and `/close` — status transitions.
+  - `POST /tc/message`, `GET /tc/consultation/:id/messages`.
+  - `POST /tc/prescription/generate`.
+  - `GET /tc/consultations` — list current user's consultations.
+
+- **Frontend** (`artifacts/askhealth/src/pages/Teleconsult*.tsx`, all 5 protected via `App.tsx`):
+  - `/teleconsult` — Dashboard cards (start triage, browse doctors, recent consultations).
+  - `/teleconsult/triage` — 4-step wizard (complaint → symptoms/duration/severity → history → review) → AI result card with risk badge, suggested specialty, red flags, and "Find a Doctor" CTA that passes `?triage=<id>`.
+  - `/teleconsult/doctors` — doctor cards with consent modal (compliance-required checkbox) before booking.
+  - `/teleconsult/session/:id` — split layout: chat/notes tabs + video placeholder ("Session not started/Live/Ended"); video provider not integrated.
+  - `/teleconsult/summary/:id` — post-call summary; suggests joining a relevant Circle for continuity care.
+  - Sidebar nav: new "Tele-Consult" item with `Video` icon (`Layout.tsx`).
+
+- **Notes**: Tables created via direct SQL in dev (drizzle-kit push prompts blocked on an unrelated `users.username` constraint). No video provider keys yet — UI shows a placeholder. All AI calls go through the existing `aiChatJson` helper, so they inherit the same rate-limiter that wraps `/api`.

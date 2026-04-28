@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
 import { useClerk, useAuth } from "@workspace/replit-auth-web";
-import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info } from "lucide-react";
+import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info, Video } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -32,6 +32,7 @@ function SidebarContent() {
   const navItems = [
     { href: "/communities", icon: Users, label: "Communities" },
     { href: "/chat", icon: MessageCircle, label: "Ask Yukti AI" },
+    { href: "/teleconsult", icon: Video, label: "Tele-Consult" },
     { href: "/providers", icon: Stethoscope, label: "Find Doctors" },
     { href: "/appointments", icon: CalendarDays, label: "Appointments" },
     { href: "/search", icon: Search, label: "Search" },

@@ -18,6 +18,7 @@ import medproRouter from "./medpro";
 import paymentsRouter from "./payments";
 import uploadsRouter from "./uploads";
 import publicAiRouter from "./publicAi";
+import teleconsultRouter from "./teleconsult";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(medproRouter);
 router.use(paymentsRouter);
 router.use(uploadsRouter);
 router.use(publicAiRouter);
+router.use(teleconsultRouter);
 
 export default router;

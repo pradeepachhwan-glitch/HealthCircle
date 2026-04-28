@@ -42,6 +42,11 @@ import CustomSignIn from "@/pages/sign-in";
 import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
 import MedPro from "@/pages/medpro";
+import TeleconsultDashboard from "@/pages/TeleconsultDashboard";
+import TeleconsultTriage from "@/pages/TeleconsultTriage";
+import TeleconsultDoctors from "@/pages/TeleconsultDoctors";
+import TeleconsultSession from "@/pages/TeleconsultSession";
+import TeleconsultSummary from "@/pages/TeleconsultSummary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -817,6 +822,26 @@ function AppRoutes() {
 
           <Route path="/medpro">
             <ProtectedRoute><MedProGate><MedPro /></MedProGate></ProtectedRoute>
+          </Route>
+
+          <Route path="/teleconsult">
+            <ProtectedRoute><TeleconsultDashboard /></ProtectedRoute>
+          </Route>
+
+          <Route path="/teleconsult/triage">
+            <ProtectedRoute><TeleconsultTriage /></ProtectedRoute>
+          </Route>
+
+          <Route path="/teleconsult/doctors">
+            <ProtectedRoute><TeleconsultDoctors /></ProtectedRoute>
+          </Route>
+
+          <Route path="/teleconsult/session/:id">
+            <ProtectedRoute><TeleconsultSession /></ProtectedRoute>
+          </Route>
+
+          <Route path="/teleconsult/summary/:id">
+            <ProtectedRoute><TeleconsultSummary /></ProtectedRoute>
           </Route>
 
           <Route path="/admin">
