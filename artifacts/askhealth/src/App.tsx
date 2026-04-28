@@ -189,6 +189,10 @@ function Landing() {
         </nav>
         <div className="hidden md:flex items-center gap-3">
           <PWAInstallButton variant="ghost" label="Install app" />
+          <Link href="/admin" className="text-sm font-medium px-4 py-2.5 text-slate-500 hover:text-primary transition-colors duration-200 rounded-xl hover:bg-slate-50 inline-flex items-center gap-1.5" data-testid="landing-admin-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Admin
+          </Link>
           <Link href="/sign-in" className="text-sm font-medium px-5 py-2.5 text-slate-600 hover:text-primary transition-colors duration-200 rounded-xl hover:bg-slate-50">Sign In</Link>
           <Link href="/sign-up" className="text-sm font-semibold px-6 py-2.5 bg-ai-gradient text-white rounded-xl shadow-card hover:shadow-hover-lift hover:-translate-y-px transition-default">Get Started Free</Link>
         </div>
@@ -214,6 +218,9 @@ function Landing() {
             <Link href="/sign-in" className="flex-1 text-center text-sm font-medium px-4 py-2.5 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-colors">Sign In</Link>
             <Link href="/sign-up" className="flex-1 text-center text-sm font-semibold px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors">Get Started</Link>
           </div>
+          <Link href="/admin" className="block w-full text-center text-xs font-medium px-4 py-2 text-slate-500 hover:text-primary hover:bg-slate-50 rounded-xl transition-colors mt-1" data-testid="landing-admin-link-mobile">
+            Admin
+          </Link>
         </div>
       )}
 
