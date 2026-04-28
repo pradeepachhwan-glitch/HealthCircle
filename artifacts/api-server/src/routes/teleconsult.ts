@@ -50,6 +50,13 @@ router.post("/tc/triage/start", requireAuth, async (req: any, res) => {
 
   const symptomsArr = Array.isArray(symptoms) ? symptoms : symptoms ? [symptoms] : [];
 
+  // Coerce severity to a 1-10 integer, or null if invalid/missing
+  let severityNum: number | null = null;
+  if (severity !== undefined && severity !== null && severity !== "") {
+    const n = parseInt(String(severity), 10);
+    if (Number.isInteger(n) && n >= 1 && n <= 10) severityNum = n;
+  }
+
   interface TriageResult {
     riskLevel: "LOW" | "MEDIUM" | "HIGH";
     riskReason: string;
@@ -112,7 +119,7 @@ Rules: HIGH = chest pain, breathing difficulty, stroke symptoms, severe trauma; 
       chiefComplaint,
       symptomsJson: JSON.stringify(symptomsArr),
       duration: duration ?? null,
-      severity: severity !== undefined ? parseInt(String(severity)) : null,
+      severity: severityNum,
       medicalHistory: medicalHistory ?? null,
       medications: medications ?? null,
       vitals: vitals ?? null,
@@ -345,6 +352,10 @@ router.post("/tc/prescription/generate", requireAuth, async (req: any, res) => {
   const owned = await getOwnedConsultation(cId, userId);
   if (!owned) return res.status(404).json({ error: "Consultation not found" });
 
+  // Sanitize: medications and redFlags must be arrays (frontend .map() expects array)
+  const medsArr = Array.isArray(medications) ? medications : null;
+  const flagsArr = Array.isArray(redFlags) ? redFlags : null;
+
   const [existing] = await db
     .select()
     .from(tcPrescriptions)
@@ -356,10 +367,10 @@ router.post("/tc/prescription/generate", requireAuth, async (req: any, res) => {
       .update(tcPrescriptions)
       .set({
         icdCodes: icdCodes ?? null,
-        medicationsJson: medications ? JSON.stringify(medications) : null,
+        medicationsJson: medsArr ? JSON.stringify(medsArr) : null,
         instructions: instructions ?? null,
         followUpDate: followUpDate ?? null,
-        redFlags: redFlags ? JSON.stringify(redFlags) : null,
+        redFlags: flagsArr ? JSON.stringify(flagsArr) : null,
       })
       .where(eq(tcPrescriptions.id, existing.id))
       .returning();
@@ -369,10 +380,10 @@ router.post("/tc/prescription/generate", requireAuth, async (req: any, res) => {
       .values({
         consultationId: cId,
         icdCodes: icdCodes ?? null,
-        medicationsJson: medications ? JSON.stringify(medications) : null,
+        medicationsJson: medsArr ? JSON.stringify(medsArr) : null,
         instructions: instructions ?? null,
         followUpDate: followUpDate ?? null,
-        redFlags: redFlags ? JSON.stringify(redFlags) : null,
+        redFlags: flagsArr ? JSON.stringify(flagsArr) : null,
       })
       .returning();
   }
