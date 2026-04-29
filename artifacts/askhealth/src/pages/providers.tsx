@@ -105,50 +105,95 @@ function useLocation() {
 function DoctorCard({ doctor, onBook }: { doctor: Doctor; onBook: (doctor: Doctor) => void }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md transition-all hover:border-primary/30">
-      <div className="flex gap-4">
-        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
-          <Stethoscope className="w-6 h-6 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="font-semibold text-slate-900">{doctor.name}</h3>
-              <p className="text-sm text-primary font-medium">{doctor.specialty}</p>
-              {doctor.source === "openstreetmap" && (
-                <p className="text-[11px] text-slate-400 mt-0.5">Live nearby clinic · OpenStreetMap</p>
-              )}
+      {(() => {
+        // OpenStreetMap rows don't include real rating, specialty, fee, or
+        // availability data — those defaults are placeholders. Showing them
+        // would imply HealthCircle has vetted facts we actually don't have.
+        const isOsm = doctor.source === "openstreetmap";
+        const safeSourceUrl = safeUrl(doctor.sourceUrl);
+        return (
+          <div className="flex gap-4">
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${isOsm ? "bg-slate-100" : "bg-gradient-to-br from-primary/20 to-primary/5"}`}>
+              <Stethoscope className={`w-6 h-6 ${isOsm ? "text-slate-500" : "text-primary"}`} />
             </div>
-            <Badge className={doctor.available ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"} variant="outline">
-              {doctor.available ? "Available" : "Unavailable"}
-            </Badge>
-          </div>
-          <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-500">
-            <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" />{doctor.rating}</span>
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{doctor.experienceYears} yrs exp.</span>
-            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{doctor.location}</span>
-          </div>
-          {doctor.bio && <p className="text-xs text-slate-500 mt-2 line-clamp-2">{doctor.bio}</p>}
-          <div className="flex items-center justify-between mt-3">
-            <div>
-              <span className="text-slate-900 font-bold">₹{doctor.consultationFee}</span>
-              <span className="text-slate-400 text-xs ml-1">/ consultation</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-slate-900">{doctor.name}</h3>
+                  {isOsm ? (
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Public map listing · OpenStreetMap (unverified)
+                    </p>
+                  ) : (
+                    <p className="text-sm text-primary font-medium">{doctor.specialty}</p>
+                  )}
+                </div>
+                {!isOsm && (
+                  <Badge className={doctor.available ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"} variant="outline">
+                    {doctor.available ? "Available" : "Unavailable"}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-500">
+                {!isOsm && (
+                  <>
+                    <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" />{doctor.rating}</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{doctor.experienceYears} yrs exp.</span>
+                  </>
+                )}
+                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{doctor.location}</span>
+                {isOsm && doctor.phone && (
+                  <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{doctor.phone}</span>
+                )}
+              </div>
+              {doctor.bio && !isOsm && <p className="text-xs text-slate-500 mt-2 line-clamp-2">{doctor.bio}</p>}
+              <div className="flex items-center justify-between mt-3">
+                {isOsm ? (
+                  <p className="text-xs text-slate-500">
+                    HealthCircle hasn't verified this listing — please contact them directly to confirm.
+                  </p>
+                ) : (
+                  <div>
+                    <span className="text-slate-900 font-bold">₹{doctor.consultationFee}</span>
+                    <span className="text-slate-400 text-xs ml-1">/ consultation</span>
+                  </div>
+                )}
+                {isOsm ? (
+                  safeSourceUrl ? (
+                    <a
+                      href={safeSourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Globe className="w-3.5 h-3.5" /> View on OpenStreetMap
+                    </a>
+                  ) : null
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => onBook(doctor)}
+                    disabled={!doctor.available}
+                    className="bg-primary hover:bg-primary/90 text-white text-xs"
+                  >
+                    <Calendar className="w-3.5 h-3.5 mr-1" /> Book Appointment
+                  </Button>
+                )}
+              </div>
             </div>
-            <Button
-              size="sm"
-              onClick={() => onBook(doctor)}
-              disabled={!doctor.available}
-              className="bg-primary hover:bg-primary/90 text-white text-xs"
-            >
-              <Calendar className="w-3.5 h-3.5 mr-1" /> Book Appointment
-            </Button>
           </div>
-        </div>
-      </div>
+        );
+      })()}
     </div>
   );
 }
 
 function HospitalCard({ hospital }: { hospital: Hospital }) {
+  // OSM rows have placeholder rating ("0.0") and a generic ["General"] specialty
+  // — both meaningless. Hide them and show an honest "unverified" caption so
+  // the user understands this is just a public map listing.
+  const isOsm = hospital.source === "openstreetmap";
+  const safeSourceUrl = safeUrl(hospital.sourceUrl);
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md transition-all hover:border-primary/30">
       <div className="flex gap-4">
@@ -162,19 +207,28 @@ function HospitalCard({ hospital }: { hospital: Hospital }) {
               <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                 <MapPin className="w-3 h-3" /> {hospital.location}
               </div>
+              {isOsm && (
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Public map listing · OpenStreetMap (unverified)
+                </p>
+              )}
             </div>
-            <span className="flex items-center gap-1 text-sm font-medium text-amber-600">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> {hospital.rating}
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {hospital.specialties?.slice(0, 4).map(s => (
-              <Badge key={s} variant="secondary" className="text-xs px-2 py-0.5">{s}</Badge>
-            ))}
-            {(hospital.specialties?.length ?? 0) > 4 && (
-              <Badge variant="outline" className="text-xs px-2 py-0.5">+{hospital.specialties.length - 4} more</Badge>
+            {!isOsm && (
+              <span className="flex items-center gap-1 text-sm font-medium text-amber-600">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> {hospital.rating}
+              </span>
             )}
           </div>
+          {!isOsm && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {hospital.specialties?.slice(0, 4).map(s => (
+                <Badge key={s} variant="secondary" className="text-xs px-2 py-0.5">{s}</Badge>
+              ))}
+              {(hospital.specialties?.length ?? 0) > 4 && (
+                <Badge variant="outline" className="text-xs px-2 py-0.5">+{hospital.specialties.length - 4} more</Badge>
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap gap-4 mt-3 text-xs text-slate-500">
             {hospital.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{hospital.phone}</span>}
             {safeUrl(hospital.website) && (
@@ -182,7 +236,17 @@ function HospitalCard({ hospital }: { hospital: Hospital }) {
                 <Globe className="w-3 h-3" /> Website
               </a>
             )}
+            {isOsm && safeSourceUrl && (
+              <a href={safeSourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                <Globe className="w-3 h-3" /> View on OpenStreetMap
+              </a>
+            )}
           </div>
+          {isOsm && (
+            <p className="text-xs text-slate-500 mt-2">
+              HealthCircle hasn't verified this listing — please contact them directly to confirm details.
+            </p>
+          )}
         </div>
       </div>
     </div>

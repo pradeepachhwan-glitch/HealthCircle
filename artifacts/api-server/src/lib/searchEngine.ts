@@ -258,14 +258,22 @@ function templateSummary(
   }
 
   const hits: string[] = [];
-  if (providers.length) {
-    const docs = providers.filter(p => p.type === "doctor");
-    const top = docs[0] ?? providers[0];
+  // Only quote provider names that come from HealthCircle's vetted directory
+  // (DB rows). OpenStreetMap rows have no specialty/rating data and are not
+  // endorsed — counting them as "verified" would mislead the user.
+  const verifiedProviders = providers.filter(p => p.source !== "openstreetmap");
+  const osmProviders = providers.filter(p => p.source === "openstreetmap");
+  if (verifiedProviders.length) {
+    const docs = verifiedProviders.filter(p => p.type === "doctor");
+    const top = docs[0] ?? verifiedProviders[0];
     if (docs.length > 0 && top.specialty) {
       hits.push(`${docs.length} verified ${top.specialty}${docs.length === 1 ? "" : "s"} on HealthCircle (e.g. ${top.name} in ${top.location})`);
     } else if (top) {
-      hits.push(`${providers.length} verified provider${providers.length === 1 ? "" : "s"} on HealthCircle`);
+      hits.push(`${verifiedProviders.length} verified provider${verifiedProviders.length === 1 ? "" : "s"} on HealthCircle`);
     }
+  }
+  if (osmProviders.length) {
+    hits.push(`${osmProviders.length} nearby clinic${osmProviders.length === 1 ? "" : "s"} from public map data (unverified)`);
   }
   if (communities.length) {
     const top = communities[0];
@@ -301,16 +309,29 @@ async function synthesizeSummary(
 
   const systemPrompt = `You are HealthCircle Search — India's self-contained health super app. Write a SHORT (2-3 sentence), warm, factual summary that directly addresses the user's query. STRICT RULES:
 1. NEVER mention or recommend any external service (Practo, 1mg, Apollo 24/7, Tata 1mg, Justdial, PharmEasy, WebMD, Google, Lybrate, Netmeds, NHP, etc.). Everything must point inward to HealthCircle.
-2. When relevant, weave in the actual platform results we found — say things like "you can consult Dr. X (cardiologist, Mumbai) below" or "the Heart Circle community has N active discussions on this".
-3. Never diagnose, prescribe, or give dosages. Encourage booking a HealthCircle verified doctor for anything beyond general info.
-4. If risk is "high", lead with the urgency and the 108 / emergency advice.
-5. Respond ONLY with a JSON object of shape: {"summary": "..."}.`;
+2. Only the entries under \`verified_providers\` are vetted by HealthCircle — those are the ONLY provider names you may quote. The \`nearby_on_map_count\` is unverified OpenStreetMap data; refer to it generically (e.g. "we also surfaced N nearby clinics from public map data") and NEVER name those entries or imply HealthCircle endorses them.
+3. If \`verified_providers\` is empty, do NOT invent or quote any specific doctor or clinic — say plainly that we don't yet have a verified specialist for this query in their city, and point them to the nearby map results and our communities instead.
+4. When relevant, weave in the actual verified results we found — say things like "you can consult Dr. X (cardiologist, Mumbai) below" or "the Heart Circle community has N active discussions on this".
+5. Never diagnose, prescribe, or give dosages. Encourage booking a HealthCircle verified doctor for anything beyond general info.
+6. If risk is "high", lead with the urgency and the 108 / emergency advice.
+7. Respond ONLY with a JSON object of shape: {"summary": "..."}.`;
+
+  // Split providers by source so the AI can only quote vetted DB entries by
+  // name. OSM (public map) entries are surfaced as a count + reminder so the
+  // model doesn't hallucinate endorsements like "consult Dr. Gandhi" for a
+  // random map pin we have no relationship with.
+  const verifiedProviders = providers.filter(p => p.source !== "openstreetmap");
+  const osmProviders = providers.filter(p => p.source === "openstreetmap");
 
   const dataContext = {
     query,
     intent,
     risk_level: risk,
-    providers_found: providers.slice(0, 5).map(p => ({ name: p.name, specialty: p.specialty, location: p.location, type: p.type })),
+    verified_providers: verifiedProviders.slice(0, 5).map(p => ({ name: p.name, specialty: p.specialty, location: p.location, type: p.type })),
+    nearby_on_map_count: osmProviders.length,
+    nearby_on_map_note: osmProviders.length > 0
+      ? "These are public OpenStreetMap pins — unverified, no rating or specialty data. Do not name them."
+      : null,
     communities_found: communities.slice(0, 3).map(c => ({ name: c.name, slug: c.slug })),
     discussions_found: discussions.slice(0, 3).map(d => ({ title: d.title, community: d.communityName, upvotes: d.upvoteCount, expertAnswered: d.isExpertAnswered })),
   };

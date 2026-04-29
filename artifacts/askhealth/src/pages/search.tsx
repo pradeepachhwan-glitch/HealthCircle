@@ -353,40 +353,90 @@ export default function SearchPage() {
                 </div>
               )}
 
-              {/* In-app DB providers (if any) */}
-              {result.providers.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
-                    <Stethoscope className="w-4 h-4 text-primary" />
-                    {result.detectedSpecialty
-                      ? <>HealthCircle Verified {result.detectedSpecialty}s</>
-                      : <>HealthCircle Verified Providers</>}
-                  </h3>
-                  <div className="space-y-3">
-                    {result.providers.map((p, i) => (
-                      <Link key={i} href="/providers">
-                        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer">
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            {p.type === "doctor" ? <Stethoscope className="w-5 h-5 text-primary" /> : <Building2 className="w-5 h-5 text-slate-600" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-900 text-sm">{p.name}</p>
-                            <p className="text-xs text-slate-500">{p.specialty ?? "Hospital"} · {p.location}</p>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-xs font-semibold text-amber-600">★ {p.rating}</p>
-                            {p.type === "doctor" && (
-                              <Badge variant="outline" className={`mt-1 text-[10px] ${p.available ? "text-emerald-600 border-emerald-200" : "text-slate-400"}`}>
-                                {p.available ? "Available" : "Busy"}
-                              </Badge>
-                            )}
-                          </div>
+              {/* Verified providers (vetted DB rows) and unverified map pins
+                  are deliberately rendered under separate headings so users
+                  never confuse a public OpenStreetMap entry with a provider
+                  HealthCircle has actually verified. */}
+              {(() => {
+                const verified = result.providers.filter(p => p.source !== "openstreetmap");
+                const nearby   = result.providers.filter(p => p.source === "openstreetmap");
+                return (
+                  <>
+                    {verified.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-primary" />
+                          {result.detectedSpecialty
+                            ? <>HealthCircle Verified {result.detectedSpecialty}s</>
+                            : <>HealthCircle Verified Providers</>}
+                        </h3>
+                        <div className="space-y-3">
+                          {verified.map((p, i) => (
+                            <Link key={`v-${i}`} href="/providers">
+                              <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer">
+                                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                  {p.type === "doctor" ? <Stethoscope className="w-5 h-5 text-primary" /> : <Building2 className="w-5 h-5 text-slate-600" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-slate-900 text-sm">{p.name}</p>
+                                  <p className="text-xs text-slate-500">{p.specialty ?? "Hospital"} · {p.location}</p>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-xs font-semibold text-amber-600">★ {p.rating}</p>
+                                  {p.type === "doctor" && (
+                                    <Badge variant="outline" className={`mt-1 text-[10px] ${p.available ? "text-emerald-600 border-emerald-200" : "text-slate-400"}`}>
+                                      {p.available ? "Available" : "Busy"}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </Link>
+                          ))}
                         </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      </div>
+                    )}
+
+                    {nearby.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4 text-slate-500" />
+                          Nearby on the map
+                          <span className="text-xs font-normal text-slate-400">· OpenStreetMap (unverified)</span>
+                        </h3>
+                        <p className="text-xs text-slate-500 mb-3">
+                          These are public map listings — HealthCircle hasn't verified ratings, specialties, or availability. Please contact them directly.
+                        </p>
+                        <div className="space-y-3">
+                          {nearby.map((p, i) => {
+                            const href = p.sourceUrl ?? undefined;
+                            const card = (
+                              <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4 flex items-center gap-3 hover:border-slate-400 hover:shadow-sm transition-all">
+                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                  {p.type === "doctor" ? <Stethoscope className="w-5 h-5 text-slate-500" /> : <Building2 className="w-5 h-5 text-slate-500" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-slate-900 text-sm">{p.name}</p>
+                                  <p className="text-xs text-slate-500">{p.location}</p>
+                                </div>
+                                <span className="text-[10px] uppercase tracking-wide text-slate-400 flex-shrink-0">
+                                  Map data
+                                </span>
+                              </div>
+                            );
+                            return href ? (
+                              <a key={`n-${i}`} href={href} target="_blank" rel="noopener noreferrer">
+                                {card}
+                              </a>
+                            ) : (
+                              <div key={`n-${i}`}>{card}</div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Discussions on HealthCircle — real posts matching the query */}
               {result.discussions && result.discussions.length > 0 && (
