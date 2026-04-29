@@ -261,6 +261,34 @@ The Find Doctors / Find Hospitals search no longer AND-combines `q + specialty +
 - **Cross-page navigation**: New `src/pages/marketing/MarketingCrossLinks.tsx` is embedded inside `PageShell.tsx`, so every marketing sub-page (`/solutions`, `/for-doctors`, `/about`, `/support`) ends with a "Continue exploring — More from HealthCircle" section. It reads the current path via `useLocation` and shows the OTHER three pages as cards plus a "Try Yukti free" link.
 - **Hero copy tweak**: Subtitle is now "No signup required · 1 free question · English & हिंदी" and the secondary link reads "or create an account" → `/sign-in`.
 
+## Interactive Landing Polish (Apr 2026)
+Big interactivity pass on the marketing landing page using `framer-motion` (already in `package.json`, previously unused on landing). Goal: feel premium and alive without compromising trust in a healthcare context.
+
+**New reusable components in `src/components/`:**
+- **`Reveal` + `RevealStagger`** — viewport-triggered fade+slide-up wrapper using `whileInView` (`once: true, amount: 0.2`). Cubic ease, 24px lift, 0.55s. Stagger version cascades children at 80ms intervals. Both honor `prefers-reduced-motion` (skip transform when reduce is true).
+- **`CountUp`** — animates a number from 0 to `end` once it scrolls into view, using `useInView` + `requestAnimationFrame` with cubic-out easing. Renders the final value instantly when reduced-motion is on. Supports prefix/suffix (e.g. "+", "%"), Indian-locale formatting (`toLocaleString("en-IN")`), and decimals.
+- **`TiltCard`** — wraps any block in a 3D mouse-tilt effect using `useMotionValue` + `useSpring` for weighty motion, plus an optional cursor-following radial highlight (`glareBg` derived at top-level via `useTransform([sx, sy], …)` — never inside conditional JSX, so hook order is stable). Auto-disables on touch / reduced-motion (returns plain div). `onMouseLeave` resets to 0,0 so cards never stay stuck tilted.
+- **`FloatingYuktiPill`** — desktop-only (`hidden md:block`) sticky CTA at `bottom-6 right-6`, `z-40`. Appears when `window.scrollY > 600`, dismissible via a sibling × button (NOT nested inside the anchor, so no interactive-in-interactive nesting). Pulsing color halo + slowly rotating gradient "spark" badge. Mobile is intentionally excluded because the bottom-nav already exposes Yukti, and a FAB there would clutter the safe-area.
+
+**Section upgrades on `landing/sections/`:**
+- **`TrustBand`** — replaced static labels with iconified stat cards. "20+" communities and "500+" verified doctors now use `CountUp`; icons get a hover pop (`scale 1.08`, rotate -4°) gated on reduce-motion.
+- **`Pillars`** — each card is now wrapped in `Reveal` → `TiltCard` → `Link`, so the whole row reveals with a stagger, individual cards tilt under the cursor with a colored glow blooming behind the icon, and inner elements (icon, title, body, CTA) get `translateZ(8–20px)` so they parallax against the card surface during tilt. Whole "Verified doctors" CTA now correctly routes to `/providers` (was `/#try-yukti`).
+- **`HowItWorks`** — formerly a static 4-column list. Now has a scroll-linked gradient track (violet → cyan → emerald) that fills as the user scrolls past the section, plus a glowing dot that travels along the track. Layout adapts: vertical track on mobile (left side), horizontal track at md+ (across the column header row). Each step number is a circular badge with hover spring.
+- **`Landing.tsx`** — mounts `<FloatingYuktiPill />` after `<SiteFooter />`.
+
+**`HealthCircleLogo`** — top-left logo upgraded from a one-off pop animation to a continuously living mark inspired by Windows Hello / Android boot loaders. Two concentric counter-rotating gradient rings, two orbital "comet" dots traveling along each ring, a soft pulsing color halo, drop-shadow color cycle, and a subtle "breathing" scale on the HC letters. Speeds up on hover. Respects `prefers-reduced-motion`. Re-enabled in `SiteHeader` via `animate={true}`.
+
+**Deliberately skipped (with reasons):**
+- Interactive body-silhouette condition explorer — high effort, mobile-hostile, `CommunitiesPreview` already serves discovery.
+- Live activity ticker ("someone in Mumbai just asked…") — privacy/trust risk in healthcare; we don't have a real anonymized stream.
+- Animated testimonial carousel — no real testimonials yet; faking them on a health app is a compliance risk.
+- Page-load splash screen — pure delay tax; the new animated logo already conveys "live" on first paint.
+
+**Code-review notes addressed:**
+- `TiltCard` originally called `useTransform` inside conditional JSX (`{glare && …}`). Moved to top-level so hook order is stable regardless of `glare`/`reduce` props.
+- `FloatingYuktiPill` originally nested `<motion.button>` inside `<Link>` (anchor-in-anchor). Refactored to a single `motion.a` with the dismiss button as a sibling.
+- All new `whileHover` interactions in `TrustBand`, `Pillars`, and `HowItWorks` are gated on `useReducedMotion()` so the experience is fully static for users who request it.
+
 ## UX & Routing Fixes (Apr 2026)
 - **Public Yukti demo input now reliably accepts typing.** `LandingYuktiDemo` autofocuses the question field on mount, refocuses on any click inside the card, sets `inputMode="text"` + `enterKeyHint="send"` for proper mobile keyboards, and uses `readOnly` (not `disabled`) during loading so the user never sees a non-typable field. Sample chips also refocus the input after pre-filling so users can continue editing.
 - **Admin link now flows through sign-in.** Both desktop and mobile Admin links in `SiteHeader` point to `/sign-in?next=%2Fadmin` instead of `/admin` directly. After login, `sign-in.tsx` reads the `?next=` query param (validated to same-origin relative paths) and redirects there. `ProtectedRoute` in `App.tsx` likewise redirects unauthenticated visits to `/sign-in?next=<currentPath>` instead of bouncing back to `/` so users always land on a meaningful screen.

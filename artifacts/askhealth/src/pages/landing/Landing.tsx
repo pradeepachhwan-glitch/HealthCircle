@@ -8,6 +8,7 @@ import { Pillars } from "./sections/Pillars";
 import { CommunitiesPreview } from "./sections/CommunitiesPreview";
 import { HowItWorks } from "./sections/HowItWorks";
 import { TeleConsultTeaser } from "./sections/TeleConsultTeaser";
+import { FloatingYuktiPill } from "@/components/FloatingYuktiPill";
 
 /**
  * If the URL contains a hash like `#try-yukti` (typically after a cross-page
@@ -62,6 +63,7 @@ export default function Landing() {
         <TeleConsultTeaser />
       </main>
       <SiteFooter />
+      <FloatingYuktiPill />
     </div>
   );
 }
