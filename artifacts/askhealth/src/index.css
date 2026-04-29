@@ -136,7 +136,7 @@
   --hc-error: #EF4444;
 
   --app-font-sans: 'Inter', system-ui, -apple-system, 'SF Pro Text', 'Poppins', sans-serif;
-  --app-font-serif: Georgia, serif;
+  --app-font-serif: 'Fraunces', 'Iowan Old Style', 'Apple Garamond', Georgia, serif;
   --app-font-mono: 'SF Mono', Menlo, monospace;
   --radius: 1rem;
 

@@ -234,6 +234,26 @@ The Find Doctors / Find Hospitals search no longer AND-combines `q + specialty +
 - City + availability remain hard AND filters; if the city zeroes the DB out, the server falls back to (a) DB-wide matches without the city filter, then (b) live OpenStreetMap nearby clinics through `lib/osmProviders.ts`. Both paths are returned together so users in cities without seeded providers still see relevant results.
 - Hospitals use the same OR/inference approach, applied to the Postgres `text[]` `specialties` array via `unnest` + `ILIKE`.
 
+## Premium Landing Redesign (Apr 2026)
+
+- **Goal**: Position HealthCircle as the premium, healthcare-grade alternative to onemedical.com / teladochealth.com / Activ Health, far ahead of competitor `healthcircle.life`. Single-product clarity, single CTA ("Try Yukti free"), editorial typography.
+- **Typography**: Added Google Font **Fraunces** (variable, opsz 9–144, weights 400–700) alongside Inter. Wired via `--app-font-serif` in `src/index.css`. Headlines use `font-serif` with selective italic + brand-violet emphasis (e.g. "Healthcare clarity, *the moment* you need it.").
+- **Architecture** (split out of the monolithic `App.tsx` inline `Landing`):
+  - `src/pages/landing/data.ts` — page constants (nav links, pillars, communities preview, how-it-works steps).
+  - `src/pages/landing/SiteHeader.tsx` — scroll-aware top nav with marketing page links, primary CTA pill.
+  - `src/pages/landing/SiteFooter.tsx` — 4-column footer.
+  - `src/pages/landing/Landing.tsx` — orchestrator (default export); composes Hero → TrustBand → Pillars → CommunitiesPreview → HowItWorks → TeleConsultTeaser.
+  - `src/pages/landing/sections/` — `Hero.tsx` (curved SVG ring + LandingYuktiDemo), `TrustBand.tsx`, `Pillars.tsx` (Lucide icons, 6-card grid), `CommunitiesPreview.tsx`, `HowItWorks.tsx`, `TeleConsultTeaser.tsx`.
+- **Marketing sub-pages** under `src/pages/marketing/` (all public, no auth):
+  - `PageShell.tsx` — shared chrome (SiteHeader + SiteFooter + content slot).
+  - `Solutions.tsx` (`/solutions`) — 6-pillar product grid.
+  - `ForDoctors.tsx` (`/for-doctors`) — MedPro portal pitch + feature cards + CTAs to `/become-a-doctor`.
+  - `About.tsx` (`/about`) — mission/vision/values + stats.
+  - `Support.tsx` (`/support`) — email/WhatsApp/doctor-onboarding channels (uses preserved `ContactModal`) + FAQ.
+- **Routes**: 4 new public routes added to `AppRoutes` in `App.tsx` after `/privacy`: `/solutions`, `/for-doctors`, `/about`, `/support`.
+- **Cleanup**: Removed inline `Landing` (~498 LOC) and unused data constants (`COMMUNITIES_PREVIEW`, `TRENDING_QUESTIONS`, `HOW_IT_WORKS`) and now-unused imports (`HealthCircleLogo`, `PWAInstallButton`, `ContactModal`, `LandingYuktiDemo`, community image imports) from `App.tsx`. `App.tsx` shrank from 941 → 418 lines.
+- **Note**: `LandingYuktiDemo` is reused inside the new `Hero.tsx`. `ContactModal` is reused inside `Support.tsx`.
+
 ## Public Yukti Demo on Landing Page (Apr 2026)
 - **Backend**: `POST /api/public/ask` (no auth) in `routes/publicAi.ts`. Calls `getHealthAssistantResponse` and returns `{ reply, summary, recommendations[≤3], risk_level, emergency }`. Length-validated (3–500 chars). Emergency triggers short-circuit to the fixed 108/AASRA response.
 - **Rate limit**: `publicAiRateLimiter` in `middleware/rateLimiter.ts` — 5 req/hour per IP (IPv6-safe key). Wired in `app.ts` on `/api/public` BEFORE the general limiter.
