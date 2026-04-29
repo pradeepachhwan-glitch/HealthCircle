@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ArrowLeft, HeartPulse } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -10,9 +10,13 @@ export default function TermsPage() {
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href={`${basePath}/`}>
             <div className="inline-flex items-center gap-2 cursor-pointer">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <HeartPulse className="w-4 h-4 text-white" />
-              </div>
+              <img
+                src={`${basePath}/icon-192.png`}
+                alt="HealthCircle"
+                width={32}
+                height={32}
+                className="w-8 h-8 rounded-lg"
+              />
               <span className="font-bold text-slate-900">HealthCircle</span>
             </div>
           </Link>

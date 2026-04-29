@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Eye, EyeOff, HeartPulse, Loader2, Lock, Mail, User } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
@@ -237,9 +237,13 @@ export default function SignInPage() {
         <div className="text-center">
           <Link href="/">
             <div className="inline-flex items-center gap-2.5 cursor-pointer mb-6">
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-md">
-                <HeartPulse className="w-5 h-5 text-white" />
-              </div>
+              <img
+                src="/icon-192.png"
+                alt="HealthCircle"
+                width={40}
+                height={40}
+                className="w-10 h-10 rounded-xl"
+              />
               <span className="text-xl font-bold text-slate-900">HealthCircle</span>
             </div>
           </Link>
