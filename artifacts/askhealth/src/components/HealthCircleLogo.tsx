@@ -30,9 +30,9 @@ export default function HealthCircleLogo(props: Props) {
   const barHeight = isLg ? 4 : isMd ? 3.5 : isSm ? 3 : 2.5;
   const rowGap = isLg ? 6 : isMd ? 6 : isSm ? 4 : 3;
 
-  // Bar defaults: prominent on hero placements (md/lg), off in tight headers
-  // (xs/sm) unless explicitly enabled.
-  const showBar = props.showBar ?? (isLg || isMd);
+  // The sliding rainbow bar is part of the logo's identity — show it by
+  // default at every size (callers can opt out with showBar={false}).
+  const showBar = props.showBar ?? true;
 
   const cx = containerSize / 2;
   const strokeW = isLg ? 4 : isMd ? 3.25 : isSm ? 2.5 : 2;
@@ -130,11 +130,6 @@ export default function HealthCircleLogo(props: Props) {
               left: (containerSize - imgSize) / 2,
               width: imgSize,
               height: imgSize,
-              // The source PNG has a white square background. Clipping to a
-              // circle removes the corner whites so the logo looks correct on
-              // dark backgrounds (e.g. the signed-in sidebar) too.
-              borderRadius: "50%",
-              backgroundColor: "white",
             }}
           />
         </div>
