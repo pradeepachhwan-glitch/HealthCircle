@@ -670,3 +670,19 @@ Two new shared components in `artifacts/askhealth/src/components/`:
 Both components are namespaced (`hc-loader-*`, `hc-rcp-*`) so their CSS keyframes don't collide with the existing `hc-ring-spin` / `hc-bar-slide` keyframes used by the home logo. Z-indexes (1000 for overlay, 1100 for progress bar) are intentionally above modals/toasters so they're never visually clipped.
 
 Page-level skeletons (e.g. comment list, post list) are intentionally left untouched — the overlay is only used for the global auth/permission-resolving waits where there was previously a plain text placeholder.
+
+## 2026-04-29 (followup) — Logo upload "saved silently dropped" fix
+
+User reported "logo got uploaded but then not SAVED". Diagnosed: my earlier 413 fix only covered `POST /api/uploads/inline`, but that endpoint just *echoes* the data URL — the client then sends the same multi-MB data URL back to `PATCH /api/communities/:id` to actually save it, and that route was still going through the global 100 KB JSON parser → silent 413. Same bug pattern would have hit avatar PATCH (`PATCH /api/users/me`) and post image PATCH (`PATCH /api/posts/:id`).
+
+Architectural fix in `artifacts/api-server/src/app.ts`:
+- Reordered middleware so `authMiddleware` runs **before** the JSON body parser. authMiddleware only reads cookies (does the DB session lookup), so it doesn't need the body — making the swap safe and unlocking auth-aware parsing.
+- Replaced the single global parser with two pre-built parsers (`authedJson` 8 MB / `anonJson` 100 KB) and a tiny dispatcher that picks based on `req.user`. Authenticated users (real DB-backed sessions only) can now POST/PATCH multi-MB JSON bodies without per-route opt-in; unauthenticated callers are still capped at 100 KB so an attacker can never force a multi-MB parse with a forged or missing cookie.
+- `/api/uploads/inline` keeps its own route-level parser (skipped from the dispatcher) so its handler-level size validator continues to own the 4 MB enforcement and error message.
+
+Net effect:
+- Community logo upload + save now works end-to-end (verified: 2 MB iconUrl PATCH → 200, persisted in DB).
+- Avatar PATCH with large data URL works (verified: 1.4 MB avatarUrl PATCH → 200, persisted).
+- Post image PATCH gets the same fix for free (same architecture).
+- Anonymous oversized requests still rejected fast (~80 ms) at the parser, no DB hit.
+- All other small-body endpoints (auth/login, etc.) unchanged.
