@@ -34,10 +34,35 @@ router.get("/communities", requireAuth, async (req, res) => {
   res.json(result);
 });
 
+// 4 MB raw → ~5.5 MB base64. We validate the *string* length here as a cheap
+// bound; the real per-file enforcement happens in /uploads/inline before we
+// ever see the URL on this route.
+const MAX_ICON_URL_CHARS = 6 * 1024 * 1024;
+
+// Accept null, "" (treated as null), an https:// URL, or an image/* data URL.
+// Anything else (javascript:, data:text/html, oversized blobs) is rejected to
+// avoid persisting values that would break <img> rendering or smuggle scripts
+// into surfaces that may one day use dangerouslySetInnerHTML.
+function normalizeIconUrl(value: unknown): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (value === undefined || value === null || value === "") return { ok: true, value: null };
+  if (typeof value !== "string") return { ok: false, error: "iconUrl must be a string" };
+  if (value.length > MAX_ICON_URL_CHARS) return { ok: false, error: "iconUrl is too large" };
+  if (value.startsWith("https://")) return { ok: true, value };
+  if (/^data:image\/(png|jpeg|jpg|gif|webp|svg\+xml);base64,/i.test(value)) return { ok: true, value };
+  return { ok: false, error: "iconUrl must be an https URL or an image data URL" };
+}
+
 router.post("/communities", requireAdmin, async (req, res) => {
-  const { name, slug, description, iconEmoji, coverColor } = req.body;
+  const { name, slug, description, iconEmoji, iconUrl, coverColor } = req.body;
+  const icon = normalizeIconUrl(iconUrl);
+  if (!icon.ok) { res.status(400).json({ error: icon.error }); return; }
   const [community] = await db.insert(communitiesTable).values({
-    name, slug, description: description ?? null, iconEmoji: iconEmoji ?? null, coverColor: coverColor ?? null,
+    name,
+    slug,
+    description: description ?? null,
+    iconEmoji: iconEmoji ?? null,
+    iconUrl: icon.value,
+    coverColor: coverColor ?? null,
   }).returning();
   res.status(201).json({ ...community, memberCount: 0, postCount: 0, isMember: false });
 });
@@ -63,11 +88,17 @@ router.get("/communities/:communityId", requireAuth, async (req, res) => {
 
 router.patch("/communities/:communityId", requireAdmin, async (req, res) => {
   const communityId = parseInt(req.params.communityId);
-  const { name, description, iconEmoji, coverColor, isArchived } = req.body;
+  const { name, description, iconEmoji, iconUrl, coverColor, isArchived } = req.body;
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (description !== undefined) updates.description = description;
   if (iconEmoji !== undefined) updates.iconEmoji = iconEmoji;
+  // Allow clearing the uploaded logo by passing null/empty string.
+  if (iconUrl !== undefined) {
+    const icon = normalizeIconUrl(iconUrl);
+    if (!icon.ok) { res.status(400).json({ error: icon.error }); return; }
+    updates.iconUrl = icon.value;
+  }
   if (coverColor !== undefined) updates.coverColor = coverColor;
   if (isArchived !== undefined) updates.isArchived = isArchived;
 

@@ -1,17 +1,21 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { requireAuth } from "../lib/auth";
 
 const router = Router();
 
 const MAX_BYTES = 4 * 1024 * 1024;
 const ALLOWED_PREFIXES = ["image/", "application/pdf"];
+// 4 MB raw bytes ≈ 5.4 MB base64 + JSON overhead. The global parser is the
+// Express default (~100 KB) which would reject any real image before the
+// validation below runs, so override it for this single route.
+const uploadJson = express.json({ limit: "8mb" });
 
 interface UploadBody {
   dataUrl?: string;
   name?: string;
 }
 
-router.post("/uploads/inline", requireAuth, async (req, res) => {
+router.post("/uploads/inline", uploadJson, requireAuth, async (req, res) => {
   const body = req.body as UploadBody;
   if (!body?.dataUrl) {
     res.status(400).json({ error: "dataUrl is required" });

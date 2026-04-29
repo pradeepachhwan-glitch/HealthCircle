@@ -8,6 +8,9 @@ export const communitiesTable = pgTable("communities", {
   slug: text("slug").notNull().unique(),
   description: text("description"),
   iconEmoji: text("icon_emoji"),
+  // Optional uploaded logo for the community (data URL or future CDN URL).
+  // When set, takes visual precedence over iconEmoji.
+  iconUrl: text("icon_url"),
   coverColor: text("cover_color"),
   isArchived: boolean("is_archived").notNull().default(false),
   isPremium: boolean("is_premium").notNull().default(false),

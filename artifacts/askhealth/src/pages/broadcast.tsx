@@ -294,8 +294,17 @@ export default function Broadcast() {
                         checked={selectedCommunities.includes(community.id)}
                         onCheckedChange={() => handleToggleCommunity(community.id)}
                       />
-                      <label htmlFor={`comm-${community.id}`} className="text-sm cursor-pointer line-clamp-1">
-                        {community.iconEmoji} {community.name}
+                      <label htmlFor={`comm-${community.id}`} className="text-sm cursor-pointer line-clamp-1 flex items-center gap-1.5">
+                        {(community as any).iconUrl ? (
+                          <img
+                            src={(community as any).iconUrl}
+                            alt=""
+                            className="w-4 h-4 rounded object-cover bg-white"
+                          />
+                        ) : (
+                          <span>{community.iconEmoji}</span>
+                        )}
+                        <span className="truncate">{community.name}</span>
                       </label>
                     </div>
                   ))}

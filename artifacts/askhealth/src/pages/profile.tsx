@@ -36,6 +36,7 @@ interface MyCommunity {
   name: string;
   slug: string;
   iconEmoji?: string;
+  iconUrl?: string | null;
   coverColor?: string;
   description?: string;
   memberCount: number;
@@ -360,7 +361,15 @@ export default function Profile() {
                           <div className="h-1 w-full" style={{ backgroundColor: c.coverColor ?? "hsl(var(--primary))" }} />
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
-                              <span className="text-2xl shrink-0">{c.iconEmoji ?? "🏥"}</span>
+                              {c.iconUrl ? (
+                                <img
+                                  src={c.iconUrl}
+                                  alt=""
+                                  className="w-8 h-8 rounded-lg object-cover shrink-0 bg-white"
+                                />
+                              ) : (
+                                <span className="text-2xl shrink-0">{c.iconEmoji ?? "🏥"}</span>
+                              )}
                               <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">{c.name}</h3>
                                 <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5 mb-2">{c.description}</p>

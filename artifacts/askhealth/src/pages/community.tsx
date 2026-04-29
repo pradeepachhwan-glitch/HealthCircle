@@ -233,8 +233,16 @@ export default function Community() {
             </button>
             <div className="flex items-end justify-between gap-4">
               <div className="flex items-end gap-4">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-4xl md:text-5xl border border-white/30 shadow-lg">
-                  {community.iconEmoji || "🏥"}
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-4xl md:text-5xl border border-white/30 shadow-lg overflow-hidden">
+                  {(community as any).iconUrl ? (
+                    <img
+                      src={(community as any).iconUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    community.iconEmoji || "🏥"
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">

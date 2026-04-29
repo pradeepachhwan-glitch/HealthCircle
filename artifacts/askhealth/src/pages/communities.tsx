@@ -18,6 +18,7 @@ interface Community {
   slug: string;
   description?: string;
   iconEmoji?: string;
+  iconUrl?: string | null;
   coverColor?: string;
   memberCount: number;
   postCount: number;
@@ -48,7 +49,15 @@ function CommunityCard({ community, onJoin, onLeave }: {
       <div className="p-5">
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-3">
-            <span className="text-2xl leading-none">{community.iconEmoji ?? "🏥"}</span>
+            {community.iconUrl ? (
+              <img
+                src={community.iconUrl}
+                alt=""
+                className="w-8 h-8 rounded-lg object-cover shrink-0 bg-white"
+              />
+            ) : (
+              <span className="text-2xl leading-none">{community.iconEmoji ?? "🏥"}</span>
+            )}
             <div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h3 className="font-semibold text-slate-900 text-sm leading-tight">{community.name}</h3>

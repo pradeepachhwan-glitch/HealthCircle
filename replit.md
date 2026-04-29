@@ -607,3 +607,16 @@ The backend already exposed full CRUD via `POST /api/communities` and `PATCH /ap
 - **Mutations** `createCommunity` (POST /communities) and `updateCommunity` (PATCH /communities/:id). Existing `archiveCommunity` left as-is — it uses the weaker `/admin/communities/:id` PATCH which only supports `isArchived`.
 - All inputs have `htmlFor`/`id` label associations and `aria-label` on the inline color inputs for accessibility.
 - Slug helper text warns if `slugify()` produced an empty value (non-Latin name) so the user knows to type one manually.
+
+### Admin: Community logo image upload (`pages/admin.tsx` + backend)
+Admins can now upload an actual logo image per community in addition to (or instead of) the emoji.
+
+- **Schema**: added nullable `iconUrl text` column to `communities` table (`lib/db/src/schema/communities.ts`); applied via `pnpm --filter @workspace/db run push`. Null = use emoji.
+- **Storage**: simple inline data URL approach — no object storage / GCS needed. Logos are resized client-side (canvas, center-cropped to 256×256 PNG) so each persisted value is typically 10–40 KB. Suitable for the dozens-of-communities scale.
+- **Backend**:
+  - `POST /api/communities` and `PATCH /api/communities/:id` accept `iconUrl`.
+  - Server-side validator `normalizeIconUrl()` (in `routes/communities.ts`) accepts only `https://...` URLs or `data:image/(png|jpeg|gif|webp|svg+xml);base64,...` — blocks `javascript:`, `data:text/html`, etc., capped at ~6 MB chars.
+  - Empty string / null clears the column.
+  - `POST /api/uploads/inline` (existing endpoint) gets a route-level `express.json({ limit: "8mb" })` override since the global parser default (~100 KB) would reject a 4 MB image's base64 payload before validation.
+- **Admin UI**: dialog has a "Logo image (optional)" section with hidden file input (`data-testid="input-community-logo-file"`), "Upload logo" / "Replace logo" / "Remove" controls, and a 16×16 logo preview box. Live preview chip at the top renders the image when `iconUrl` is set. Helper `handleLogoFile` reads → `resizeImageToSquareDataUrl` → POSTs to `/uploads/inline` → stores the returned URL in `communityForm.iconUrl`. Toasts on size / type / network errors.
+- **Display**: every community-icon site updated to render `<img src={iconUrl}>` when present, falling back to `iconEmoji ?? "🏥"`. Affected: `communities.tsx`, `profile.tsx`, `broadcast.tsx`, `search.tsx` (with matching `iconUrl` added to `RelatedCommunity` type + DB select in `searchEngine.ts`), `community.tsx`, `medpro.tsx`, and the admin Communities table row.

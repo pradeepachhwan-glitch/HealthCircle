@@ -25,7 +25,7 @@ interface Provider {
 
 interface RelatedCommunity {
   id: number; slug: string; name: string;
-  description: string | null; iconEmoji: string | null;
+  description: string | null; iconEmoji: string | null; iconUrl?: string | null;
 }
 
 interface Discussion {
@@ -435,7 +435,15 @@ export default function SearchPage() {
                         href={`/communities/${c.slug}`}
                         className="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-slate-200 hover:border-primary/30 hover:shadow-sm transition-all group"
                       >
-                        <span className="text-2xl flex-shrink-0">{c.iconEmoji ?? "💬"}</span>
+                        {c.iconUrl ? (
+                          <img
+                            src={c.iconUrl}
+                            alt=""
+                            className="w-8 h-8 rounded-lg object-cover flex-shrink-0 bg-white"
+                          />
+                        ) : (
+                          <span className="text-2xl flex-shrink-0">{c.iconEmoji ?? "💬"}</span>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-800 group-hover:text-primary transition-colors line-clamp-1">{c.name}</p>
                           {c.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{c.description}</p>}

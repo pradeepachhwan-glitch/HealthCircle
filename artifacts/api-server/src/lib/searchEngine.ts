@@ -43,6 +43,7 @@ interface RelatedCommunity {
   name: string;
   description: string | null;
   iconEmoji: string | null;
+  iconUrl: string | null;
 }
 
 interface DiscussionResult {
@@ -547,6 +548,7 @@ export async function runHealthSearch(
         name: communitiesTable.name,
         description: communitiesTable.description,
         iconEmoji: communitiesTable.iconEmoji,
+        iconUrl: communitiesTable.iconUrl,
       })
       .from(communitiesTable)
       .where(eq(communitiesTable.isArchived, false));

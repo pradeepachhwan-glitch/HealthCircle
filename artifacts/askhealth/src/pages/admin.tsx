@@ -405,8 +405,10 @@ export default function Admin() {
     slug: "",
     description: "",
     iconEmoji: "",
+    iconUrl: "",
     coverColor: "#06b6d4",
   });
+  const [logoUploading, setLogoUploading] = useState(false);
   // Track whether the slug has been edited manually so name typing only
   // overwrites it while it has not been customized.
   const [slugTouched, setSlugTouched] = useState(false);
@@ -418,7 +420,7 @@ export default function Admin() {
       .slice(0, 60);
   }
   function openCreateCommunity() {
-    setCommunityForm({ name: "", slug: "", description: "", iconEmoji: "", coverColor: "#06b6d4" });
+    setCommunityForm({ name: "", slug: "", description: "", iconEmoji: "", iconUrl: "", coverColor: "#06b6d4" });
     setSlugTouched(false);
     setCreateCommunityOpen(true);
   }
@@ -428,10 +430,72 @@ export default function Admin() {
       slug: c.slug ?? "",
       description: c.description ?? "",
       iconEmoji: c.iconEmoji ?? "",
+      iconUrl: c.iconUrl ?? "",
       coverColor: c.coverColor ?? "#06b6d4",
     });
     setSlugTouched(true);
     setEditCommunityTarget(c);
+  }
+
+  // Read a File, resize/center-crop to a square thumbnail (PNG, max 256px),
+  // and return the base64 data URL. Keeps stored logos tiny (~10–40 KB) so
+  // the communities list stays snappy even though we inline the bytes in the
+  // database column instead of using object storage.
+  async function resizeImageToSquareDataUrl(file: File, maxDim = 256): Promise<string> {
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Could not read file"));
+      reader.readAsDataURL(file);
+    });
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("Could not decode image"));
+      i.src = dataUrl;
+    });
+    const side = Math.min(img.width, img.height);
+    const sx = (img.width - side) / 2;
+    const sy = (img.height - side) / 2;
+    const out = document.createElement("canvas");
+    out.width = Math.min(maxDim, side);
+    out.height = out.width;
+    const ctx = out.getContext("2d");
+    if (!ctx) throw new Error("Canvas unavailable");
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, out.width, out.height);
+    // PNG keeps transparent backgrounds (logos), at this size still tiny.
+    return out.toDataURL("image/png");
+  }
+  async function handleLogoFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error("Image too large (4 MB max)");
+      return;
+    }
+    try {
+      setLogoUploading(true);
+      const dataUrl = await resizeImageToSquareDataUrl(file);
+      // Hand to the server's inline-upload validator which enforces type/size
+      // and echoes back the data URL we should persist.
+      const res = await adminFetch(`${API_BASE}/uploads/inline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl, name: file.name }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Upload failed (${res.status})`);
+      }
+      const { url } = await res.json();
+      setCommunityForm(f => ({ ...f, iconUrl: url }));
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not upload logo");
+    } finally {
+      setLogoUploading(false);
+    }
   }
 
   // Admin token (server secret) — pasted by the operator to unlock the dashboard
@@ -577,7 +641,7 @@ export default function Admin() {
   // (admin-guarded) which already supports name/slug/description/iconEmoji/
   // coverColor — the duplicate /admin/communities PATCH only handles a subset.
   const createCommunity = useMutation({
-    mutationFn: (payload: { name: string; slug: string; description?: string; iconEmoji?: string; coverColor?: string }) =>
+    mutationFn: (payload: { name: string; slug: string; description?: string; iconEmoji?: string; iconUrl?: string; coverColor?: string }) =>
       adminFetch(`${API_BASE}/communities`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -600,7 +664,7 @@ export default function Admin() {
   // Edit an existing community. Uses the full PATCH /communities/:id route so
   // we can update iconEmoji and coverColor in addition to name/description.
   const updateCommunity = useMutation({
-    mutationFn: (payload: { id: number; name?: string; description?: string; iconEmoji?: string; coverColor?: string }) =>
+    mutationFn: (payload: { id: number; name?: string; description?: string; iconEmoji?: string; iconUrl?: string | null; coverColor?: string }) =>
       adminFetch(`${API_BASE}/communities/${payload.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -608,6 +672,7 @@ export default function Admin() {
           name: payload.name,
           description: payload.description,
           iconEmoji: payload.iconEmoji,
+          iconUrl: payload.iconUrl,
           coverColor: payload.coverColor,
         }),
       }).then(async r => {
@@ -893,8 +958,12 @@ export default function Admin() {
                           <TableRow key={c.id} className={c.isArchived ? "opacity-50" : ""}>
                             <TableCell>
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white text-sm">
-                                  {c.iconEmoji || "🏥"}
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white text-sm overflow-hidden">
+                                  {c.iconUrl ? (
+                                    <img src={c.iconUrl} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    c.iconEmoji || "🏥"
+                                  )}
                                 </div>
                                 <div>
                                   <div className="font-medium text-sm">{c.name}</div>
@@ -1184,15 +1253,76 @@ export default function Admin() {
             {/* Live preview chip — shows the icon/color users will see in lists */}
             <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/40">
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white shrink-0"
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white shrink-0 overflow-hidden"
                 style={{ background: communityForm.coverColor || "#06b6d4" }}
               >
-                {communityForm.iconEmoji || "🏥"}
+                {communityForm.iconUrl ? (
+                  <img
+                    src={communityForm.iconUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  communityForm.iconEmoji || "🏥"
+                )}
               </div>
               <div className="min-w-0">
                 <div className="font-semibold truncate">{communityForm.name || "Community name"}</div>
                 <div className="text-xs text-muted-foreground truncate">/{communityForm.slug || "slug"}</div>
               </div>
+            </div>
+
+            {/* Logo upload — uploaded image takes precedence over the emoji */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Logo image (optional)</label>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-16 h-16 rounded-lg border bg-muted/30 flex items-center justify-center overflow-hidden text-2xl shrink-0"
+                  style={{ background: communityForm.iconUrl ? undefined : (communityForm.coverColor || "#06b6d4") }}
+                >
+                  {communityForm.iconUrl ? (
+                    <img src={communityForm.iconUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-white">{communityForm.iconEmoji || "🏥"}</span>
+                  )}
+                </div>
+                <div className="flex-1 flex flex-wrap items-center gap-2">
+                  <label
+                    htmlFor="community-logo-file"
+                    className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-input bg-background text-sm font-medium cursor-pointer hover:bg-muted/50 disabled:opacity-50"
+                  >
+                    {logoUploading ? "Uploading…" : (communityForm.iconUrl ? "Replace logo" : "Upload logo")}
+                  </label>
+                  <input
+                    id="community-logo-file"
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    disabled={logoUploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) await handleLogoFile(file);
+                      e.target.value = "";
+                    }}
+                    data-testid="input-community-logo-file"
+                  />
+                  {communityForm.iconUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => setCommunityForm(f => ({ ...f, iconUrl: "" }))}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Square images work best. We'll center-crop and resize to 256×256.
+                If no logo is uploaded, the emoji below is used.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -1295,6 +1425,8 @@ export default function Admin() {
                   name: communityForm.name.trim(),
                   description: communityForm.description.trim() || undefined,
                   iconEmoji: communityForm.iconEmoji || undefined,
+                  // Empty string means "remove the logo" — server normalizes to null.
+                  iconUrl: communityForm.iconUrl || "",
                   coverColor: communityForm.coverColor || undefined,
                 })}
                 disabled={!communityForm.name.trim() || updateCommunity.isPending}
@@ -1309,6 +1441,7 @@ export default function Admin() {
                   slug: communityForm.slug.trim() || slugify(communityForm.name),
                   description: communityForm.description.trim() || undefined,
                   iconEmoji: communityForm.iconEmoji || undefined,
+                  iconUrl: communityForm.iconUrl || undefined,
                   coverColor: communityForm.coverColor || undefined,
                 })}
                 disabled={!communityForm.name.trim() || !communityForm.slug.trim() || createCommunity.isPending}
