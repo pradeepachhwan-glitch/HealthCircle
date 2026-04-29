@@ -20,8 +20,9 @@ const STATS: Stat[] = [
     icon: Sparkles,
     value: "Yukti AI",
     label: "Always-on health companion",
-    iconBg: "bg-violet-50",
-    iconColor: "text-violet-600",
+    // Vibrant gradient chips with white icon — boosted from pastel *-50.
+    iconBg: "bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md shadow-violet-500/30 ring-1 ring-white/40",
+    iconColor: "text-white",
   },
   {
     icon: ShieldCheck,
@@ -29,8 +30,8 @@ const STATS: Stat[] = [
     suffix: "+",
     value: "",
     label: "Verified doctors across India",
-    iconBg: "bg-emerald-50",
-    iconColor: "text-emerald-600",
+    iconBg: "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/30 ring-1 ring-white/40",
+    iconColor: "text-white",
   },
   {
     icon: Users,
@@ -38,22 +39,23 @@ const STATS: Stat[] = [
     suffix: "+",
     value: "",
     label: "Communities by condition & life stage",
-    iconBg: "bg-rose-50",
-    iconColor: "text-rose-600",
+    iconBg: "bg-gradient-to-br from-rose-500 to-pink-600 shadow-md shadow-rose-500/30 ring-1 ring-white/40",
+    iconColor: "text-white",
   },
   {
     icon: Languages,
     value: "Bilingual",
     label: "English & हिंदी, more coming",
-    iconBg: "bg-amber-50",
-    iconColor: "text-amber-600",
+    iconBg: "bg-gradient-to-br from-amber-500 to-orange-600 shadow-md shadow-amber-500/30 ring-1 ring-white/40",
+    iconColor: "text-white",
   },
 ];
 
 export function TrustBand() {
   const reduce = useReducedMotion();
   return (
-    <section className="border-y border-slate-200 bg-slate-50/60">
+    // Warm gradient wash — replaces the cool slate-50 that contributed to the dull feel.
+    <section className="relative border-y border-slate-200/70 bg-warm-wash">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 md:py-14">
         <RevealStagger className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-8">
           {STATS.map((s) => {
@@ -63,9 +65,9 @@ export function TrustBand() {
                 <motion.div
                   whileHover={reduce ? undefined : { scale: 1.08, rotate: -4 }}
                   transition={reduce ? undefined : { type: "spring", stiffness: 320, damping: 14 }}
-                  className={`w-10 h-10 rounded-xl ${s.iconBg} flex items-center justify-center mb-3`}
+                  className={`w-11 h-11 rounded-2xl ${s.iconBg} flex items-center justify-center mb-3`}
                 >
-                  <Icon className={`h-5 w-5 ${s.iconColor}`} strokeWidth={2} />
+                  <Icon className={`h-5 w-5 ${s.iconColor}`} strokeWidth={2.25} />
                 </motion.div>
                 <p className="font-serif text-2xl md:text-[28px] text-slate-900 leading-none tabular-nums">
                   {s.numericEnd !== undefined ? (

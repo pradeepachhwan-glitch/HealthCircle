@@ -16,7 +16,7 @@ export function HowItWorks() {
   const dotProgress = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
   return (
-    <section className="relative bg-slate-50/60 border-y border-slate-200 py-20 md:py-28 px-4">
+    <section className="relative bg-warm-wash border-y border-slate-200/70 py-20 md:py-28 px-4">
       <div className="relative max-w-5xl mx-auto">
         <Reveal className="text-center mb-14 md:mb-16">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-3">
@@ -61,7 +61,7 @@ export function HowItWorks() {
               >
                 <div className="flex items-center gap-3 mb-4">
                   <motion.span
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white border border-slate-200 font-serif text-base text-indigo-700 leading-none shadow-sm"
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-indigo-600 via-violet-600 to-rose-600 font-serif text-base text-white leading-none shadow-md shadow-indigo-500/40 ring-2 ring-white"
                     whileHover={reduce ? undefined : { scale: 1.15, rotate: 6 }}
                     transition={reduce ? undefined : { type: "spring", stiffness: 320, damping: 14 }}
                   >

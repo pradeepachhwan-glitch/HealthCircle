@@ -253,6 +253,43 @@
     background-clip: text;
     color: transparent;
   }
+  /* Warm sunset gradient — for vibrant accents (italic words, numbers).
+     Coral → fuchsia → indigo: feels alive but stays in our healthcare palette. */
+  .text-sunset-gradient {
+    background-image: linear-gradient(110deg, #FB7185 0%, #C084FC 45%, #6366F1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Subtle warm-tinted section wash — alternates with white to break up the
+     wall of slate-50 we used to have. Use sparingly. */
+  .bg-warm-wash {
+    background-image:
+      radial-gradient(60% 80% at 0% 0%, rgba(254, 205, 211, 0.18) 0%, transparent 60%),
+      radial-gradient(70% 80% at 100% 100%, rgba(199, 210, 254, 0.18) 0%, transparent 60%),
+      linear-gradient(180deg, #ffffff 0%, #fefdfc 100%);
+  }
+  .bg-cool-wash {
+    background-image:
+      radial-gradient(50% 60% at 100% 0%, rgba(199, 210, 254, 0.22) 0%, transparent 60%),
+      radial-gradient(60% 70% at 0% 100%, rgba(186, 230, 253, 0.16) 0%, transparent 60%),
+      linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+  }
+  /* Floating health-themed micro-decoration — subtle drift used in the hero.
+     Always honors prefers-reduced-motion (animation disabled below). */
+  @keyframes drift-y {
+    0%, 100% { transform: translateY(0px) rotate(var(--drift-rot, 0deg)); }
+    50%      { transform: translateY(-14px) rotate(calc(var(--drift-rot, 0deg) + 4deg)); }
+  }
+  .drift-slow {
+    animation: drift-y 7s ease-in-out infinite;
+  }
+  .drift-med {
+    animation: drift-y 5.5s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .drift-slow, .drift-med { animation: none; }
+  }
   .border-ai-indigo {
     border-color: var(--hc-indigo);
   }

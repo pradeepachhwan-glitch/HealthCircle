@@ -4,7 +4,7 @@ import { COMMUNITIES_PREVIEW } from "../data";
 
 export function CommunitiesPreview() {
   return (
-    <section className="bg-slate-50/60 border-y border-slate-200 py-20 md:py-28 px-4">
+    <section className="relative bg-cool-wash border-y border-slate-200/70 py-20 md:py-28 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12 md:mb-14">
           <div className="max-w-xl">

@@ -431,3 +431,18 @@ End-to-end admin control of the doctor onboarding pipeline plus tamper-evident a
 - **Wired into both dialogs**: replaced the dead-anchor blocks in `pages/community.tsx` (premium community payment dialog) and `components/QuotaExhaustedModal.tsx` (Yukti AI subscription dialog).
 - **Deps**: added `qrcode` + `@types/qrcode` to the askhealth artifact.
 - Removed now-unused `Alert`/`ExternalLink`/`Copy` imports and the dead `copyText` helper from `QuotaExhaustedModal.tsx`.
+
+## 2026-04-29 (later) — Landing vibrancy pass: alive but professional
+- **User feedback**: previous landing felt "DULL" vs Aditya Birla Activ Health (vibrant red/orange iconography). Goal: ALIVE/vibrant yet healthcare-professional, attractive globally — NOT a copy.
+- **Diagnosis**: heavy reliance on indigo-only palette + slate-50/60 section bgs + pastel `*-50` icon backgrounds = washed out. No warm tones to balance the cool blues.
+- **New CSS utilities** (`src/index.css`, additive only — pre-existing utilities preserved):
+  - `.text-sunset-gradient` — coral → fuchsia → indigo bg-clip-text (for italic accent words).
+  - `.bg-warm-wash` — multi-radial-gradient peach + indigo + white wash for warm sections (replaces flat slate-50/60).
+  - `.bg-cool-wash` — multi-radial-gradient indigo + cyan + white wash for cool sections.
+  - `.drift-slow` / `.drift-med` + `@keyframes drift-y` — gentle floating animation for hero decorations. Disabled under `prefers-reduced-motion`.
+- **Hero.tsx**: added warm coral/peach blob (left), kept indigo blob (right), added bottom amber wash. Three floating decorative micro-icons (Heart, Sparkles, Activity) — `hidden md:flex` so they only show on desktop, `pointer-events-none` parent. Added "Yukti is online · Ask anytime" pulsing emerald dot pill above the headline (honest — Yukti is genuinely always-on). Italic "the moment" now uses `text-sunset-gradient`. Primary CTA kept dark slate-900 (authority) but gained a colored shadow halo + soft gradient backdrop on hover.
+- **Pillars.tsx**: icon containers converted from pastel `*-50 ring-1 ring-*-100` to vibrant gradient fills with white icons + colored shadow halos: indigo→violet→violet, rose→pink→orange, emerald→teal→cyan. Bumped icon size 12→14, icon h-5→h-6, strokeWidth 1.75→2. Tinted-card hover gradient now visible at 40% opacity at rest (was 0%) for always-on warmth. Removed unused `iconColor` field. Glow opacity calibrated to 30→100 (rest→hover) per architect a11y note.
+- **TrustBand.tsx**: `bg-slate-50/60` → `bg-warm-wash`. Stat icon chips converted from pastel `*-50` + `*-600` icons to vibrant gradient fills with white icons + colored shadows. Amber chip uses `from-amber-500 to-orange-600` (not 400/500) for icon contrast.
+- **CommunitiesPreview.tsx**: `bg-slate-50/60` → `bg-cool-wash` (one-line change; per-card gradients were already vibrant).
+- **HowItWorks.tsx**: `bg-slate-50/60` → `bg-warm-wash`. Step number badges from white-border-indigo-text to gradient fill (indigo-600 → violet-600 → rose-600) with white text + ring-2 ring-white halo. Bumped 8→9.
+- **Architect-reviewed PASS**. SEV2 contrast note addressed (lightest gradient stops shifted darker for sufficient white-icon contrast). Pre-existing typecheck errors (queryKey, viewCount, isVerifiedPro, ai-response-card, sign-in code paths) unrelated.
