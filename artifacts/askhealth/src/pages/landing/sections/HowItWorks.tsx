@@ -19,7 +19,7 @@ export function HowItWorks() {
     <section className="relative bg-warm-wash border-y border-slate-200/70 py-20 md:py-28 px-4">
       <div className="relative max-w-5xl mx-auto">
         <Reveal className="text-center mb-14 md:mb-16">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-700 mb-3">
             How it works
           </p>
           <h2 className="font-serif text-3xl md:text-[40px] leading-[1.1] text-slate-900 tracking-[-0.015em]">
@@ -71,7 +71,7 @@ export function HowItWorks() {
                 <h3 className="font-serif text-lg text-slate-900 mb-2 leading-snug">
                   {item.title}
                 </h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{item.desc}</p>
               </Reveal>
             ))}
           </div>

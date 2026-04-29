@@ -55,7 +55,7 @@ export function Pillars() {
     <section className="py-20 md:py-28 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
         <Reveal className="max-w-2xl mb-12 md:mb-16">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-indigo-700 mb-4">
             Three calm ways to use HealthCircle
           </p>
           <h2 className="font-serif text-3xl md:text-[44px] leading-[1.08] text-slate-900 tracking-[-0.015em]">

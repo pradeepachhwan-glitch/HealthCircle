@@ -446,3 +446,26 @@ End-to-end admin control of the doctor onboarding pipeline plus tamper-evident a
 - **CommunitiesPreview.tsx**: `bg-slate-50/60` → `bg-cool-wash` (one-line change; per-card gradients were already vibrant).
 - **HowItWorks.tsx**: `bg-slate-50/60` → `bg-warm-wash`. Step number badges from white-border-indigo-text to gradient fill (indigo-600 → violet-600 → rose-600) with white text + ring-2 ring-white halo. Bumped 8→9.
 - **Architect-reviewed PASS**. SEV2 contrast note addressed (lightest gradient stops shifted darker for sufficient white-icon contrast). Pre-existing typecheck errors (queryKey, viewCount, isVerifiedPro, ai-response-card, sign-in code paths) unrelated.
+
+## 2026-04-29 (later, contact privacy + voice mic + tele-consult bold)
+- **Contact privacy** — public site no longer prints `yukticare.support@gmail.com` or `+91 92783 47143` anywhere in rendered DOM text. Footer (`SiteFooter.tsx`) and a new compact contact row beside the logo (`SiteHeader.tsx`) expose only icon buttons. Email/WhatsApp address lives in `aria-label` (assistive-tech only) + the underlying `mailto:` / `wa.me` `href` (revealed only on click, to the user's own mail/WA app). Header buttons sit in a `hidden sm:flex` divider beside the logo. Footer "Reach us" column now has 2 compact pill buttons (Email / WhatsApp) — no address shown.
+- **Voice mic everywhere Yukti appears** — uses the browser's free Web Speech API (no key, no cost, no provider lock-in). New files:
+  - `src/lib/voice.ts` — `useVoiceInput(opts)` hook wrapping `webkitSpeechRecognition` (Chrome/Edge/Safari/iOS; Firefox unsupported and we hard-hide the UI). Cleans up via `abort()` on unmount; uses a `cbRef` so latest callback values are read inside long-lived recogniser handlers without recreating the recogniser. Exposes `start/stop/listening/error/supported`. Plus `speak(text, opts)` / `cancelSpeech()` over `SpeechSynthesis`, with async `loadVoices()` (waits for `voiceschanged` then 800ms safety fallback) + per-language voice picking (prefers `en-IN`, falls back to root match).
+  - `src/components/VoiceMic.tsx` — `forwardRef` button with `useImperativeHandle({start, stop, listening})` so parents can drive the mic remotely. Animates a rose pulsing halo while listening (motion-safe). Auto-hides when the browser has no SpeechRecognition. Per-error-code tooltip text (`not-allowed`, `no-speech`, `audio-capture`, `network`). Plus `SpeakButton` companion (Listen ⇄ Stop), auto-hides without SpeechSynthesis.
+- **Wired into Yukti surfaces**:
+  - `LandingYuktiDemo.tsx` — mic button between input and Ask. Final transcript auto-submits the question (120ms debounce so the input visibly fills first). New `voiceMode` state — when the user dictated, the reply is auto-spoken via `speak()`. SpeakButton sits beside the "Yukti says" header so anyone (typed or voice) can replay the answer aloud. Listens for a global `yukti-voice-start` `CustomEvent` to trigger its own mic via the imperative ref — used by the floating pill so a single click anywhere on the page captures voice (the user gesture propagates synchronously, satisfying browser mic-permission rules).
+  - `FloatingYuktiPill.tsx` — added a sibling rose-pink pulsing mic button next to the existing "Ask Yukti" pill (only renders when SpeechRecognition is supported). Tap → dispatches the global event → demo scrolls into view and starts listening immediately.
+- **Tele-Consult section bolder** (`TeleConsultTeaser.tsx`):
+  - Section now sits on a vibrant emerald + cyan radial backdrop (was flat white).
+  - Eyebrow upgraded from pale tracking text to a gradient pill (emerald→teal) with Sparkles icon and white text.
+  - Headline weight bumped to `font-bold`, size up to `text-4xl md:text-[48px]`, with a sunset-gradient italic accent on "in minutes".
+  - Step icons converted from pastel `emerald-50` to four distinct gradient fills (emerald/teal, cyan/blue, rose/pink, violet/indigo) with white icons + colored shadows + ring-1 ring-white/40.
+  - Step copy: title `font-bold`, description bumped from `text-slate-500` to `text-slate-700`.
+  - CTA upgraded from dark slate to a vibrant emerald→teal gradient with strong colored shadow halo.
+- **Visibility pass across landing**:
+  - Hero subtitle: `text-slate-600` → `text-slate-700 font-medium`. Inner span `text-slate-500` → `text-slate-600`.
+  - Eyebrow texts (Pillars, CommunitiesPreview, HowItWorks): `text-slate-500 font-semibold` → `text-{indigo|rose|violet}-700 font-bold` for distinct colored anchors.
+  - Body descriptions (TrustBand stats, CommunitiesPreview cards, HowItWorks steps): bumped from `text-slate-500` → `text-slate-700`.
+  - Footer: link text `text-slate-500` → `text-slate-600`; column titles `font-semibold` → `font-bold`; colophon `text-slate-400` → `text-slate-500`.
+  - LandingYuktiDemo: input border `slate-200` → `slate-300`; placeholder `slate-400` → `slate-500`; "Or pick an example" `text-slate-400` → `text-slate-600 font-medium`; example chips border up + text `slate-700`.
+- **Architect-reviewed PASS** on all six concern areas (voice gesture chain, imperative ref safety, auto-speak UX, scraper privacy trade-off, a11y, TeleConsult typography). No SEV1/SEV2 issues; SEV3 polish (`Event` → `CustomEvent`) applied. Typecheck clean on every touched file.

@@ -8,7 +8,7 @@ export function CommunitiesPreview() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12 md:mb-14">
           <div className="max-w-xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-rose-700 mb-3">
               Communities
             </p>
             <h2 className="font-serif text-3xl md:text-[40px] leading-[1.1] text-slate-900 tracking-[-0.015em]">
@@ -39,11 +39,11 @@ export function CommunitiesPreview() {
                 />
               </div>
               <div className="p-5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-2">
                   {c.tag}
                 </p>
                 <h3 className="font-serif text-lg text-slate-900 mb-1">{c.name}</h3>
-                <p className="text-sm text-slate-500">{c.desc}</p>
+                <p className="text-sm text-slate-700">{c.desc}</p>
               </div>
             </Link>
           ))}

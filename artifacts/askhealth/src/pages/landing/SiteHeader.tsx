@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Shield } from "lucide-react";
+import { Menu, X, Shield, Mail, MessageCircle } from "lucide-react";
 import HealthCircleLogo from "@/components/HealthCircleLogo";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import { NAV_ITEMS } from "./data";
+import { mailtoUrl, whatsappUrl, SUPPORT_EMAIL, SUPPORT_WHATSAPP_DISPLAY } from "@/lib/contact";
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -27,11 +28,39 @@ export function SiteHeader() {
       ].join(" ")}
     >
       <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 md:h-[68px] flex items-center justify-between">
-        <Link href="/" className="cursor-pointer">
-          <HealthCircleLogo size="sm" animate={true} />
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/" className="cursor-pointer">
+            <HealthCircleLogo size="sm" animate={true} />
+          </Link>
+          {/* Privacy-first contact buttons beside the logo — no email/phone exposed
+              in the rendered DOM; click reveals only to the user's mail/WhatsApp app. */}
+          <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-2 border-l border-slate-200">
+            <a
+              href={mailtoUrl("HealthCircle Enquiry")}
+              aria-label={`Email us — opens your mail app to ${SUPPORT_EMAIL}`}
+              title="Email us"
+              data-testid="header-email"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            >
+              <Mail className="h-4 w-4" strokeWidth={2} />
+              <span className="sr-only">Email</span>
+            </a>
+            <a
+              href={whatsappUrl("Hi HealthCircle team — I have a question.")}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Message us on WhatsApp — opens chat with ${SUPPORT_WHATSAPP_DISPLAY}`}
+              title="Chat on WhatsApp"
+              data-testid="header-whatsapp"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+            >
+              <MessageCircle className="h-4 w-4" strokeWidth={2} />
+              <span className="sr-only">WhatsApp</span>
+            </a>
+          </div>
+        </div>
 
-        <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600">
+        <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-700">
           {NAV_ITEMS.map((item) => {
             const active = location === item.href;
             return (

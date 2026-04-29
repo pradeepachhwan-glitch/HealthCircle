@@ -81,10 +81,10 @@ export function Hero() {
           <span className="italic text-sunset-gradient">the moment</span> you need it.
         </h1>
 
-        <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+        <p className="text-lg md:text-xl text-slate-700 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
           Ask Yukti — India's AI health companion. Get evidence-backed answers,
           join trusted communities, and consult verified doctors.{" "}
-          <span className="text-slate-500">All in one calm place.</span>
+          <span className="text-slate-600">All in one calm place.</span>
         </p>
 
         <div className="flex items-center justify-center gap-5 flex-wrap mb-5">

@@ -80,7 +80,7 @@ export function TrustBand() {
                     s.value
                   )}
                 </p>
-                <p className="text-xs md:text-[13px] text-slate-500 mt-2 leading-snug max-w-[18ch]">
+                <p className="text-xs md:text-[13px] text-slate-700 mt-2 leading-snug max-w-[18ch] font-medium">
                   {s.label}
                 </p>
               </Reveal>
