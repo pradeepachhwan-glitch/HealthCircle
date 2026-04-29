@@ -550,3 +550,11 @@ After the `md:`→`lg:` shift, the header was clean at 1280+ but cramped at 1024
 - Tightening gaps slightly at lg (`gap-0.5 xl:gap-1`, `px-3 xl:px-3.5`) so the row breathes only when there's room.
 
 Verified clean at 1024×800, 1280×800, and 1440×900 — all three desktop sizes now read cleanly with no wrap or clip.
+
+### Follow-up — planetary ring + orbits on every device
+The decorative ring + orbiting health icons (Heart/Sparkles/Activity/Leaf around a center "sun") was previously `hidden lg:flex` (desktop-only). Now visible and animating on all 4 devices:
+- Container size stepped per breakpoint via Tailwind arbitrary values: `[width:min(340px,90vw)] sm:[width:min(500px,82vw)] md:[width:min(620px,75vw,75vh)] lg:[width:min(720px,70vh,92vw)]`. Mobile gets a ~340px ring that brackets the H1; tablet ~500–620px; desktop full 720px.
+- Opacity stepped so smaller screens treat the ring as ambient atmosphere instead of foreground UI: `opacity-25 sm:opacity-45 md:opacity-60 lg:opacity-100`.
+- Icon glyphs scale from `h-4 w-4` → `sm:h-5 sm:w-5` → `lg:h-6 lg:w-6`.
+- Container is `pointer-events-none aria-hidden` so the decoration never blocks taps on the H1 text or CTAs underneath.
+- The HC brand logo in the header was already animating on every device (spinning concentric rings, pulse ripple, breathing letters, rainbow glow) — no changes needed there.

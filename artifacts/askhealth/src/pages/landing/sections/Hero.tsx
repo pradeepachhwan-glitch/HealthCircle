@@ -118,19 +118,21 @@ export function Hero() {
             A tiny amber "sun" sits at the centre of all the orbits. */}
         <div
           aria-hidden
-          className="hidden lg:flex absolute inset-0 items-center justify-center"
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
         >
+          {/* Planetary ring is now visible on every device. On mobile/tablet
+              it shrinks and softens via opacity so it reads as ambient
+              background atmosphere behind the H1, not foreground UI.
+              Desktop keeps the full 720px ring with crisp orbiting icons.
+              Width cap is stepped per breakpoint:
+                base (≤sm) → ~340px (brackets the H1 on a 360-414px phone)
+                sm        → ~500px (fits the 640-767px window)
+                md        → ~620px (fits the 768-1023px tablet)
+                lg+       → 720px  (full desktop ring)
+              `aspect-square` + explicit `width:` keeps the box a TRUE square so
+              PlanetIcons stay on a circle (not an ellipse). */}
           <div
-            className="relative"
-            style={{
-              // True square — width is the MIN of container%, viewport-height%,
-              // and an absolute cap. This guarantees aspect-ratio:1/1 isn't
-              // overridden by maxHeight conflict (which would silently turn the
-              // box into a 1080×720 rectangle and put PlanetIcons on an
-              // ellipse that no longer hugs the SVG circle).
-              width: "min(720px, 70vh, 92vw)",
-              aspectRatio: "1 / 1",
-            }}
+            className="relative aspect-square opacity-25 sm:opacity-45 md:opacity-60 lg:opacity-100 transition-opacity [width:min(340px,90vw)] sm:[width:min(500px,82vw)] md:[width:min(620px,75vw,75vh)] lg:[width:min(720px,70vh,92vw)]"
           >
             <svg
               aria-hidden
@@ -162,25 +164,25 @@ export function Hero() {
               startAt="top"    ringTone="ring-rose-100"    shadowColor="rgba(244,63,94,0.45)"
               inset="0"        durationS={85} delayS={0}
             >
-              <Heart className="h-5 w-5 lg:h-6 lg:w-6 text-rose-500" strokeWidth={1.75} fill="currentColor" fillOpacity={0.2} />
+              <Heart className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-rose-500" strokeWidth={1.75} fill="currentColor" fillOpacity={0.2} />
             </PlanetIcon>
             <PlanetIcon
               startAt="right"  ringTone="ring-violet-100"  shadowColor="rgba(139,92,246,0.45)"
               inset="6%"       durationS={55} delayS={-14}
             >
-              <Sparkles className="h-5 w-5 lg:h-6 lg:w-6 text-violet-500" strokeWidth={1.75} />
+              <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-violet-500" strokeWidth={1.75} />
             </PlanetIcon>
             <PlanetIcon
               startAt="bottom" ringTone="ring-emerald-100" shadowColor="rgba(16,185,129,0.45)"
               inset="14%"      durationS={42} delayS={-28}
             >
-              <Activity className="h-5 w-5 lg:h-6 lg:w-6 text-emerald-500" strokeWidth={1.75} />
+              <Activity className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-emerald-500" strokeWidth={1.75} />
             </PlanetIcon>
             <PlanetIcon
               startAt="left"   ringTone="ring-amber-100"   shadowColor="rgba(217,119,6,0.45)"
               inset="2%"       durationS={100} delayS={-40}
             >
-              <Leaf className="h-5 w-5 lg:h-6 lg:w-6 text-amber-600" strokeWidth={1.75} fill="currentColor" fillOpacity={0.18} />
+              <Leaf className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-amber-600" strokeWidth={1.75} fill="currentColor" fillOpacity={0.18} />
             </PlanetIcon>
           </div>
         </div>
