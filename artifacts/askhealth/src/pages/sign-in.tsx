@@ -238,7 +238,7 @@ export default function SignInPage() {
         <div className="text-center">
           <Link href="/">
             <div className="inline-flex cursor-pointer mb-6">
-              <HealthCircleLogo size="sm" animate={true} />
+              <HealthCircleLogo size="md" animate={true} />
             </div>
           </Link>
         </div>

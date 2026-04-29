@@ -20,7 +20,7 @@ export function SiteFooter() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-14 md:py-16">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-10 md:gap-12">
           <div className="col-span-2 md:col-span-2">
-            <HealthCircleLogo size="sm" animate={false} />
+            <HealthCircleLogo size="sm" showBar animate={false} />
 
             {/* Compact, privacy-respecting contact row right beside the logo —
                 icon buttons only, no email or phone text exposed. */}

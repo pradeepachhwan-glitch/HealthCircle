@@ -40,7 +40,7 @@ export function SiteHeader() {
       >
         <div className="flex items-center gap-2">
           <Link href="/" className="cursor-pointer">
-            <HealthCircleLogo size="sm" animate={true} />
+            <HealthCircleLogo size="xs" animate={true} />
           </Link>
           {/* Privacy-first contact buttons beside the logo — no email/phone exposed
               in the rendered DOM; click reveals only to the user's mail/WhatsApp app.

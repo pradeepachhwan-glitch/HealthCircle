@@ -11,7 +11,7 @@ export default function TermsPage() {
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href={`${basePath}/`}>
             <div className="inline-flex cursor-pointer">
-              <HealthCircleLogo size="sm" animate={true} />
+              <HealthCircleLogo size="md" animate={true} />
             </div>
           </Link>
           <Link href={`${basePath}/`} className="text-sm text-slate-500 hover:text-primary inline-flex items-center gap-1.5">

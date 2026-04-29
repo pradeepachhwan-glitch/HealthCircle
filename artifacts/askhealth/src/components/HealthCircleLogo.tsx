@@ -1,8 +1,9 @@
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface Props {
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   showText?: boolean;
+  showBar?: boolean;
   animate?: boolean;
 }
 
@@ -13,21 +14,36 @@ export default function HealthCircleLogo(props: Props) {
   const { size = "md", showText = true, animate = true } = props;
 
   const isLg = size === "lg";
+  const isMd = size === "md";
   const isSm = size === "sm";
 
-  const containerSize = isLg ? 112 : isSm ? 64 : 84;
-  const imgSize = isLg ? 86 : isSm ? 50 : 66;
-  const textSizeClass = isLg ? "text-4xl" : isSm ? "text-xl" : "text-3xl";
-  const sideGap = isLg ? 16 : isSm ? 12 : 14;
-  const barHeight = isLg ? 4 : isSm ? 3 : 3.5;
+  const containerSize = isLg ? 112 : isMd ? 84 : isSm ? 48 : 36;
+  const imgSize = isLg ? 86 : isMd ? 66 : isSm ? 36 : 28;
+  const textSizeClass = isLg
+    ? "text-4xl"
+    : isMd
+    ? "text-3xl"
+    : isSm
+    ? "text-xl"
+    : "text-base";
+  const sideGap = isLg ? 16 : isMd ? 14 : isSm ? 10 : 8;
+  const barHeight = isLg ? 4 : isMd ? 3.5 : isSm ? 3 : 2.5;
+  const rowGap = isLg ? 6 : isMd ? 6 : isSm ? 4 : 3;
+
+  // Bar defaults: prominent on hero placements (md/lg), off in tight headers
+  // (xs/sm) unless explicitly enabled.
+  const showBar = props.showBar ?? (isLg || isMd);
 
   const cx = containerSize / 2;
-  const strokeW = isLg ? 4 : isSm ? 2.75 : 3.25;
+  const strokeW = isLg ? 4 : isMd ? 3.25 : isSm ? 2.5 : 2;
   const r = containerSize / 2 - strokeW / 2 - 1;
   const circumference = 2 * Math.PI * r;
 
   return (
-    <div className="inline-flex flex-col items-stretch" style={{ rowGap: 6 }}>
+    <div
+      className="inline-flex flex-col items-stretch leading-none"
+      style={{ rowGap }}
+    >
       <style>{`
         @keyframes hc-ring-spin {
           from { transform: rotate(0deg); }
@@ -120,7 +136,7 @@ export default function HealthCircleLogo(props: Props) {
 
         {showText && (
           <span
-            className={`font-extrabold tracking-tight leading-none select-none ${textSizeClass}`}
+            className={`font-extrabold tracking-tight leading-none select-none whitespace-nowrap ${textSizeClass}`}
             style={{
               backgroundImage: VIBRANT_GRADIENT,
               WebkitBackgroundClip: "text",
@@ -134,26 +150,30 @@ export default function HealthCircleLogo(props: Props) {
         )}
       </div>
 
-      {/* Vibrant rainbow bar sliding left-to-right under the whole logo */}
-      <div
-        className="relative overflow-hidden rounded-full w-full"
-        style={{
-          height: barHeight,
-          backgroundColor: "rgba(148, 163, 184, 0.18)",
-        }}
-        aria-hidden="true"
-      >
+      {/* Optional vibrant rainbow bar sliding under the whole logo. Hidden by
+          default in compact (xs/sm) header placements to avoid overflowing
+          tight nav bars. */}
+      {showBar && (
         <div
-          className="hc-anim absolute inset-y-0 left-0 rounded-full"
+          className="relative overflow-hidden rounded-full w-full"
           style={{
-            width: "45%",
-            backgroundImage: VIBRANT_GRADIENT,
-            animation: animate
-              ? "hc-bar-slide 2.4s ease-in-out infinite"
-              : undefined,
+            height: barHeight,
+            backgroundColor: "rgba(148, 163, 184, 0.18)",
           }}
-        />
-      </div>
+          aria-hidden="true"
+        >
+          <div
+            className="hc-anim absolute inset-y-0 left-0 rounded-full"
+            style={{
+              width: "45%",
+              backgroundImage: VIBRANT_GRADIENT,
+              animation: animate
+                ? "hc-bar-slide 2.4s ease-in-out infinite"
+                : undefined,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

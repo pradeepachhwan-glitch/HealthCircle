@@ -60,7 +60,7 @@ function SidebarContent() {
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border text-sidebar-foreground">
       <div className="p-6 flex-1 overflow-y-auto">
         <div className="mb-8">
-          <HealthCircleLogo size="sm" animate={false} />
+          <HealthCircleLogo size="sm" showBar animate={false} />
         </div>
 
         {/* User + Level Card */}
@@ -135,7 +135,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4 z-50">
         <Link href="/">
           <div className="flex items-center gap-2 text-sidebar-foreground cursor-pointer">
-            <HealthCircleLogo size="sm" animate={false} />
+            <HealthCircleLogo size="xs" animate={false} />
           </div>
         </Link>
         <Sheet>
