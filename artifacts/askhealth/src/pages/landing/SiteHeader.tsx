@@ -43,8 +43,9 @@ export function SiteHeader() {
             <HealthCircleLogo size="sm" animate={true} />
           </Link>
           {/* Privacy-first contact buttons beside the logo — no email/phone exposed
-              in the rendered DOM; click reveals only to the user's mail/WhatsApp app. */}
-          <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-2 border-l border-slate-200">
+              in the rendered DOM; click reveals only to the user's mail/WhatsApp app.
+              Hidden until xl so the desktop header doesn't cram at 1024–1279px. */}
+          <div className="hidden xl:flex items-center gap-1.5 ml-2 pl-2 border-l border-slate-200">
             <a
               href={mailtoUrl("HealthCircle Enquiry")}
               aria-label={`Email us — opens your mail app to ${SUPPORT_EMAIL}`}
@@ -70,7 +71,7 @@ export function SiteHeader() {
           </div>
         </div>
 
-        <nav className="hidden lg:flex items-center gap-1 text-sm font-medium text-slate-700">
+        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-sm font-medium text-slate-700">
           {NAV_ITEMS.map((item) => {
             const active = location === item.href;
             return (
@@ -78,7 +79,7 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 className={[
-                  "px-3.5 py-2 rounded-lg transition-colors duration-200",
+                  "px-3 xl:px-3.5 py-2 rounded-lg transition-colors duration-200 whitespace-nowrap",
                   active ? "text-slate-900 bg-slate-100/70" : "hover:text-slate-900 hover:bg-slate-50",
                 ].join(" ")}
               >
@@ -88,11 +89,14 @@ export function SiteHeader() {
           })}
         </nav>
 
-        <div className="hidden lg:flex items-center gap-1.5">
+        <div className="hidden lg:flex items-center gap-1 xl:gap-1.5">
           <PWAInstallButton variant="ghost" label="Install app" />
+          {/* Admin link hidden at the in-between lg viewport (1024-1279px) so
+              the row doesn't cram; admins can still reach it via the
+              hamburger menu or by navigating directly to /admin. */}
           <Link
             href="/sign-in?next=%2Fadmin"
-            className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors"
+            className="hidden xl:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap"
             data-testid="landing-admin-link"
           >
             <Shield className="h-3.5 w-3.5" strokeWidth={2} />
@@ -100,13 +104,13 @@ export function SiteHeader() {
           </Link>
           <Link
             href="/sign-in"
-            className="text-sm font-medium px-3.5 py-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors"
+            className="text-sm font-medium px-3 xl:px-3.5 py-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap"
           >
             Sign in
           </Link>
           <Link
             href="/#try-yukti"
-            className="text-sm font-semibold px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-all duration-200"
+            className="text-sm font-semibold px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-all duration-200 whitespace-nowrap"
           >
             Try Yukti free
           </Link>

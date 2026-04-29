@@ -513,3 +513,40 @@ On any section with `position:relative; overflow:hidden` AND a background colour
 - **SEV1 — true square container** (`Hero.tsx`): the previous `width: min(96%, 1080px); aspectRatio: 1/1; maxHeight: min(96%, 720px)` actually rendered a 1080×720 rectangle on desktop because the maxHeight conflict silently overrode aspect-ratio. That meant the SVG circle stayed circular (centered with `xMidYMid meet`) but the PlanetIcon orbits became ellipses (1080-wide × 720-tall) so the icons drifted off the visible ring at the 3 and 9 o'clock positions. Fixed with `width: min(720px, 70vh, 92vw); aspectRatio: 1/1` (no maxHeight) — now the box is a guaranteed square at all viewport sizes (the `70vh` term caps height on short viewports, `92vw` on narrow ones, `720px` on huge desktops). Icons now travel on circles that hug the SVG ring perfectly.
 - **SEV2 — dead duration in CSS** (`index.css`): removed the hardcoded `60s` from `.ring-orbit` / `.ring-orbit-counter`. They were always overridden by the inline `animationDuration` per PlanetIcon, and a stripped-style fallback would have been confusing (defaulting all 4 planets to 60s instead of their authored 42–100s). The CSS now defines only `animation-name`, `animation-timing-function`, and `animation-iteration-count`; the inline style on each planet is the single source of truth for `animation-duration` + `animation-delay`.
 - **SEV3 — explicit stacking context** (`Hero.tsx`): added `[isolation:isolate]` to the section so any future child with a `z-index` (positive or negative) is contained within the hero and can't accidentally collide with stacking from sibling sections. This is the "stacking-context insurance" the architect recommended after the `-z-10`-vs-bg-gradient incident.
+
+## 2026-04-29 (look-and-feel polish — desktop + Android + iPhone)
+Holistic responsive pass. Audited at 1440×900 / 768×1024 / 390×844 / 360×800 first to find the actual problems, then fixed each one.
+
+### Tier 1 — visual breakage
+1. **`SiteHeader.tsx` breakpoint shift `md:` → `lg:`** — at 768px (iPad portrait) the desktop nav was cramming "For Doctors" into two lines and clipping the "Admin" pill. Changed every breakpoint that switches between desktop nav and the hamburger menu (`md:flex`/`md:hidden` → `lg:flex`/`lg:hidden`) and the corresponding container padding (`md:px-8`/`md:h-[68px]` → `lg:`). Tablets now get the same uncluttered hamburger experience as phones.
+2. **`Hero.tsx` H1 wrapping** — replaced the brittle hand-placed `<br className="hidden sm:block" />` with `style={{ textWrap: "balance" }}`, dropped the mobile size from 42px to 34px (so it never wraps to four lines on a 360px Android), added a finer-grained scale (34→44→48→64→72px across sm/md/lg/xl), and wrapped the italic "the moment" in `whitespace-nowrap` so it never breaks mid-phrase. Mobile now reads in 3 balanced lines instead of 4 awkward ones.
+3. **`LandingYuktiDemo.tsx` widget header wrap** — "Try Yukti — Ask 1 free question" was wrapping to two lines on phones. Mobile now shows just "Ask 1 free question" (`sm:hidden` / `hidden sm:inline` swap) and the badge collapsed from "NO SIGNUP NEEDED" to "NO SIGNUP" (with `whitespace-nowrap`).
+4. **`Hero.tsx` orbits hidden on tablet** — `hidden md:flex` → `hidden lg:flex` on the planetary ring container. At 768px the ring + icons were squeezed against the H1 text; now the ring is desktop-only (lg+) and tablet gets a clean type-driven hero.
+
+### Tier 2 — iOS / Android UX safeguards
+5. **`index.html` viewport meta** — removed `maximum-scale=1` (a WCAG 1.4.4 violation that disables user pinch-zoom). Replaced with a comment documenting the proper way to prevent iOS input zoom (16px font on inputs).
+6. **`LandingYuktiDemo.tsx` input font-size** — input is now `text-base` (16px) on mobile, `sm:text-sm` (14px) on desktop. Prevents iOS Safari from zooming the viewport on focus while keeping the tighter desktop look.
+7. **`SiteHeader.tsx` safe-area insets** — header container now uses `paddingTop: max(0px, env(safe-area-inset-top))` and equivalent for left/right so the iPhone notch / Android display cutout doesn't overlap content in PWA standalone mode.
+8. **`FloatingYuktiPill.tsx` bottom safe-area** — pill now uses `bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem))` so it never overlaps the iPhone home indicator or Android gesture bar.
+9. **Tap targets ≥44px** — hamburger button bumped to `min-h-[44px] min-w-[44px]`, example chips lifted from `py-1.5` (~28px) to `py-2 min-h-[36px]`, demo Ask button gets `min-w-[48px]` so the icon-only mobile state stays thumb-friendly.
+
+### Tier 3 — polish
+10. **`Hero.tsx` mobile section padding** — `pt-20 pb-16` → `pt-12 pb-12 sm:pt-16 sm:pb-16 md:pt-20 md:pb-20 lg:pt-28 lg:pb-24`. Hero feels less top-heavy on phones; CTA reaches above the fold on most devices.
+11. **Tagline `whitespace-nowrap` on emphasis spans** — "modern intelligence" and "timeless wisdom" now never break mid-phrase; if there's no room they jump to a fresh line as a unit.
+12. **Tagline `style={{ textWrap: "pretty" }}`** — CSS-native ragged-right balancing for the body paragraph.
+
+### Verified clean at all four target viewports
+- Desktop 1440×900 — full nav + Install/Admin/Sign in/Try Yukti free, planetary orbits visible.
+- Tablet 768×1024 — hamburger menu, no orbits, balanced 2-line H1.
+- iPhone 390×844 — hamburger, 3-line balanced H1, short widget header, all chips fit.
+- Android 360×800 — same as iPhone with even tighter spacing; nothing clipped.
+- TypeScript clean (`tsc --noEmit` passes for all 4 edited files).
+
+### Follow-up regression fix — header at exactly 1024px (lg breakpoint)
+After the `md:`→`lg:` shift, the header was clean at 1280+ but cramped at 1024–1279px because the desktop nav row tried to fit Logo + contact icons + Solutions/For Doctors/About/Support + Install + Admin + Sign in + Try Yukti free all at once. Fixed by:
+- Pushing the email/WhatsApp icon group from `sm:flex` → `xl:flex` so it only appears at 1280+.
+- Hiding the Admin link at the in-between lg viewport (`hidden xl:inline-flex`) — admins can still reach it via the hamburger menu or by navigating to /admin directly.
+- Adding `whitespace-nowrap` to every nav item and auth button so individual labels never wrap to two lines.
+- Tightening gaps slightly at lg (`gap-0.5 xl:gap-1`, `px-3 xl:px-3.5`) so the row breathes only when there's room.
+
+Verified clean at 1024×800, 1280×800, and 1440×900 — all three desktop sizes now read cleanly with no wrap or clip.
