@@ -57,7 +57,7 @@ function PlanetIcon({
     <div className="absolute ring-orbit" style={{ inset, ...animStyle }}>
       <div className={`absolute ${positionClasses}`}>
         <div
-          className={`ring-orbit-counter h-12 w-12 lg:h-14 lg:w-14 rounded-2xl bg-white/90 backdrop-blur ring-1 ${ringTone} flex items-center justify-center`}
+          className={`ring-orbit-counter h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 lg:h-14 lg:w-14 rounded-2xl bg-white/90 backdrop-blur ring-1 ${ringTone} flex items-center justify-center`}
           style={{ boxShadow: `0 10px 28px -8px ${shadowColor}`, ...animStyle }}
         >
           {children}
@@ -120,19 +120,23 @@ export function Hero() {
           aria-hidden
           className="absolute inset-0 flex items-center justify-center pointer-events-none"
         >
-          {/* Planetary ring is now visible on every device. On mobile/tablet
-              it shrinks and softens via opacity so it reads as ambient
-              background atmosphere behind the H1, not foreground UI.
-              Desktop keeps the full 720px ring with crisp orbiting icons.
+          {/* Planetary ring renders on every device. On mobile/tablet it
+              shrinks and softens via opacity so it reads as ambient
+              background atmosphere behind the H1; desktop keeps the full
+              720px ring with crisp orbiting icons.
               Width cap is stepped per breakpoint:
                 base (≤sm) → ~340px (brackets the H1 on a 360-414px phone)
                 sm        → ~500px (fits the 640-767px window)
                 md        → ~620px (fits the 768-1023px tablet)
                 lg+       → 720px  (full desktop ring)
-              `aspect-square` + explicit `width:` keeps the box a TRUE square so
-              PlanetIcons stay on a circle (not an ellipse). */}
+              Opacity is stepped 60 → 75 → 88 → 100 (was 25/45/60/100) so
+              the ring + icon motion is clearly visible on phones — the
+              user explicitly liked the orbit and asked for it to work on
+              every device, not just hint at it. `aspect-square` + explicit
+              `width:` keeps the box a TRUE square so PlanetIcons stay on
+              a circle (not an ellipse). */}
           <div
-            className="relative aspect-square opacity-25 sm:opacity-45 md:opacity-60 lg:opacity-100 transition-opacity [width:min(340px,90vw)] sm:[width:min(500px,82vw)] md:[width:min(620px,75vw,75vh)] lg:[width:min(720px,70vh,92vw)]"
+            className="relative aspect-square opacity-60 sm:opacity-75 md:opacity-90 lg:opacity-100 transition-opacity [width:min(340px,90vw)] sm:[width:min(500px,82vw)] md:[width:min(620px,75vw,75vh)] lg:[width:min(720px,70vh,92vw)]"
           >
             <svg
               aria-hidden

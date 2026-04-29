@@ -299,11 +299,29 @@
   @keyframes ring-orbit-ccw { from { transform: rotate(0deg); }   to { transform: rotate(-360deg); } }
   /* Duration is set per-icon via inline style on PlanetIcon (so each "planet"
      gets its own orbital period). We define everything else here so the
-     inline style only ever sets `animation-duration` + `animation-delay`. */
-  .ring-orbit         { animation-name: ring-orbit-cw;  animation-timing-function: linear; animation-iteration-count: infinite; transform-origin: center; }
-  .ring-orbit-counter { animation-name: ring-orbit-ccw; animation-timing-function: linear; animation-iteration-count: infinite; transform-origin: center; }
+     inline style only ever sets `animation-duration` + `animation-delay`.
+     `will-change: transform` + `translateZ(0)` promote each rotating layer
+     to its own GPU compositor layer — this is what keeps the orbit smooth
+     on low-end phones (where without GPU promotion the very long-period
+     linear rotation can stutter at sub-pixel boundaries). `backface-
+     visibility: hidden` further reduces flicker on some Android Chrome
+     builds where SVG rasterisation can re-tile mid-rotation. */
+  .ring-orbit,
+  .ring-orbit-counter {
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    transform-origin: center;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  .ring-orbit         { animation-name: ring-orbit-cw;  }
+  .ring-orbit-counter { animation-name: ring-orbit-ccw; }
   @media (prefers-reduced-motion: reduce) {
-    .ring-orbit, .ring-orbit-counter { animation: none; }
+    .ring-orbit, .ring-orbit-counter {
+      animation: none;
+      will-change: auto; /* free up GPU memory when motion is paused */
+    }
   }
 
   .border-ai-indigo {
