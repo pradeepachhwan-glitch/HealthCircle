@@ -468,11 +468,12 @@ export default function Admin() {
   }
   async function handleLogoFile(file: File) {
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+      toast.error("Please select an image file (PNG, JPG, GIF or WebP).");
       return;
     }
     if (file.size > 4 * 1024 * 1024) {
-      toast.error("Image too large (4 MB max)");
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      toast.error(`Logo is too large (${sizeMb} MB). Please pick an image under 4 MB.`);
       return;
     }
     try {
@@ -487,12 +488,21 @@ export default function Admin() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        // Map the most common server-side rejections to friendly messages so
+        // operators see *why* the upload failed instead of a bare status code.
+        if (res.status === 413) {
+          throw new Error("Logo is too large for the server (4 MB max). Try a smaller image.");
+        }
+        if (res.status === 401 || res.status === 403) {
+          throw new Error("You're not signed in as an admin. Refresh and try again.");
+        }
         throw new Error(err.error ?? `Upload failed (${res.status})`);
       }
       const { url } = await res.json();
       setCommunityForm(f => ({ ...f, iconUrl: url }));
+      toast.success("Logo uploaded — don't forget to Save the community.");
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not upload logo");
+      toast.error(e?.message ?? "Could not upload logo. Please try again.");
     } finally {
       setLogoUploading(false);
     }

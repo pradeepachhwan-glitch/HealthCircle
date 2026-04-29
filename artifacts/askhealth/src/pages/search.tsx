@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Layout } from "@/components/Layout";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -219,13 +220,15 @@ export default function SearchPage() {
             </div>
           )}
 
-          {/* Loading skeleton */}
+          {/* Loading state — branded ring around the HealthCircle logo so the
+              wait is visually consistent with the rest of the app. */}
           {loading && (
-            <div className="mt-8 space-y-4 animate-pulse">
-              <div className="h-5 bg-slate-200 rounded w-1/3" />
-              <div className="h-28 bg-slate-100 rounded-2xl" />
-              <div className="h-20 bg-slate-100 rounded-2xl" />
-              <div className="h-48 bg-slate-100 rounded-2xl" />
+            <div className="mt-12 flex flex-col items-center justify-center">
+              <LoadingOverlay
+                variant="inline"
+                size={80}
+                label={`Analysing "${submittedQuery || query}"…`}
+              />
             </div>
           )}
 

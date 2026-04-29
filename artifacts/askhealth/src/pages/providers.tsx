@@ -9,10 +9,20 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Layout } from "@/components/Layout";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import {
   Search, Star, MapPin, Clock, Calendar,
   Stethoscope, Building2, Phone, Globe, Navigation, Loader2
 } from "lucide-react";
+
+function useDebouncedValue<T>(value: T, delayMs = 400): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -283,11 +293,16 @@ export default function ProvidersPage() {
   const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
   const authReady = clerkLoaded && isSignedIn;
 
-  const { data: doctors = [], isLoading: loadingDoctors } = useQuery<Doctor[]>({
-    queryKey: ["doctors", query, selectedSpecialty, city],
+  // Debounce the typed query so we don't fire a fresh /api/doctors request on
+  // every keystroke. The doctors endpoint can take several seconds when it
+  // falls back to live OSM lookups, so without this the page feels stuck.
+  const debouncedQuery = useDebouncedValue(query, 400);
+
+  const { data: doctors = [], isLoading: loadingDoctors, isFetching: fetchingDoctors } = useQuery<Doctor[]>({
+    queryKey: ["doctors", debouncedQuery, selectedSpecialty, city],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (query) params.set("q", query);
+      if (debouncedQuery) params.set("q", debouncedQuery);
       if (selectedSpecialty) params.set("specialty", selectedSpecialty);
       if (city) params.set("city", city);
       const res = await fetch(`${API_BASE}/doctors?${params}`, { credentials: "include" });
@@ -298,11 +313,11 @@ export default function ProvidersPage() {
     enabled: authReady,
   });
 
-  const { data: hospitals = [], isLoading: loadingHospitals } = useQuery<Hospital[]>({
-    queryKey: ["hospitals", query, city],
+  const { data: hospitals = [], isLoading: loadingHospitals, isFetching: fetchingHospitals } = useQuery<Hospital[]>({
+    queryKey: ["hospitals", debouncedQuery, city],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (query) params.set("q", query);
+      if (debouncedQuery) params.set("q", debouncedQuery);
       if (city) params.set("city", city);
       const res = await fetch(`${API_BASE}/hospitals?${params}`, { credentials: "include" });
       if (!res.ok) return [];
@@ -387,13 +402,20 @@ export default function ProvidersPage() {
               ))}
             </div>
 
-            {loadingDoctors && (
-              <div className="text-center py-12 text-slate-400 flex flex-col items-center gap-2">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                <p className="text-sm">Finding doctors…</p>
+            {/* Big branded ring only when we have nothing to show yet. Once
+                we have results, a subtler "Refreshing…" pill avoids flashing
+                the whole list off-screen on every refetch (e.g. when typing). */}
+            {loadingDoctors && displayDoctors.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <LoadingOverlay variant="inline" size={64} label="Finding doctors…" />
               </div>
             )}
-            {!loadingDoctors && displayDoctors.length === 0 && (
+            {fetchingDoctors && displayDoctors.length > 0 && (
+              <div className="mb-3 inline-flex items-center gap-2 text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                <Loader2 className="w-3 h-3 animate-spin" /> Refreshing results…
+              </div>
+            )}
+            {!loadingDoctors && !fetchingDoctors && displayDoctors.length === 0 && (
               <div className="text-center py-12 text-slate-400">
                 <Stethoscope className="w-10 h-10 mx-auto mb-3 text-slate-300" />
                 <p>No doctors found. Try a different search.</p>
@@ -405,13 +427,17 @@ export default function ProvidersPage() {
           </TabsContent>
 
           <TabsContent value="hospitals">
-            {loadingHospitals && (
-              <div className="text-center py-12 text-slate-400 flex flex-col items-center gap-2">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                <p className="text-sm">Finding hospitals…</p>
+            {loadingHospitals && displayHospitals.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <LoadingOverlay variant="inline" size={64} label="Finding hospitals…" />
               </div>
             )}
-            {!loadingHospitals && displayHospitals.length === 0 && (
+            {fetchingHospitals && displayHospitals.length > 0 && (
+              <div className="mb-3 inline-flex items-center gap-2 text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                <Loader2 className="w-3 h-3 animate-spin" /> Refreshing results…
+              </div>
+            )}
+            {!loadingHospitals && !fetchingHospitals && displayHospitals.length === 0 && (
               <div className="text-center py-12 text-slate-400">
                 <Building2 className="w-10 h-10 mx-auto mb-3 text-slate-300" />
                 <p>No hospitals found.</p>
