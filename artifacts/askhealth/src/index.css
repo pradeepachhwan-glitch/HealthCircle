@@ -290,6 +290,19 @@
   @media (prefers-reduced-motion: reduce) {
     .drift-slow, .drift-med { animation: none; }
   }
+
+  /* Hero orbit ring — sends 4 health-themed icons gently around the rim of
+     a large centered circle that spans the hero. The outer wrapper rotates
+     clockwise; each icon counter-rotates so it stays upright the whole way.
+     Honors prefers-reduced-motion. */
+  @keyframes ring-orbit-cw  { from { transform: rotate(0deg); }   to { transform: rotate(360deg); } }
+  @keyframes ring-orbit-ccw { from { transform: rotate(0deg); }   to { transform: rotate(-360deg); } }
+  .ring-orbit         { animation: ring-orbit-cw  60s linear infinite; transform-origin: center; }
+  .ring-orbit-counter { animation: ring-orbit-ccw 60s linear infinite; transform-origin: center; }
+  @media (prefers-reduced-motion: reduce) {
+    .ring-orbit, .ring-orbit-counter { animation: none; }
+  }
+
   .border-ai-indigo {
     border-color: var(--hc-indigo);
   }

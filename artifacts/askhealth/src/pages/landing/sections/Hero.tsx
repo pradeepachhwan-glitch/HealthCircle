@@ -1,6 +1,48 @@
 import { Link } from "wouter";
-import { ArrowRight, Heart, Sparkles, Activity } from "lucide-react";
+import { ArrowRight, Heart, Sparkles, Activity, Leaf } from "lucide-react";
 import { LandingYuktiDemo } from "@/components/LandingYuktiDemo";
+
+/**
+ * Single icon chip that sits at one cardinal point on the hero's orbit ring.
+ * The outer div positions it on the rim using translate; the inner div
+ * counter-rotates so the chip stays upright as the parent ring rotates.
+ *
+ * Tailwind transform classes (`-translate-x-1/2`, etc.) live on the OUTER
+ * wrapper while the rotation animation runs on the INNER div — putting both
+ * on the same element would cause the animation's `transform: rotate(...)`
+ * to overwrite the translate and the chip would snap to centre.
+ */
+function OrbitIcon({
+  position,
+  ringTone,
+  shadowColor,
+  children,
+}: {
+  position: "top" | "right" | "bottom" | "left";
+  /** Literal Tailwind ring class — must appear verbatim in source so JIT picks it up. */
+  ringTone: "ring-rose-100" | "ring-violet-100" | "ring-emerald-100" | "ring-amber-100";
+  /** Raw rgba colour for the soft drop shadow (inline-styled — Tailwind JIT
+   *  cannot detect interpolated arbitrary-value class names). */
+  shadowColor: string;
+  children: React.ReactNode;
+}) {
+  const positionClasses = {
+    top:    "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2",
+    right:  "right-0 top-1/2 translate-x-1/2 -translate-y-1/2",
+    bottom: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2",
+    left:   "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2",
+  }[position];
+  return (
+    <div className={`absolute ${positionClasses}`}>
+      <div
+        className={`ring-orbit-counter h-12 w-12 lg:h-14 lg:w-14 rounded-2xl bg-white/85 backdrop-blur ring-1 ${ringTone} flex items-center justify-center`}
+        style={{ boxShadow: `0 8px 24px -10px ${shadowColor}` }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /**
  * Set the URL hash. The global `useHashScroll` hook in Landing.tsx listens
@@ -22,45 +64,56 @@ export function Hero() {
     <section className="relative overflow-hidden bg-white">
       {/* Decorative background — warm coral blob + cool indigo blob + dotted ring.
           Warm + cool together = alive but balanced (not Aditya-Birla-red, not corporate). */}
-      <div className="pointer-events-none absolute inset-0 -z-0">
+      <div className="pointer-events-none absolute inset-0 -z-10">
         {/* Warm coral/peach blob — left side */}
         <div className="absolute -top-24 -left-32 h-[520px] w-[520px] rounded-full bg-gradient-to-br from-rose-200/45 via-orange-100/30 to-transparent blur-3xl" />
         {/* Cool indigo blob — right side (kept from before) */}
         <div className="absolute -top-32 -right-40 h-[640px] w-[640px] rounded-full bg-gradient-to-br from-indigo-100/60 via-violet-50/40 to-transparent blur-3xl" />
         {/* Soft amber wash at the bottom — sunset feeling */}
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[300px] w-[900px] rounded-full bg-gradient-to-t from-amber-100/30 via-rose-50/20 to-transparent blur-3xl" />
-        <svg
+        {/* Big centered ring spanning the hero — desktop only. Four health
+            icons orbit slowly along its rim (Heart=care, Sparkles=Yukti AI =
+            modern intelligence, Activity=EKG/vitality, Leaf=Ayurveda /
+            timeless wisdom). The rim sits ~95% of container width so it
+            kisses the side blobs without overflowing the visible hero. */}
+        <div
           aria-hidden
-          className="absolute -top-24 right-0 h-[820px] w-[820px] text-indigo-200/70"
-          viewBox="0 0 800 800"
-          fill="none"
+          className="hidden md:flex absolute inset-0 items-center justify-center"
         >
-          <circle cx="400" cy="400" r="360" stroke="currentColor" strokeWidth="1.2" />
-          <circle cx="400" cy="400" r="280" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 6" />
-        </svg>
-
-        {/* Floating health micro-decorations — subtle, drift slowly, all decorative */}
-        <span
-          aria-hidden
-          className="hidden md:flex drift-slow absolute top-20 left-[8%] h-11 w-11 rounded-2xl bg-white/80 ring-1 ring-rose-100 shadow-[0_8px_24px_-12px_rgba(244,63,94,0.4)] backdrop-blur items-center justify-center"
-          style={{ ["--drift-rot" as string]: "-6deg" }}
-        >
-          <Heart className="h-5 w-5 text-rose-500" strokeWidth={1.75} fill="currentColor" fillOpacity={0.15} />
-        </span>
-        <span
-          aria-hidden
-          className="hidden md:flex drift-med absolute top-44 right-[10%] h-11 w-11 rounded-2xl bg-white/80 ring-1 ring-violet-100 shadow-[0_8px_24px_-12px_rgba(139,92,246,0.4)] backdrop-blur items-center justify-center"
-          style={{ ["--drift-rot" as string]: "8deg", animationDelay: "-1.2s" }}
-        >
-          <Sparkles className="h-5 w-5 text-violet-500" strokeWidth={1.75} />
-        </span>
-        <span
-          aria-hidden
-          className="hidden md:flex drift-slow absolute bottom-52 left-[6%] h-11 w-11 rounded-2xl bg-white/80 ring-1 ring-emerald-100 shadow-[0_8px_24px_-12px_rgba(16,185,129,0.4)] backdrop-blur items-center justify-center"
-          style={{ ["--drift-rot" as string]: "4deg", animationDelay: "-2.4s" }}
-        >
-          <Activity className="h-5 w-5 text-emerald-500" strokeWidth={1.75} />
-        </span>
+          <div
+            className="relative"
+            style={{
+              width: "min(96%, 1080px)",
+              aspectRatio: "1 / 1",
+              maxHeight: "min(96%, 720px)",
+            }}
+          >
+            <svg
+              aria-hidden
+              className="absolute inset-0 h-full w-full text-indigo-200/70"
+              viewBox="0 0 800 800"
+              fill="none"
+            >
+              <circle cx="400" cy="400" r="395" stroke="currentColor" strokeWidth="1" />
+              <circle cx="400" cy="400" r="350" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 6" />
+            </svg>
+            {/* The orbiting wrapper. Rotates clockwise every 90s; reduced-motion users see icons fixed at their cardinal positions. */}
+            <div className="absolute inset-0 ring-orbit">
+              <OrbitIcon position="top"    ringTone="ring-rose-100"    shadowColor="rgba(244,63,94,0.4)">
+                <Heart className="h-5 w-5 lg:h-6 lg:w-6 text-rose-500" strokeWidth={1.75} fill="currentColor" fillOpacity={0.18} />
+              </OrbitIcon>
+              <OrbitIcon position="right"  ringTone="ring-violet-100"  shadowColor="rgba(139,92,246,0.4)">
+                <Sparkles className="h-5 w-5 lg:h-6 lg:w-6 text-violet-500" strokeWidth={1.75} />
+              </OrbitIcon>
+              <OrbitIcon position="bottom" ringTone="ring-emerald-100" shadowColor="rgba(16,185,129,0.4)">
+                <Activity className="h-5 w-5 lg:h-6 lg:w-6 text-emerald-500" strokeWidth={1.75} />
+              </OrbitIcon>
+              <OrbitIcon position="left"   ringTone="ring-amber-100"   shadowColor="rgba(217,119,6,0.4)">
+                <Leaf className="h-5 w-5 lg:h-6 lg:w-6 text-amber-600" strokeWidth={1.75} fill="currentColor" fillOpacity={0.15} />
+              </OrbitIcon>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="relative max-w-5xl mx-auto px-4 pt-20 pb-16 md:pt-28 md:pb-24 text-center">
@@ -82,9 +135,12 @@ export function Hero() {
         </h1>
 
         <p className="text-lg md:text-xl text-slate-700 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-          Ask Yukti — India's AI health companion. Get evidence-backed answers,
-          join trusted communities, and consult verified doctors.{" "}
-          <span className="text-slate-600">All in one calm place.</span>
+          Yukti — India's AI Health companion, built for the World;
+          powered by{" "}
+          <span className="font-semibold text-violet-700">modern intelligence</span>,
+          and anchored in the{" "}
+          <span className="font-semibold text-amber-700">timeless wisdom</span>{" "}
+          of traditional wellness.
         </p>
 
         <div className="flex items-center justify-center gap-5 flex-wrap mb-5">

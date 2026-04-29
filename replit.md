@@ -469,3 +469,20 @@ End-to-end admin control of the doctor onboarding pipeline plus tamper-evident a
   - Footer: link text `text-slate-500` → `text-slate-600`; column titles `font-semibold` → `font-bold`; colophon `text-slate-400` → `text-slate-500`.
   - LandingYuktiDemo: input border `slate-200` → `slate-300`; placeholder `slate-400` → `slate-500`; "Or pick an example" `text-slate-400` → `text-slate-600 font-medium`; example chips border up + text `slate-700`.
 - **Architect-reviewed PASS** on all six concern areas (voice gesture chain, imperative ref safety, auto-speak UX, scraper privacy trade-off, a11y, TeleConsult typography). No SEV1/SEV2 issues; SEV3 polish (`Event` → `CustomEvent`) applied. Typecheck clean on every touched file.
+
+## 2026-04-29 (third pass — orbit ring + new tagline + vibrant example chips)
+- **Big orbit ring spans the hero** (`Hero.tsx` + `index.css`):
+  - Replaced the small fixed ring (top-right, 820×820) and the 3 static `drift-*` icons with one large centered ring (`min(96%, 1080px)` × `aspect-square`, capped at 720px max height) that orbits 4 health-themed icons gently around its rim. New `OrbitIcon` helper in `Hero.tsx` positions each chip at one cardinal point (top/right/bottom/left) on the rim.
+  - Icons (12 → 3 → 6 → 9 o'clock): Heart (rose/care), Sparkles (violet/Yukti AI = "modern intelligence"), Activity (emerald/EKG = vitality), Leaf (amber/Ayurveda = "timeless wisdom"). The 4 picks intentionally mirror the new tagline's two halves.
+  - Animation: outer wrapper class `ring-orbit` rotates the whole quartet clockwise over 90s linear infinite. Each icon's inner div has `ring-orbit-counter` (same duration, opposite direction) so the icon glyph stays upright as it travels around the rim. Both keyframes added to `@layer utilities` in `index.css` with a `prefers-reduced-motion` reset.
+  - Critical pattern: outer div carries the position translate (`-translate-x-1/2`, etc.); inner div carries the rotation. Putting both on one element would let the animation's `transform: rotate(...)` overwrite the translate and snap chips to centre. The `OrbitIcon` JSDoc explains this.
+  - Tailwind JIT trap avoided: ring tone is passed as a literal-typed prop (`"ring-rose-100" | "ring-violet-100" | …`) so JIT scans pick it up; the soft drop shadow uses inline `style={{ boxShadow }}` because interpolated `shadow-[0_8px_24px_-10px_${rgba}]` would never reach the generated CSS.
+  - Hidden on mobile (`hidden md:flex`) — the ring would compete with the H1 + Ask box on small screens.
+- **New tagline** in the Hero subtitle:
+  - From: "Ask Yukti — India's AI health companion. Get evidence-backed answers, join trusted communities, and consult verified doctors. All in one calm place."
+  - To: "Yukti — India's AI Health companion, built for the World; powered by **modern intelligence**, and anchored in the **timeless wisdom** of traditional wellness." Two coloured emphases (`text-violet-700` and `text-amber-700`) visualise the dual nature.
+- **Vibrant example chips** (`LandingYuktiDemo.tsx`):
+  - SAMPLE_QUESTIONS upgraded from string array to objects `{ text, icon, tone }`. Tones: amber (Thermometer / sore throat), indigo (Moon / acidity-at-night), rose (Flower2 / PCOS). Each chip is now a gradient pill (`bg-gradient-to-r from-{tone}-50 to-{partner}-50 border-{tone}-200 text-{tone}-800`) with hover lift (`hover:-translate-y-0.5 hover:shadow-md`), icon scale-in on hover, and per-tone deeper hover colour.
+  - `TONE_CLASSES` constant uses static class strings (no interpolation) so JIT picks them all up.
+  - Added per-tone `data-testid` (`button-yukti-demo-example-amber/indigo/rose`).
+- **Mobile responsiveness verified** — the Ask input sits full-width on small viewports with the mic + Send buttons inline; ring decorations hide; tagline wraps cleanly with the coloured emphases. Touch target on input ≈48px.

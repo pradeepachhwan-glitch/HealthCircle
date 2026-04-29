@@ -1,16 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Loader2, Sparkles, AlertTriangle, ArrowRight, Send } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle, ArrowRight, Send, Thermometer, Moon, Flower2 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { WhyThisAnswer } from "@/components/WhyThisAnswer";
 import { VoiceMic, SpeakButton, type VoiceMicHandle } from "@/components/VoiceMic";
 import { speak, cancelSpeech } from "@/lib/voice";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
-const SAMPLE_QUESTIONS = [
-  "I have a sore throat for 3 days. Should I worry?",
-  "What helps with acidity at night?",
-  "Best diet for managing PCOS?",
+
+/**
+ * Each example chip carries its own colored gradient + a topical icon so the
+ * three suggestions read as distinct invitations rather than a wall of grey
+ * pills. Static class strings (no interpolation) so Tailwind's JIT picks them
+ * up. Tones are chosen to match the topic: amber=throat/inflammation,
+ * indigo=night/sleep, rose=feminine wellness.
+ */
+const SAMPLE_QUESTIONS: { text: string; icon: LucideIcon; tone: "amber" | "indigo" | "rose" }[] = [
+  { text: "Sore throat for 3 days. Should I worry?", icon: Thermometer, tone: "amber" },
+  { text: "What helps with acidity at night?",       icon: Moon,        tone: "indigo" },
+  { text: "Best diet for managing PCOS?",            icon: Flower2,     tone: "rose" },
 ];
+
+const TONE_CLASSES: Record<"amber" | "indigo" | "rose", string> = {
+  amber:  "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 text-amber-800 hover:from-amber-100 hover:to-orange-100 hover:border-amber-300 hover:text-amber-900",
+  indigo: "bg-gradient-to-r from-indigo-50 to-violet-50 border-indigo-200 text-indigo-800 hover:from-indigo-100 hover:to-violet-100 hover:border-indigo-300 hover:text-indigo-900",
+  rose:   "bg-gradient-to-r from-rose-50 to-pink-50 border-rose-200 text-rose-800 hover:from-rose-100 hover:to-pink-100 hover:border-rose-300 hover:text-rose-900",
+};
 
 interface PublicAskResponse {
   reply: string;
@@ -176,15 +191,17 @@ export function LandingYuktiDemo() {
 
             <div className="flex flex-wrap gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
               <span className="text-[12px] text-slate-600 self-center mr-1 font-medium">Or pick an example:</span>
-              {SAMPLE_QUESTIONS.map((s) => (
+              {SAMPLE_QUESTIONS.map(({ text, icon: Icon, tone }) => (
                 <button
-                  key={s}
+                  key={text}
                   type="button"
-                  onClick={() => { setQuestion(s); focusInput(); }}
+                  onClick={() => { setQuestion(text); focusInput(); }}
                   disabled={loading}
-                  className="text-[11px] px-2.5 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-primary/40 hover:text-primary transition-all"
+                  className={`group inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-semibold transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none ${TONE_CLASSES[tone]}`}
+                  data-testid={`button-yukti-demo-example-${tone}`}
                 >
-                  {s}
+                  <Icon className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" strokeWidth={2.25} />
+                  <span>{text}</span>
                 </button>
               ))}
             </div>
