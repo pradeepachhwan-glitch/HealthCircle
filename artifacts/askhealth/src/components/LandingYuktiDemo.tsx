@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Loader2, Sparkles, AlertTriangle, ArrowRight, Send } from "lucide-react";
 import { WhyThisAnswer } from "@/components/WhyThisAnswer";
@@ -28,6 +28,17 @@ export function LandingYuktiDemo() {
   const [answer, setAnswer] = useState<PublicAskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [used, setUsed] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Some embedded contexts (Replit canvas iframe, certain mobile browsers)
+  // do not pass keystrokes through unless the field is *explicitly* focused.
+  // Focus once on mount so users can start typing immediately, and again
+  // whenever they click anywhere inside the demo card.
+  useEffect(() => {
+    const t = window.setTimeout(() => inputRef.current?.focus(), 200);
+    return () => window.clearTimeout(t);
+  }, []);
+  function focusInput() { inputRef.current?.focus(); }
 
   async function handleAsk(e?: React.FormEvent) {
     e?.preventDefault();
@@ -69,16 +80,22 @@ export function LandingYuktiDemo() {
         </div>
 
         {!answer ? (
-          <form onSubmit={handleAsk} className="p-5 space-y-3">
+          <form onSubmit={handleAsk} className="p-5 space-y-3" onClick={focusInput}>
             <div className="flex gap-2">
               <input
+                ref={inputRef}
                 type="text"
                 value={question}
                 onChange={(e) => { setQuestion(e.target.value); if (error) setError(null); }}
-                placeholder="e.g. I get headaches every evening — what could it be?"
+                placeholder="Type your health question here…"
                 maxLength={500}
-                disabled={loading}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm text-slate-800 placeholder:text-slate-400 transition-all"
+                readOnly={loading}
+                autoFocus
+                inputMode="text"
+                enterKeyHint="send"
+                autoComplete="off"
+                spellCheck
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm text-slate-800 placeholder:text-slate-400 transition-all bg-white"
                 data-testid="input-yukti-demo-question"
               />
               <button
@@ -98,13 +115,13 @@ export function LandingYuktiDemo() {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2 pt-1">
-              <span className="text-[11px] text-slate-400 self-center mr-1">Try:</span>
+            <div className="flex flex-wrap gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+              <span className="text-[11px] text-slate-400 self-center mr-1">Or pick an example:</span>
               {SAMPLE_QUESTIONS.map((s) => (
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setQuestion(s)}
+                  onClick={() => { setQuestion(s); focusInput(); }}
                   disabled={loading}
                   className="text-[11px] px-2.5 py-1 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-primary/40 hover:text-primary transition-all"
                 >

@@ -310,7 +310,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!isAuthenticated) return <Redirect to="/" />;
+  if (!isAuthenticated) {
+    // Send unauthenticated users to /sign-in (not back to /), and remember
+    // where they were trying to go so we can return them post-login.
+    const here = typeof window !== "undefined"
+      ? window.location.pathname + window.location.search
+      : "/";
+    const next = encodeURIComponent(here);
+    return <Redirect to={`/sign-in?next=${next}`} />;
+  }
   return <OnboardingGate>{children}</OnboardingGate>;
 }
 

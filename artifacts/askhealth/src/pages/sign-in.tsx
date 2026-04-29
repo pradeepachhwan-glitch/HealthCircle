@@ -21,6 +21,24 @@ export default function SignInPage() {
   } = useAuth();
   const [, setLocation] = useLocation();
 
+  // Capture an optional ?next=... so users sent to /sign-in from a
+  // protected route (e.g. /admin) are returned to where they came from.
+  // Only relative same-origin paths are honoured.
+  const nextHref = (() => {
+    if (typeof window === "undefined") return `${basePath}/`;
+    const raw = new URLSearchParams(window.location.search).get("next");
+    if (!raw) return `${basePath}/`;
+    try {
+      const decoded = decodeURIComponent(raw);
+      // Reject anything that isn't a same-origin relative path.
+      if (!decoded.startsWith("/") || decoded.startsWith("//")) return `${basePath}/`;
+      return decoded;
+    } catch {
+      return `${basePath}/`;
+    }
+  })();
+  function goNext() { setLocation(nextHref); }
+
   const [mode, setMode] = useState<Mode>("login");
   const [stage, setStage] = useState<Stage>("form");
 
@@ -40,7 +58,7 @@ export default function SignInPage() {
 
   // Already signed in → home.
   useEffect(() => {
-    if (!isLoading && isAuthenticated) setLocation(`${basePath}/`);
+    if (!isLoading && isAuthenticated) goNext();
   }, [isLoading, isAuthenticated, setLocation]);
 
   // Countdown for resend.
@@ -83,7 +101,7 @@ export default function SignInPage() {
     const res = await login(email, password);
     setBusy(false);
     if (res.ok) {
-      setLocation(`${basePath}/`);
+      goNext();
       return;
     }
     if (res.needsVerification) {
@@ -127,7 +145,7 @@ export default function SignInPage() {
     const res = await verifyEmail(email, code);
     setBusy(false);
     if (res.ok) {
-      setLocation(`${basePath}/`);
+      goNext();
     } else {
       setError(res.error ?? "That code didn't work.");
       setCode("");
@@ -194,7 +212,7 @@ export default function SignInPage() {
     const res = await resetPassword(email, code, newPassword);
     setBusy(false);
     if (res.ok) {
-      setLocation(`${basePath}/`);
+      goNext();
     } else {
       setError(res.error ?? "Could not reset your password.");
     }

@@ -596,7 +596,29 @@ export default function ChatPage() {
               {communityContext.name}
             </Badge>
           )}
-          <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 text-xs">
+          <Link href="/providers">
+            <Button
+              size="sm"
+              variant="outline"
+              className="hidden sm:inline-flex h-8 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+              data-testid="chat-find-doctor-button"
+            >
+              <Stethoscope className="w-3.5 h-3.5" />
+              Find a Doctor
+            </Button>
+          </Link>
+          <Link href="/providers">
+            <Button
+              size="icon"
+              variant="outline"
+              className="sm:hidden w-8 h-8 border-primary/30 text-primary hover:bg-primary/5"
+              aria-label="Find a Doctor"
+              data-testid="chat-find-doctor-button-mobile"
+            >
+              <Stethoscope className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+          <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 text-xs hidden md:inline-flex">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5 inline-block" />
             Online
           </Badge>

@@ -52,7 +52,7 @@ export function SiteHeader() {
         <div className="hidden md:flex items-center gap-1.5">
           <PWAInstallButton variant="ghost" label="Install app" />
           <Link
-            href="/admin"
+            href="/sign-in?next=%2Fadmin"
             className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors"
             data-testid="landing-admin-link"
           >
@@ -114,7 +114,7 @@ export function SiteHeader() {
               </Link>
             </div>
             <Link
-              href="/admin"
+              href="/sign-in?next=%2Fadmin"
               className="block text-center text-xs font-medium px-4 py-2 mt-1 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg"
               data-testid="landing-admin-link-mobile"
             >
