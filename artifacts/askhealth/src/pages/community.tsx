@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ConsentModal } from "@/components/ConsentModal";
 import { ContentEmbed } from "@/components/ContentEmbed";
+import { UpiPaymentBlock } from "@/components/UpiPaymentBlock";
 import { cn } from "@/lib/utils";
 
 type Tab = "trending" | "latest" | "unanswered" | "doctor";
@@ -522,15 +523,13 @@ export default function Community() {
                 </div>
               </div>
 
-              <a
-                href={upiPayment.upiLink}
-                className="block w-full rounded-md bg-primary text-primary-foreground text-center font-semibold py-2.5 hover:opacity-90 transition"
-              >
-                Open UPI app to pay
-              </a>
-              <p className="text-[11px] text-slate-500 text-center -mt-2">
-                Works on mobile. On desktop, send ₹{upiPayment.amountInr} to <span className="font-mono">{upiPayment.upiId}</span> from any UPI app (GPay, PhonePe, Paytm, BHIM).
-              </p>
+              <UpiPaymentBlock
+                upiLink={upiPayment.upiLink}
+                upiId={upiPayment.upiId}
+                amountInr={upiPayment.amountInr}
+                payeeName={upiPayment.payeeName}
+                txnRef={upiPayment.txnRef}
+              />
 
               <div className="border-t pt-3 space-y-2">
                 <label className="text-sm font-medium">After paying, enter your UTR / Transaction Ref</label>

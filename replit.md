@@ -330,3 +330,13 @@ End-to-end admin control of the doctor onboarding pipeline plus tamper-evident a
   - Share button uses `navigator.share` when available; falls back to clipboard. AbortError (user cancelled native share) is silently ignored — only real errors show a toast.
   - Removed the `(old: any) ?? old` silent fallback in upvote cache update; now uses typed unknown cast with proper guard.
 - **Verified end-to-end via curl**: bookmark add/remove/list works; `hasBookmarked` propagates to single post and bookmarks list; 5 then 10 concurrent toggles all 200 with deterministic final state; AI summary status returns correct shape (`ready` for cached, `generating` for cold).
+
+## 2026-04-29 (later) — Fix dead "Open UPI app to pay" on desktop
+- **Root cause**: both UPI payment dialogs (community premium + Yukti subscribe in `QuotaExhaustedModal`) used a plain `<a href="upi://pay?...">` button. Desktop browsers have no UPI handler so clicking did literally nothing — no error, no feedback. Inside the Replit canvas iframe (where the user reviews the app) this was 100% dead.
+- **New shared component** (`artifacts/askhealth/src/components/UpiPaymentBlock.tsx`): renders three always-working payment paths in one block:
+  1. **QR code** (rendered locally via the `qrcode` npm package — no network) of the upi:// link, scannable from any phone camera or UPI app. This is the "always works" path that fixes the desktop case.
+  2. **Smart "Open UPI app" button**: on mobile (UA-detected) navigates programmatically via `window.location.href` (more reliable than `<a href>` for custom schemes inside SPAs/sandboxed iframes); on desktop shows a clear toast pointing the user to the QR.
+  3. **Quick-copy buttons** for UPI ID, amount, and reference, plus a manual-payment instructions box.
+- **Wired into both dialogs**: replaced the dead-anchor blocks in `pages/community.tsx` (premium community payment dialog) and `components/QuotaExhaustedModal.tsx` (Yukti AI subscription dialog).
+- **Deps**: added `qrcode` + `@types/qrcode` to the askhealth artifact.
+- Removed now-unused `Alert`/`ExternalLink`/`Copy` imports and the dead `copyText` helper from `QuotaExhaustedModal.tsx`.

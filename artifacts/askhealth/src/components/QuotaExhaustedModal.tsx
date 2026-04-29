@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Crown, Copy, ExternalLink } from "lucide-react";
+import { Loader2, Crown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { UpiPaymentBlock } from "@/components/UpiPaymentBlock";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -31,13 +31,6 @@ function fmtReset(iso: string | null): string {
   if (!iso) return "soon";
   const d = new Date(iso);
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-}
-
-function copyText(text: string, label: string) {
-  navigator.clipboard?.writeText(text).then(
-    () => toast({ title: `${label} copied` }),
-    () => toast({ title: `Could not copy ${label}`, variant: "destructive" }),
-  );
 }
 
 export function QuotaExhaustedModal({
@@ -156,23 +149,13 @@ export function QuotaExhaustedModal({
               <DialogDescription>Complete payment in any UPI app, then enter the UTR below.</DialogDescription>
             </DialogHeader>
 
-            <Alert>
-              <AlertDescription className="text-xs">
-                Pay to <strong>{order.upiId}</strong> ({order.payeeName}) with note <strong>{order.txnRef}</strong>.
-              </AlertDescription>
-            </Alert>
-
-            <div className="grid gap-2">
-              <a href={order.upiLink} className="block">
-                <Button variant="default" className="w-full" data-testid="button-open-upi-app">
-                  <ExternalLink className="h-4 w-4 mr-2" />Open UPI app
-                </Button>
-              </a>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" onClick={() => copyText(order.upiId, "UPI ID")}><Copy className="h-3 w-3 mr-1" />UPI ID</Button>
-                <Button variant="outline" size="sm" onClick={() => copyText(order.txnRef, "Reference")}><Copy className="h-3 w-3 mr-1" />Ref</Button>
-              </div>
-            </div>
+            <UpiPaymentBlock
+              upiLink={order.upiLink}
+              upiId={order.upiId}
+              amountInr={order.amountInr}
+              payeeName={order.payeeName}
+              txnRef={order.txnRef}
+            />
 
             <div className="grid gap-2">
               <Label htmlFor="utr-input">UTR / Transaction reference</Label>
