@@ -128,21 +128,26 @@ export function LandingYuktiDemo() {
   return (
     <div className="max-w-2xl mx-auto mt-12 mb-4" data-testid="landing-yukti-demo" ref={containerRef}>
       <div className="bg-white border border-slate-200 rounded-2xl shadow-card overflow-hidden">
-        <div className="bg-gradient-to-r from-primary/10 via-indigo-50 to-purple-50 px-5 py-3 flex items-center gap-2 border-b border-slate-100">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-bold text-slate-900">Try Yukti — Ask 1 free question</span>
-          <span className="ml-auto text-[10px] uppercase tracking-wide text-slate-600 font-bold">No signup needed</span>
+        <div className="bg-gradient-to-r from-primary/10 via-indigo-50 to-purple-50 px-4 sm:px-5 py-3 flex items-center gap-2 border-b border-slate-100">
+          <Sparkles className="h-4 w-4 text-primary flex-shrink-0" />
+          {/* Short label on mobile, full label from sm+ to avoid the awkward
+              two-line wrap on small Android screens. */}
+          <span className="text-sm font-bold text-slate-900">
+            <span className="sm:hidden">Ask 1 free question</span>
+            <span className="hidden sm:inline">Try Yukti — Ask 1 free question</span>
+          </span>
+          <span className="ml-auto text-[10px] uppercase tracking-wide text-slate-600 font-bold whitespace-nowrap">No signup</span>
         </div>
 
         {!answer ? (
-          <form onSubmit={(e) => handleAsk(e)} className="p-5 space-y-3" onClick={focusInput}>
+          <form onSubmit={(e) => handleAsk(e)} className="p-4 sm:p-5 space-y-3" onClick={focusInput}>
             <div className="flex gap-2 items-stretch">
               <input
                 ref={inputRef}
                 type="text"
                 value={question}
                 onChange={(e) => { setQuestion(e.target.value); if (error) setError(null); setVoiceMode(false); }}
-                placeholder="Type or tap the mic to ask…"
+                placeholder="Type or tap the mic…"
                 maxLength={500}
                 readOnly={loading}
                 autoFocus
@@ -150,7 +155,10 @@ export function LandingYuktiDemo() {
                 enterKeyHint="send"
                 autoComplete="off"
                 spellCheck
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm text-slate-900 placeholder:text-slate-500 transition-all bg-white"
+                /* text-base (16px) on mobile prevents iOS Safari from
+                   zooming the viewport when the field gains focus.
+                   sm:text-sm restores the tighter desktop look. */
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-base sm:text-sm text-slate-900 placeholder:text-slate-500 transition-all bg-white min-w-0"
                 data-testid="input-yukti-demo-question"
               />
               {/* Mic button — handles both voice input AND, on final transcript,
@@ -175,8 +183,11 @@ export function LandingYuktiDemo() {
               <button
                 type="submit"
                 disabled={loading || question.trim().length < 3}
-                className="px-5 py-3 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-sm hover:shadow-md"
+                /* min-w-[48px] guarantees a comfortable thumb target on
+                   Android even when the label collapses to icon-only. */
+                className="px-4 sm:px-5 py-3 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md min-w-[48px] flex-shrink-0"
                 data-testid="button-yukti-demo-ask"
+                aria-label="Ask Yukti"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4" /><span className="hidden sm:inline">Ask</span></>}
               </button>
@@ -190,18 +201,21 @@ export function LandingYuktiDemo() {
             )}
 
             <div className="flex flex-wrap gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
-              <span className="text-[12px] text-slate-600 self-center mr-1 font-medium">Or pick an example:</span>
+              <span className="block w-full sm:w-auto text-[12px] text-slate-600 sm:self-center sm:mr-1 font-medium">Or pick an example:</span>
               {SAMPLE_QUESTIONS.map(({ text, icon: Icon, tone }) => (
                 <button
                   key={text}
                   type="button"
                   onClick={() => { setQuestion(text); focusInput(); }}
                   disabled={loading}
-                  className={`group inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-semibold transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none ${TONE_CLASSES[tone]}`}
+                  /* min-h-[36px] with py-2 lifts these chips from ~28px to
+                     a more thumb-friendly 36px while staying visually
+                     pill-like; py-1.5 was uncomfortable on Android. */
+                  className={`group inline-flex items-center gap-1.5 text-xs px-3 py-2 min-h-[36px] rounded-full border font-semibold transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none ${TONE_CLASSES[tone]}`}
                   data-testid={`button-yukti-demo-example-${tone}`}
                 >
-                  <Icon className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" strokeWidth={2.25} />
-                  <span>{text}</span>
+                  <Icon className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110 flex-shrink-0" strokeWidth={2.25} />
+                  <span className="text-left">{text}</span>
                 </button>
               ))}
             </div>

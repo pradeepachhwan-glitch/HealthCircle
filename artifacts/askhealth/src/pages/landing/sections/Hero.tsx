@@ -118,7 +118,7 @@ export function Hero() {
             A tiny amber "sun" sits at the centre of all the orbits. */}
         <div
           aria-hidden
-          className="hidden md:flex absolute inset-0 items-center justify-center"
+          className="hidden lg:flex absolute inset-0 items-center justify-center"
         >
           <div
             className="relative"
@@ -186,30 +186,40 @@ export function Hero() {
         </div>
       </div>
 
-      <div className="relative max-w-5xl mx-auto px-4 pt-20 pb-16 md:pt-28 md:pb-24 text-center">
+      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-12 pb-12 sm:pt-16 sm:pb-16 md:pt-20 md:pb-20 lg:pt-28 lg:pb-24 text-center">
         {/* Live "We're online" pill — adds subtle movement; honest (always-on AI) */}
         <span className="inline-flex items-center gap-2 px-3 py-1.5 mb-5 rounded-full bg-white/70 backdrop-blur ring-1 ring-emerald-200/70 shadow-sm">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-safe:animate-ping" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+          <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
             Yukti is online · Ask anytime
           </span>
         </span>
 
-        <h1 className="font-serif text-[42px] leading-[1.05] sm:text-5xl md:text-6xl lg:text-[72px] lg:leading-[1.02] font-medium text-slate-900 tracking-[-0.02em] mb-6">
-          Healthcare clarity,
-          <br className="hidden sm:block" />{" "}
-          <span className="italic text-sunset-gradient">the moment</span> you need it.
+        {/* H1 — `text-balance` (CSS native) keeps line lengths visually even
+            so we don't need a brittle hand-placed <br>. Mobile size dropped
+            from 42px → 34px so it never wraps to four lines on a 360px
+            Android. Sunset gradient now has a no-wrap hint to keep the two
+            italicised words together where layout allows. */}
+        <h1
+          className="font-serif text-[34px] leading-[1.08] sm:text-[44px] sm:leading-[1.05] md:text-5xl md:leading-[1.04] lg:text-[64px] lg:leading-[1.03] xl:text-[72px] xl:leading-[1.02] font-medium text-slate-900 tracking-[-0.02em] mb-5 sm:mb-6 px-1"
+          style={{ textWrap: "balance" }}
+        >
+          Healthcare clarity,{" "}
+          <span className="italic text-sunset-gradient whitespace-nowrap">the moment</span>{" "}
+          you need it.
         </h1>
 
-        <p className="text-lg md:text-xl text-slate-700 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-          Yukti — India's AI Health companion, built for the World;
-          powered by{" "}
-          <span className="font-semibold text-violet-700">modern intelligence</span>,
+        <p
+          className="text-base sm:text-lg md:text-xl text-slate-700 max-w-xl sm:max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed font-medium px-2"
+          style={{ textWrap: "pretty" }}
+        >
+          Yukti — India's AI Health companion, built for the World; powered by{" "}
+          <span className="font-semibold text-violet-700 whitespace-nowrap">modern intelligence</span>,
           and anchored in the{" "}
-          <span className="font-semibold text-amber-700">timeless wisdom</span>{" "}
+          <span className="font-semibold text-amber-700 whitespace-nowrap">timeless wisdom</span>{" "}
           of traditional wellness.
         </p>
 

@@ -27,7 +27,17 @@ export function SiteHeader() {
         scrolled ? "border-b border-slate-200/80 shadow-[0_1px_0_rgba(15,23,42,0.04)]" : "border-b border-transparent",
       ].join(" ")}
     >
-      <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 md:h-[68px] flex items-center justify-between">
+      <div
+        className="max-w-7xl mx-auto px-4 lg:px-8 h-16 lg:h-[68px] flex items-center justify-between"
+        style={{
+          // Respect the iPhone notch / Android display cutout when the page
+          // is viewed in standalone PWA mode. env() falls back to 0 in
+          // browsers that don't support it.
+          paddingTop: "max(0px, env(safe-area-inset-top))",
+          paddingLeft: "max(1rem, env(safe-area-inset-left))",
+          paddingRight: "max(1rem, env(safe-area-inset-right))",
+        }}
+      >
         <div className="flex items-center gap-2">
           <Link href="/" className="cursor-pointer">
             <HealthCircleLogo size="sm" animate={true} />
@@ -60,7 +70,7 @@ export function SiteHeader() {
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-700">
+        <nav className="hidden lg:flex items-center gap-1 text-sm font-medium text-slate-700">
           {NAV_ITEMS.map((item) => {
             const active = location === item.href;
             return (
@@ -78,7 +88,7 @@ export function SiteHeader() {
           })}
         </nav>
 
-        <div className="hidden md:flex items-center gap-1.5">
+        <div className="hidden lg:flex items-center gap-1.5">
           <PWAInstallButton variant="ghost" label="Install app" />
           <Link
             href="/sign-in?next=%2Fadmin"
@@ -102,11 +112,11 @@ export function SiteHeader() {
           </Link>
         </div>
 
-        <div className="md:hidden flex items-center gap-1">
+        <div className="lg:hidden flex items-center gap-1">
           <PWAInstallButton variant="compact" label="Install" />
           <button
             onClick={() => setOpen((v) => !v)}
-            className="p-2 rounded-lg hover:bg-slate-100 text-slate-700"
+            className="p-2.5 rounded-lg hover:bg-slate-100 text-slate-700 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
             aria-controls="site-header-mobile-nav"
@@ -117,7 +127,7 @@ export function SiteHeader() {
       </div>
 
       {open && (
-        <div id="site-header-mobile-nav" className="md:hidden border-t border-slate-200 bg-white shadow-lg">
+        <div id="site-header-mobile-nav" className="lg:hidden border-t border-slate-200 bg-white shadow-lg">
           <nav className="px-4 py-3 space-y-0.5">
             {NAV_ITEMS.map((item) => (
               <Link

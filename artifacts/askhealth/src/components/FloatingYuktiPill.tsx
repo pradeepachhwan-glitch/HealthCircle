@@ -51,7 +51,12 @@ export function FloatingYuktiPill() {
     <AnimatePresence>
       {show && (
         <motion.div
-          className="fixed bottom-6 right-6 z-40 hidden md:flex items-end gap-2"
+          className="fixed right-6 z-40 hidden md:flex items-end gap-2"
+          style={{
+            // Honour iPhone home-indicator + Android gesture-bar safe areas
+            // so the pill never overlaps the system gesture region in PWA mode.
+            bottom: "max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem))",
+          }}
           {...entry}
         >
           {/* Mic — instant voice from anywhere on the page */}

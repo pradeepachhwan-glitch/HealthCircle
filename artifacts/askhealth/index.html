@@ -2,7 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
+    <!-- viewport-fit=cover: lets us read env(safe-area-inset-*) for the iPhone
+         notch + Android cutouts. We deliberately omit maximum-scale and
+         user-scalable=no — those break WCAG 1.4.4 (Resize Text) and Apple's
+         own accessibility guidance. Input zoom-on-focus is prevented by
+         giving every interactive input a font-size ≥ 16px. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>HealthCircle — Your Health, Your Community</title>
     <meta name="description" content="India's AI-powered healthcare super app — communities, AI doctor, online consultations, broadcasts and more." />
 
