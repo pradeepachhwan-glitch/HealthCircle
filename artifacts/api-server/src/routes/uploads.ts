@@ -15,7 +15,11 @@ interface UploadBody {
   name?: string;
 }
 
-router.post("/uploads/inline", uploadJson, requireAuth, async (req, res) => {
+// Order matters: requireAuth runs BEFORE the 8 MB JSON parser so an
+// unauthenticated client can never force the server to parse a multi-MB body
+// just to be rejected with 401 afterwards. requireAuth only inspects cookies
+// and a small JSON body is not required to make the auth decision.
+router.post("/uploads/inline", requireAuth, uploadJson, async (req, res) => {
   const body = req.body as UploadBody;
   if (!body?.dataUrl) {
     res.status(400).json({ error: "dataUrl is required" });

@@ -645,3 +645,28 @@ Fix in `artifacts/askhealth/src/pages/post.tsx`:
 - Timer handles are tracked in `useRef<number[]>` and cleared in a `useEffect` cleanup keyed on `postId`, so navigating away or to a different post mid-poll doesn't leak timers or trigger stale `setState`. Subsequent Yukti-tagged comments on the same post call `clearYuktiTimers()` first to reset the polling window.
 
 Verified via API+DB injection: posting `@askyukti What is a healthy resting heart rate?` as user 11 caused a Yukti AI (user 26) reply to land in the comments table within ~6s — within the polling window.
+
+## 2026-04-29 (Logo upload 413 fix + brand-consistent loading overlay)
+
+### Bug: Community logo upload returned HTTP 413
+The admin "Upload logo" action POSTed a base64-encoded resized PNG to `POST /api/uploads/inline`. That route declared its own `express.json({ limit: "8mb" })` middleware, but `app.use(express.json())` was registered globally upstream with the default ~100 KB limit. Express runs middleware in registration order, so the global parser rejected the body with 413 before the per-route override ever ran.
+
+Fix in `artifacts/api-server/src/app.ts`:
+- The global JSON parser is now wrapped so it skips a small allowlist of paths (currently just `/api/uploads/inline`). Path matching is normalised — trailing slashes are stripped and the path is lowercased — so `/api/uploads/inline`, `/api/uploads/inline/`, and case variants (`/API/Uploads/Inline`) all hit the per-route 8 MB parser instead of silently regressing to the default.
+- Other routes still get the default 100 KB cap (no DoS surface widened anywhere outside the upload endpoint).
+
+Hardening in `artifacts/api-server/src/routes/uploads.ts` from architect review:
+- Middleware order swapped from `(uploadJson, requireAuth, handler)` to `(requireAuth, uploadJson, handler)` so unauthenticated callers are rejected with 401 in ~20 ms before the server allocates an 8 MB parser buffer.
+
+Verified with curl: 2.7 MB authenticated payload → 200; same body unauthenticated → 401 in 19 ms; oversized 7 MB payload → 413 with the proper "File too large. Maximum 4 MB." message from the per-route validator.
+
+### Brand-consistent loading overlay + route-change progress bar
+Two new shared components in `artifacts/askhealth/src/components/`:
+
+- **`LoadingOverlay.tsx`** — full-screen translucent scrim (or inline widget) with the HealthCircle icon ringed by the same revolving rainbow stroke as the home-screen logo (`HealthCircleLogo.tsx`). Spin period is 1.4 s vs the home logo's 3.5 s so it reads as "actively loading" rather than ambient brand motion. Backdrop blur on the scrim, subtle pulse on the icon, fade-in on mount, respects `prefers-reduced-motion`. `role="status" aria-live="polite"` for accessibility. Variants: `"fixed"` (scrim) and `"inline"` (just the spinner). Used in `App.tsx` to replace the plain "Loading..." placeholders in `AdminGate` and `MedProGate`.
+
+- **`RouteChangeProgress.tsx`** — 3 px top progress bar with the same vibrant gradient. Watches wouter's `useLocation` and runs a brief fill-then-fade animation (~700 ms) on every navigation. Skips the initial render so it doesn't flash on first paint. Timer handles tracked in `useRef` and cleared on unmount + on each new navigation, so no stale timers / setState warnings. Mounted globally inside `<WouterRouter>` in `App.tsx`.
+
+Both components are namespaced (`hc-loader-*`, `hc-rcp-*`) so their CSS keyframes don't collide with the existing `hc-ring-spin` / `hc-bar-slide` keyframes used by the home logo. Z-indexes (1000 for overlay, 1100 for progress bar) are intentionally above modals/toasters so they're never visually clipped.
+
+Page-level skeletons (e.g. comment list, post list) are intentionally left untouched — the overlay is only used for the global auth/permission-resolving waits where there was previously a plain text placeholder.

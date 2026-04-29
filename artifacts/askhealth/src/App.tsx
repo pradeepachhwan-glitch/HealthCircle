@@ -28,6 +28,8 @@ import ChatPage from "@/pages/chat";
 import ProvidersPage from "@/pages/providers";
 import AppointmentsPage from "@/pages/appointments";
 import OnboardingFlow from "@/components/OnboardingFlow";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import RouteChangeProgress from "@/components/RouteChangeProgress";
 import CustomSignIn from "@/pages/sign-in";
 import TermsPage from "@/pages/terms";
 import PrivacyPage from "@/pages/privacy";
@@ -138,7 +140,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (isLoading) return <div className="flex items-center justify-center h-screen text-slate-400">Loading...</div>;
+  if (isLoading) return <LoadingOverlay variant="fixed" label="Checking your access…" />;
 
   if (user?.role !== "admin") {
     return (
@@ -225,7 +227,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 
 function MedProGate({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading } = useGetCurrentUser();
-  if (isLoading) return <div className="flex items-center justify-center h-screen text-slate-400">Loading…</div>;
+  if (isLoading) return <LoadingOverlay variant="fixed" label="Loading your workspace…" />;
   if (user?.role !== "medical_professional" && user?.role !== "admin") {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4 text-center">
@@ -416,6 +418,7 @@ function App() {
   return (
     <TooltipProvider>
       <WouterRouter base={basePath}>
+        <RouteChangeProgress />
         <AppRoutes />
       </WouterRouter>
       <Toaster />

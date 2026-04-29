@@ -31,7 +31,24 @@ app.use(
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
-app.use(express.json());
+// Skip the default JSON body parser for /api/uploads/inline so that route's
+// own express.json({ limit: "8mb" }) middleware can handle the larger
+// base64-encoded image payload. Without this skip the global default (~100 KB)
+// runs first and rejects every real image upload with HTTP 413 before the
+// per-route override gets a chance.
+//
+// Match is intentionally lenient — we strip a single trailing slash and lower-
+// case the pathname so that /api/uploads/inline, /api/uploads/inline/, and
+// /API/Uploads/Inline (some proxies normalise case) all reach the per-route
+// 8 MB parser instead of silently regressing to the 100 KB default.
+const UPLOAD_INLINE_PATHS = new Set([
+  "/api/uploads/inline",
+]);
+app.use((req, res, next) => {
+  const normalised = req.path.replace(/\/+$/, "").toLowerCase();
+  if (UPLOAD_INLINE_PATHS.has(normalised)) return next();
+  return express.json()(req, res, next);
+});
 app.use(express.urlencoded({ extended: true }));
 
 app.use(authMiddleware);
