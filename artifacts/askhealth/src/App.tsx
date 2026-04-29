@@ -47,6 +47,7 @@ import TeleconsultTriage from "@/pages/TeleconsultTriage";
 import TeleconsultDoctors from "@/pages/TeleconsultDoctors";
 import TeleconsultSession from "@/pages/TeleconsultSession";
 import TeleconsultSummary from "@/pages/TeleconsultSummary";
+import DoctorApply from "@/pages/DoctorApply";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -903,6 +904,10 @@ function AppRoutes() {
 
           <Route path="/teleconsult/summary/:id">
             <ProtectedRoute><TeleconsultSummary /></ProtectedRoute>
+          </Route>
+
+          <Route path="/become-a-doctor">
+            <ProtectedRoute><DoctorApply /></ProtectedRoute>
           </Route>
 
           <Route path="/admin">

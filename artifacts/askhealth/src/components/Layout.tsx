@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
 import { useClerk, useAuth } from "@workspace/replit-auth-web";
-import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info, Video } from "lucide-react";
+import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info, Video, BadgeCheck } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -41,6 +41,8 @@ function SidebarContent() {
 
   if (user?.role === "medical_professional" || user?.role === "admin") {
     navItems.push({ href: "/medpro", icon: Stethoscope, label: "Med Pro Portal" });
+  } else if (user?.role === "member") {
+    navItems.push({ href: "/become-a-doctor", icon: BadgeCheck, label: "Become a Doctor" });
   }
 
   if (user?.role === "admin" || user?.role === "moderator") {

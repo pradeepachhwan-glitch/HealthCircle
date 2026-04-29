@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { db, usersTable, communitiesTable, postsTable, commentsTable, communityMembersTable, aiSummariesTable } from "@workspace/db";
+import { db, usersTable, communitiesTable, postsTable, commentsTable, communityMembersTable, aiSummariesTable, tcConsultations, doctorsTable, auditLogTable } from "@workspace/db";
 import { count, eq, gte, desc, and, sql } from "drizzle-orm";
 import { getAuth, requireAdmin } from "../lib/auth";
 import { normaliseContentFields } from "../lib/contentMeta";
 import { aiChat } from "../lib/aiClient";
 import { logger } from "../lib/logger";
+import { recordAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -265,6 +266,7 @@ router.patch("/admin/users/:userId/verify-pro", requireAdmin, async (req, res) =
     .where(eq(usersTable.clerkId, clerkId))
     .returning();
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  await recordAudit(req, "user.verify_pro", { type: "user", id: updated.id }, { isVerifiedPro: !!isVerifiedPro });
   res.json({ success: true, user: updated });
 });
 
@@ -280,6 +282,7 @@ router.patch("/admin/users/:clerkId/role", requireAdmin, async (req, res) => {
     .where(eq(usersTable.clerkId, clerkId))
     .returning();
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  await recordAudit(req, "user.role_change", { type: "user", id: updated.id }, { newRole: role });
   res.json({ success: true, user: updated });
 });
 
@@ -289,6 +292,98 @@ router.get("/admin/consultations/stats", requireAdmin, async (req, res) => {
   const [pending] = await db.select({ count: countFn() }).from(doctorConsultationsTable).where(eq(doctorConsultationsTable.status as any, "pending"));
   const [total] = await db.select({ count: countFn() }).from(doctorConsultationsTable);
   res.json({ pending: Number(pending?.count ?? 0), total: Number(total?.count ?? 0) });
+});
+
+// ─── Tele-Consult oversight ────────────────────────────────────────────────
+
+const TC_STATUSES = ["pending", "scheduled", "in_progress", "completed", "cancelled", "no_show"];
+
+router.get("/admin/teleconsult/consultations", requireAdmin, async (req, res) => {
+  const status = typeof req.query.status === "string" ? req.query.status : null;
+  const where = status && TC_STATUSES.includes(status)
+    ? eq(tcConsultations.status, status)
+    : undefined;
+  const rows = await db
+    .select({
+      consultation: tcConsultations,
+      patient: {
+        id: usersTable.id,
+        email: usersTable.email,
+        displayName: usersTable.displayName,
+      },
+      doctor: {
+        id: doctorsTable.id,
+        name: doctorsTable.name,
+        specialty: doctorsTable.specialty,
+      },
+    })
+    .from(tcConsultations)
+    .leftJoin(usersTable, eq(usersTable.id, tcConsultations.userId))
+    .leftJoin(doctorsTable, eq(doctorsTable.id, tcConsultations.doctorId))
+    .where(where as any)
+    .orderBy(desc(tcConsultations.createdAt))
+    .limit(200);
+  res.json({ consultations: rows });
+});
+
+router.get("/admin/teleconsult/stats", requireAdmin, async (_req, res) => {
+  const rows = await db
+    .select({
+      status: tcConsultations.status,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(tcConsultations)
+    .groupBy(tcConsultations.status);
+  const stats: Record<string, number> = {};
+  for (const s of TC_STATUSES) stats[s] = 0;
+  for (const r of rows) stats[r.status] = Number(r.count);
+  res.json({ stats });
+});
+
+router.patch("/admin/teleconsult/consultations/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
+  const status = typeof req.body?.status === "string" ? req.body.status : null;
+  if (!status || !TC_STATUSES.includes(status)) {
+    res.status(400).json({ error: "Invalid status" }); return;
+  }
+  const notesPatch = typeof req.body?.notes === "string" ? req.body.notes : null;
+  const set: Record<string, unknown> = { status, updatedAt: new Date() };
+  if (notesPatch !== null) set.notes = notesPatch;
+  const [updated] = await db
+    .update(tcConsultations)
+    .set(set as any)
+    .where(eq(tcConsultations.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  await recordAudit(req, "teleconsult.update", { type: "tc_consultation", id }, { status, notesChanged: notesPatch !== null });
+  res.json({ consultation: updated });
+});
+
+// ─── Audit log viewer ──────────────────────────────────────────────────────
+
+router.get("/admin/audit-log", requireAdmin, async (req, res) => {
+  const limit = Math.max(1, Math.min(500, parseInt(String(req.query.limit ?? "100"), 10) || 100));
+  const action = typeof req.query.action === "string" && req.query.action.trim() ? req.query.action.trim() : null;
+  const where = action ? eq(auditLogTable.action, action) : undefined;
+
+  const rows = await db
+    .select({
+      entry: auditLogTable,
+      actor: {
+        id: usersTable.id,
+        email: usersTable.email,
+        displayName: usersTable.displayName,
+        role: usersTable.role,
+      },
+    })
+    .from(auditLogTable)
+    .leftJoin(usersTable, eq(usersTable.id, auditLogTable.actorUserId))
+    .where(where as any)
+    .orderBy(desc(auditLogTable.createdAt))
+    .limit(limit);
+
+  res.json({ entries: rows });
 });
 
 export default router;

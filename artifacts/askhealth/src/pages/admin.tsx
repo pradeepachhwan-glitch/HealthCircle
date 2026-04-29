@@ -3,7 +3,7 @@ import { useGetAdminStats, useListUsers, getListUsersQueryKey, useBanUser } from
 import { Layout, UserAvatar } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, FileText, MessageSquare, Activity, Shield, ShieldAlert, ShieldCheck, Bot, Coins, Building2, Pin, Trash2, CheckCircle2, XCircle, Pencil, Star, Radio, TrendingUp, Award, Stethoscope } from "lucide-react";
+import { Users, FileText, MessageSquare, Activity, Shield, ShieldAlert, ShieldCheck, Bot, Coins, Building2, Pin, Trash2, CheckCircle2, XCircle, Pencil, Star, Radio, TrendingUp, Award, Stethoscope, Video, ClipboardList, ScrollText, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,312 @@ function StatCard({ icon: Icon, color, value, label, sub }: { icon: any; color: 
         <div className="text-2xl font-black mb-0.5">{value}</div>
         <div className="text-sm text-muted-foreground">{label}</div>
         {sub && <div className="text-xs text-green-600 font-medium mt-1">{sub}</div>}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Tele-Consult oversight panel ─────────────────────────────────────────
+function TeleconsultAdminPanel() {
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const queryClient = useQueryClient();
+
+  const { data: stats } = useQuery({
+    queryKey: ["admin-tc-stats"],
+    queryFn: () => adminFetch(`${API_BASE}/admin/teleconsult/stats`).then(r => r.json()),
+  });
+
+  const { data: list, isLoading } = useQuery({
+    queryKey: ["admin-tc-consultations", statusFilter],
+    queryFn: () => adminFetch(`${API_BASE}/admin/teleconsult/consultations${statusFilter !== "all" ? `?status=${statusFilter}` : ""}`).then(r => r.json()),
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      adminFetch(`${API_BASE}/admin/teleconsult/consultations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-tc-consultations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-tc-stats"] });
+      toast.success("Status updated");
+    },
+    onError: () => toast.error("Failed to update"),
+  });
+
+  const statusBadge = (s: string) => {
+    const colors: Record<string, string> = {
+      pending: "bg-yellow-100 text-yellow-800",
+      scheduled: "bg-blue-100 text-blue-800",
+      in_progress: "bg-green-100 text-green-800",
+      completed: "bg-slate-100 text-slate-800",
+      cancelled: "bg-red-100 text-red-800",
+      no_show: "bg-orange-100 text-orange-800",
+    };
+    return <Badge className={colors[s] ?? "bg-slate-100"}>{s}</Badge>;
+  };
+
+  const FILTERS = ["all", "pending", "scheduled", "in_progress", "completed", "cancelled", "no_show"];
+
+  return (
+    <>
+      {stats?.stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {Object.entries(stats.stats as Record<string, number>).map(([s, n]) => (
+            <Card key={s}><CardContent className="p-3 text-center">
+              <div className="text-2xl font-bold">{n}</div>
+              <div className="text-xs text-muted-foreground capitalize">{s.replace("_", " ")}</div>
+            </CardContent></Card>
+          ))}
+        </div>
+      )}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <CardTitle>Tele-Consult sessions</CardTitle>
+            <div className="flex gap-1 flex-wrap">
+              {FILTERS.map(f => (
+                <Button key={f} size="sm" variant={statusFilter === f ? "default" : "outline"} onClick={() => setStatusFilter(f)} className="h-7 text-xs capitalize" data-testid={`tc-filter-${f}`}>
+                  {f.replace("_", " ")}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? <Skeleton className="h-40" /> : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Doctor</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(list?.consultations ?? []).map((row: any) => (
+                  <TableRow key={row.consultation.id}>
+                    <TableCell className="font-mono text-xs">#{row.consultation.id}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">{row.patient?.displayName ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">{row.patient?.email}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{row.doctor?.name ?? <span className="text-muted-foreground italic">unassigned</span>}</div>
+                      <div className="text-xs text-muted-foreground">{row.doctor?.specialty}</div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline" className="capitalize text-xs">{row.consultation.type}</Badge></TableCell>
+                    <TableCell>{statusBadge(row.consultation.status)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(row.consultation.createdAt).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm">Set status</Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {["pending", "scheduled", "in_progress", "completed", "cancelled", "no_show"].map(s => (
+                            <DropdownMenuItem key={s} onSelect={() => updateStatus.mutate({ id: row.consultation.id, status: s })} disabled={s === row.consultation.status} className="capitalize">
+                              {s.replace("_", " ")}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {(list?.consultations ?? []).length === 0 && !isLoading && (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground text-sm py-8">No consultations match this filter.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+// ─── Doctor application approval queue ────────────────────────────────────
+function DoctorApplicationsPanel() {
+  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [reviewModal, setReviewModal] = useState<{ id: number; mode: "approve" | "reject"; appName: string } | null>(null);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const queryClient = useQueryClient();
+
+  const { data: apps, isLoading } = useQuery({
+    queryKey: ["admin-doctor-apps", statusFilter],
+    queryFn: () => adminFetch(`${API_BASE}/admin/doctor-applications?status=${statusFilter}`).then(r => r.json()),
+  });
+
+  const review = useMutation({
+    mutationFn: ({ id, mode, notes }: { id: number; mode: "approve" | "reject"; notes: string }) =>
+      adminFetch(`${API_BASE}/admin/doctor-applications/${id}/${mode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes }),
+      }).then(async r => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "Failed");
+        return data;
+      }),
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-doctor-apps"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-audit-log"] });
+      toast.success(vars.mode === "approve" ? "Doctor approved" : "Application rejected");
+      setReviewModal(null);
+      setReviewNotes("");
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed"),
+  });
+
+  const FILTERS = ["pending", "approved", "rejected"];
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <CardTitle>Doctor applications</CardTitle>
+            <div className="flex gap-1">
+              {FILTERS.map(f => (
+                <Button key={f} size="sm" variant={statusFilter === f ? "default" : "outline"} onClick={() => setStatusFilter(f)} className="h-7 text-xs capitalize" data-testid={`doctor-filter-${f}`}>{f}</Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? <Skeleton className="h-40" /> : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Applicant</TableHead>
+                  <TableHead>Specialty</TableHead>
+                  <TableHead>Reg. number</TableHead>
+                  <TableHead>Exp.</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(apps?.applications ?? []).map((row: any) => (
+                  <TableRow key={row.app.id}>
+                    <TableCell>
+                      <div className="text-sm font-medium">{row.app.name}</div>
+                      <div className="text-xs text-muted-foreground">{row.user?.email ?? "—"}</div>
+                    </TableCell>
+                    <TableCell><span className="text-sm">{row.app.specialty}</span></TableCell>
+                    <TableCell className="font-mono text-xs">{row.app.registrationNumber}</TableCell>
+                    <TableCell>{row.app.experienceYears}y</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(row.app.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      {row.app.status === "pending" ? (
+                        <div className="flex gap-1 justify-end">
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setReviewModal({ id: row.app.id, mode: "approve", appName: row.app.name }); setReviewNotes(""); }} data-testid={`approve-${row.app.id}`}>
+                            <CheckCircle2 className="w-3 h-3" />Approve
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600" onClick={() => { setReviewModal({ id: row.app.id, mode: "reject", appName: row.app.name }); setReviewNotes(""); }} data-testid={`reject-${row.app.id}`}>
+                            <XCircle className="w-3 h-3" />Reject
+                          </Button>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="capitalize text-xs">{row.app.status}</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {(apps?.applications ?? []).length === 0 && !isLoading && (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground text-sm py-8">No {statusFilter} applications.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!reviewModal} onOpenChange={(open) => !open && setReviewModal(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{reviewModal?.mode === "approve" ? "Approve" : "Reject"} {reviewModal?.appName}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Textarea placeholder="Optional notes for the applicant…" value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} rows={3} />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setReviewModal(null)}>Cancel</Button>
+              <Button
+                onClick={() => reviewModal && review.mutate({ id: reviewModal.id, mode: reviewModal.mode, notes: reviewNotes })}
+                disabled={review.isPending}
+                variant={reviewModal?.mode === "reject" ? "destructive" : "default"}
+                data-testid="confirm-review"
+              >
+                {review.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                Confirm {reviewModal?.mode}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ─── Audit log viewer ─────────────────────────────────────────────────────
+function AuditLogPanel() {
+  const [actionFilter, setActionFilter] = useState("");
+  const { data: logs, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["admin-audit-log", actionFilter],
+    queryFn: () => adminFetch(`${API_BASE}/admin/audit-log${actionFilter ? `?action=${encodeURIComponent(actionFilter)}` : ""}`).then(r => r.json()),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <CardTitle>Audit log</CardTitle>
+          <div className="flex gap-2 items-center">
+            <Input placeholder="Filter by action (e.g. user.role_change)" value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className="h-8 w-64 text-sm" data-testid="audit-action-filter" />
+            <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching} className="h-8">
+              {isFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh"}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? <Skeleton className="h-40" /> : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>When</TableHead>
+                <TableHead>Actor</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Target</TableHead>
+                <TableHead>Details</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(logs?.entries ?? []).map((row: any) => (
+                <TableRow key={row.entry.id}>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{new Date(row.entry.createdAt).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <div className="text-sm font-medium">{row.actor?.displayName ?? <span className="italic text-muted-foreground">deleted</span>}</div>
+                    <div className="text-xs text-muted-foreground">{row.actor?.email}</div>
+                  </TableCell>
+                  <TableCell><code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{row.entry.action}</code></TableCell>
+                  <TableCell className="text-xs">
+                    {row.entry.targetType ? <><span className="text-muted-foreground">{row.entry.targetType}</span> <span className="font-mono">#{row.entry.targetId}</span></> : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-md truncate">
+                    {row.entry.meta ? <code className="text-xs">{JSON.stringify(row.entry.meta)}</code> : "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {(logs?.entries ?? []).length === 0 && !isLoading && (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">No audit entries yet.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );
@@ -271,6 +577,9 @@ export default function Admin() {
             <TabsTrigger value="posts" className="gap-1.5 text-xs"><FileText className="w-3.5 h-3.5" />Posts</TabsTrigger>
             <TabsTrigger value="ai" className="gap-1.5 text-xs"><Bot className="w-3.5 h-3.5" />AI Queue</TabsTrigger>
             <TabsTrigger value="payments" className="gap-1.5 text-xs"><Coins className="w-3.5 h-3.5" />Credits</TabsTrigger>
+            <TabsTrigger value="teleconsult" className="gap-1.5 text-xs" data-testid="tab-teleconsult"><Video className="w-3.5 h-3.5" />Tele-Consult</TabsTrigger>
+            <TabsTrigger value="doctor-apps" className="gap-1.5 text-xs" data-testid="tab-doctor-apps"><ClipboardList className="w-3.5 h-3.5" />Doctor Apps</TabsTrigger>
+            <TabsTrigger value="audit" className="gap-1.5 text-xs" data-testid="tab-audit"><ScrollText className="w-3.5 h-3.5" />Audit Log</TabsTrigger>
           </TabsList>
 
           {/* ── OVERVIEW ── */}
@@ -698,6 +1007,21 @@ export default function Admin() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ── TELE-CONSULT OVERSIGHT ── */}
+          <TabsContent value="teleconsult" className="space-y-4">
+            <TeleconsultAdminPanel />
+          </TabsContent>
+
+          {/* ── DOCTOR APPLICATIONS ── */}
+          <TabsContent value="doctor-apps" className="space-y-4">
+            <DoctorApplicationsPanel />
+          </TabsContent>
+
+          {/* ── AUDIT LOG ── */}
+          <TabsContent value="audit" className="space-y-4">
+            <AuditLogPanel />
           </TabsContent>
         </Tabs>
       </div>

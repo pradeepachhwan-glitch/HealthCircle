@@ -273,3 +273,31 @@ Non-disruptive extension. New routes under `/teleconsult/*`, API namespace `/api
   - Sidebar nav: new "Tele-Consult" item with `Video` icon (`Layout.tsx`).
 
 - **Notes**: Tables created via direct SQL in dev (drizzle-kit push prompts blocked on an unrelated `users.username` constraint). No video provider keys yet — UI shows a placeholder. All AI calls go through the existing `aiChatJson` helper, so they inherit the same rate-limiter that wraps `/api`.
+
+## Admin / RBAC Overhaul (Apr 2026)
+End-to-end admin control of the doctor onboarding pipeline plus tamper-evident audit logging across every privileged action.
+
+- **Schema** (`lib/db/src/schema/{audit_log,doctor_applications}.ts`):
+  - `audit_log` — `actorUserId` (fk users), `action` (text, e.g. `doctor_application.approve`, `user.role_change`, `tc.consultation.update`), `targetType`, `targetId`, `meta` (jsonb), `ip`, `userAgent`, `createdAt`. Indexes on `(actorUserId)`, `(action)`, `(targetType, targetId)`, `(createdAt desc)`.
+  - `doctor_applications` — userId (fk), name, specialty, registrationNumber, experienceYears, location, languages[], bio, consultationFee numeric, `status` (`pending|approved|rejected`), `reviewerUserId`, `reviewerNotes`, `decidedAt`. Unique partial index ensures only ONE pending row per user.
+- **Audit helper** (`api-server/src/lib/audit.ts`): `recordAudit(req, action, target?, meta?)` — fire-and-forget, swallows errors so failed audit writes never block the user-facing operation. Captures `req.ip` and UA automatically.
+- **Doctor application API** (`api-server/src/routes/doctorApplications.ts`):
+  - `POST /api/doctor-applications` — authed; if a pending row exists it's UPDATEd, else INSERTed. Audits `doctor_application.create`.
+  - `GET /api/doctor-applications/me` — authed; returns own row (or null).
+  - `GET /api/admin/doctor-applications?status=pending|approved|rejected` — admin; joins applicant user data.
+  - `POST /api/admin/doctor-applications/:id/approve` — admin: in one logical flow flips `users.role='medical_professional'`, `is_verified_pro=true`, copies `specialty`/`registrationNumber` onto user, INSERTs a `doctors` row if none exists, sets app `status='approved'`, `reviewerUserId`, `decidedAt`. Audits `doctor_application.approve` with `{doctorId, applicantUserId}`.
+  - `POST /api/admin/doctor-applications/:id/reject` — admin: sets status, notes, decidedAt. Audits `doctor_application.reject` with `{notes, applicantUserId}`.
+- **Admin tele-consult oversight** (extended `routes/admin.ts`):
+  - `GET /api/admin/teleconsult/consultations?status=` — every tc consultation joined to patient + doctor.
+  - `GET /api/admin/teleconsult/stats` — counts grouped by status.
+  - `PATCH /api/admin/teleconsult/consultations/:id` — admin status override; audits `tc.consultation.update`.
+- **Audit log API**: `GET /api/admin/audit-log?action=&limit=` — joined with actor user; admin only.
+- **Audit hooks added** to existing routes: `PATCH /api/users/:clerkId/role` → `user.role_change`, verify-professional → `user.verify_pro`, etc.
+- **Frontend**:
+  - `/become-a-doctor` (`pages/DoctorApply.tsx`) — public-once-signed-in self-service form. Pre-fills name from current user; shows colored status banner (pending amber, approved green, rejected red with reviewer notes). Editable while pending; locks when approved with CTA into `/medpro`.
+  - Sidebar nav: members see "Become a Doctor" link (BadgeCheck icon); medical professionals see "Med Pro Portal" instead.
+  - Admin dashboard (`pages/admin.tsx`) gains 3 new tabs:
+    - **Tele-Consult** — stats cards + filterable consultation table with inline status set via dropdown.
+    - **Doctor Applications** — pending/approved/rejected filter; inline approve/reject with optional reviewer notes modal.
+    - **Audit Log** — chronological list with action filter and live refresh; shows actor email, action code, target ref, raw meta JSON.
+- **End-to-end verified**: cross-user approval flips role member → medical_professional, creates doctors row, writes both `doctor_application.create` and `doctor_application.approve` audit entries with rich meta. Reject path also audited. Tables created via direct SQL in dev (drizzle-kit push remains blocked on the unrelated `users.username` constraint prompt).

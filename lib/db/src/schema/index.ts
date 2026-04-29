@@ -22,3 +22,5 @@ export * from "./tc_consultations";
 export * from "./tc_triage_sessions";
 export * from "./tc_prescriptions";
 export * from "./tc_messages";
+export * from "./audit_log";
+export * from "./doctor_applications";
