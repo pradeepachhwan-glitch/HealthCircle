@@ -34,12 +34,16 @@ interface Props {
   text?: "signin_with" | "signup_with" | "continue_with" | "signin";
 }
 
-// ---- GIS script loader (one-time, shared across all button instances) ----
+// ---- GIS script loader (shared across all button instances) ----
+// We cache a successful load promise so multiple buttons share one network
+// request, but we reset the cache on FAILURE so a transient load error
+// (ad-blocker briefly engaged, flaky network) doesn't permanently brick
+// the button until full page refresh — the next mount/retry can try again.
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 let gisLoadPromise: Promise<void> | null = null;
 function loadGisScript(): Promise<void> {
   if (gisLoadPromise) return gisLoadPromise;
-  gisLoadPromise = new Promise<void>((resolve, reject) => {
+  const promise = new Promise<void>((resolve, reject) => {
     if (typeof window === "undefined") return reject(new Error("no-window"));
     if ((window as unknown as { google?: { accounts?: unknown } }).google?.accounts) {
       resolve();
@@ -59,7 +63,12 @@ function loadGisScript(): Promise<void> {
     s.onerror = () => reject(new Error("gis-load-error"));
     document.head.appendChild(s);
   });
-  return gisLoadPromise;
+  // Clear the cache on failure so a retry can happen.
+  promise.catch(() => {
+    if (gisLoadPromise === promise) gisLoadPromise = null;
+  });
+  gisLoadPromise = promise;
+  return promise;
 }
 
 // ---- Minimal type surface of the GIS API we touch ----
@@ -199,7 +208,16 @@ export function GoogleSignInButton({ onSuccess, onError, text = "continue_with" 
       </div>
     );
   }
-  if (!clientId) return null;
+  if (!clientId) {
+    // Help future-us / future-developers debug "where did the Google
+    // button go?" — the only reason we render nothing is that the server
+    // hasn't been given a GOOGLE_CLIENT_ID. Logged once per page load.
+    if (typeof window !== "undefined" && !(window as { __healthcircleGoogleWarned?: boolean }).__healthcircleGoogleWarned) {
+      (window as { __healthcircleGoogleWarned?: boolean }).__healthcircleGoogleWarned = true;
+      console.warn("[HealthCircle] Google sign-in button hidden: server returned no googleClientId. Set GOOGLE_CLIENT_ID in the API server's environment to enable it.");
+    }
+    return null;
+  }
 
   return (
     <div className="relative">

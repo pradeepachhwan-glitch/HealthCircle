@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod/v4";
 import { db, usersTable } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
-import { OAuth2Client } from "google-auth-library";
+import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import {
   PASSWORD_MAX_LEN,
   PASSWORD_MIN_LEN,
@@ -540,8 +540,7 @@ router.post("/auth/google", async (req: Request, res: Response) => {
   }
 
   // ---- Step 1: verify the ID token came from Google AND is for our app ---
-  let payload: Awaited<ReturnType<OAuth2Client["verifyIdToken"]>> extends infer T
-    ? T extends { getPayload(): infer P } ? P : never : never;
+  let payload: TokenPayload | undefined;
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken: parsed.data.credential,
@@ -573,18 +572,22 @@ router.post("/auth/google", async (req: Request, res: Response) => {
   const avatarUrl = payload.picture ?? null;
 
   try {
-    // ---- Step 2: find existing user (by googleId first, then by email) ---
-    // Looking up by EITHER lets a returning Google user always land on their
-    // googleId row, while a user who originally signed up with email/password
-    // gets their existing row linked to Google on first Google sign-in (no
-    // duplicate accounts).
-    const [existing] = await db
-      .select()
-      .from(usersTable)
-      .where(or(eq(usersTable.googleId, googleId), eq(usersTable.email, email)))
-      .limit(1);
+    // ---- Step 2: find existing user (googleId FIRST, then email) ----
+    // Two sequential lookups (instead of a single `or(...)`) so we always
+    // prefer the row whose googleId matches. A flat OR can ambiguously
+    // return either the googleId-matching row or the email-matching row
+    // when those happen to be different users (e.g. a user changed their
+    // Google email to match someone else's HealthCircle account).
+    let user = (
+      await db.select().from(usersTable).where(eq(usersTable.googleId, googleId)).limit(1)
+    )[0];
 
-    let user = existing;
+    if (!user) {
+      // No googleId match → try linking an existing email/password user.
+      user = (
+        await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1)
+      )[0];
+    }
 
     if (user) {
       if (user.isBanned) {
@@ -617,21 +620,40 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       // ---- Step 3: brand-new user → create the row ----
       // clerkId is the legacy unique field still used by older queries; we
       // make it stable per Google account so it survives email changes.
-      const [created] = await db.insert(usersTable).values({
-        clerkId: googleId,
-        googleId,
-        displayName,
-        email,
-        avatarUrl,
-        role: "member",
-        isBanned: false,
-        healthCredits: 0,
-        weeklyCredits: 0,
-        level: 1,
-        passwordHash: null,
-        emailVerifiedAt: new Date(), // Google already verified it
-      }).returning();
-      user = created;
+      try {
+        const [created] = await db.insert(usersTable).values({
+          clerkId: googleId,
+          googleId,
+          displayName,
+          email,
+          avatarUrl,
+          role: "member",
+          isBanned: false,
+          healthCredits: 0,
+          weeklyCredits: 0,
+          level: 1,
+          passwordHash: null,
+          emailVerifiedAt: new Date(), // Google already verified it
+        }).returning();
+        user = created;
+      } catch (err) {
+        // Race condition guard: a concurrent request (e.g. user
+        // double-tapped the button) may have inserted the row between
+        // our SELECT and our INSERT, hitting the unique constraint on
+        // either googleId, email, or clerkId. In that case the row now
+        // definitely exists, so we re-query and use it instead of
+        // surfacing a 500.
+        const code = (err as { code?: string } | null)?.code;
+        if (code !== "23505") throw err; // re-throw anything that isn't a unique-violation
+        user = (
+          await db
+            .select()
+            .from(usersTable)
+            .where(or(eq(usersTable.googleId, googleId), eq(usersTable.email, email)))
+            .limit(1)
+        )[0];
+        if (!user) throw err; // shouldn't happen — the conflict implies a row exists
+      }
     }
 
     // ---- Step 4: issue our session cookie ----
