@@ -15,21 +15,19 @@ export default function HealthCircleLogo(props: Props) {
   const isLg = size === "lg";
   const isSm = size === "sm";
 
-  const containerSize = isLg ? 96 : isSm ? 52 : 70;
-  const imgSize = isLg ? 74 : isSm ? 40 : 54;
-  const textSizeClass = isLg ? "text-3xl" : isSm ? "text-lg" : "text-2xl";
-  const sideGap = isLg ? 14 : isSm ? 10 : 12;
+  const containerSize = isLg ? 112 : isSm ? 64 : 84;
+  const imgSize = isLg ? 86 : isSm ? 50 : 66;
+  const textSizeClass = isLg ? "text-4xl" : isSm ? "text-xl" : "text-3xl";
+  const sideGap = isLg ? 16 : isSm ? 12 : 14;
+  const barHeight = isLg ? 4 : isSm ? 3 : 3.5;
 
   const cx = containerSize / 2;
-  const strokeW = isLg ? 3.5 : isSm ? 2.5 : 3;
+  const strokeW = isLg ? 4 : isSm ? 2.75 : 3.25;
   const r = containerSize / 2 - strokeW / 2 - 1;
   const circumference = 2 * Math.PI * r;
 
   return (
-    <div
-      className="inline-flex items-center"
-      style={{ columnGap: sideGap }}
-    >
+    <div className="inline-flex flex-col items-stretch" style={{ rowGap: 6 }}>
       <style>{`
         @keyframes hc-ring-spin {
           from { transform: rotate(0deg); }
@@ -37,20 +35,23 @@ export default function HealthCircleLogo(props: Props) {
         }
         @keyframes hc-bar-slide {
           0%   { transform: translateX(-110%); }
-          100% { transform: translateX(110%); }
+          100% { transform: translateX(210%); }
         }
         @media (prefers-reduced-motion: reduce) {
           .hc-anim { animation: none !important; }
         }
       `}</style>
 
-      {/* Logo with revolving ring (and underline bar when no text) */}
-      <div className="inline-flex flex-col items-center" style={{ rowGap: 6 }}>
+      {/* Logo + text row */}
+      <div
+        className="inline-flex items-center"
+        style={{ columnGap: sideGap }}
+      >
+        {/* Logo with revolving ring */}
         <div
           className="relative shrink-0"
           style={{ width: containerSize, height: containerSize }}
         >
-          {/* Revolving vibrant ring */}
           <svg
             width={containerSize}
             height={containerSize}
@@ -61,7 +62,7 @@ export default function HealthCircleLogo(props: Props) {
               animation: animate
                 ? "hc-ring-spin 3.5s linear infinite"
                 : undefined,
-              filter: "drop-shadow(0 0 4px rgba(168, 85, 247, 0.35))",
+              filter: "drop-shadow(0 0 5px rgba(168, 85, 247, 0.35))",
             }}
             aria-hidden="true"
           >
@@ -81,7 +82,6 @@ export default function HealthCircleLogo(props: Props) {
                 <stop offset="100%" stopColor="#f59e0b" />
               </linearGradient>
             </defs>
-            {/* Faint background track */}
             <circle
               cx={cx}
               cy={cx}
@@ -90,7 +90,6 @@ export default function HealthCircleLogo(props: Props) {
               stroke="rgba(148, 163, 184, 0.18)"
               strokeWidth={strokeW}
             />
-            {/* Vibrant rotating arc */}
             <circle
               cx={cx}
               cy={cx}
@@ -103,7 +102,6 @@ export default function HealthCircleLogo(props: Props) {
             />
           </svg>
 
-          {/* Logo image centered inside the ring */}
           <img
             src={`${basePath}/icon-192.png`}
             alt="HealthCircle"
@@ -120,46 +118,42 @@ export default function HealthCircleLogo(props: Props) {
           />
         </div>
 
-        {/* Vibrant moving bar underneath when there's no text label */}
-        {!showText && (
-          <div
-            className="relative overflow-hidden rounded-full"
+        {showText && (
+          <span
+            className={`font-extrabold tracking-tight leading-none select-none ${textSizeClass}`}
             style={{
-              width: containerSize,
-              height: 3,
-              backgroundColor: "rgba(148, 163, 184, 0.18)",
+              backgroundImage: VIBRANT_GRADIENT,
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+              letterSpacing: "-0.015em",
             }}
           >
-            <div
-              className="hc-anim absolute inset-y-0 left-0"
-              style={{
-                width: "60%",
-                backgroundImage: VIBRANT_GRADIENT,
-                borderRadius: 999,
-                animation: animate
-                  ? "hc-bar-slide 1.8s ease-in-out infinite"
-                  : undefined,
-              }}
-            />
-          </div>
+            HealthCircle
+          </span>
         )}
       </div>
 
-      {/* Vibrant gradient wordmark beside the logo */}
-      {showText && (
-        <span
-          className={`font-extrabold tracking-tight leading-none select-none ${textSizeClass}`}
+      {/* Vibrant rainbow bar sliding left-to-right under the whole logo */}
+      <div
+        className="relative overflow-hidden rounded-full w-full"
+        style={{
+          height: barHeight,
+          backgroundColor: "rgba(148, 163, 184, 0.18)",
+        }}
+        aria-hidden="true"
+      >
+        <div
+          className="hc-anim absolute inset-y-0 left-0 rounded-full"
           style={{
+            width: "45%",
             backgroundImage: VIBRANT_GRADIENT,
-            WebkitBackgroundClip: "text",
-            backgroundClip: "text",
-            color: "transparent",
-            letterSpacing: "-0.015em",
+            animation: animate
+              ? "hc-bar-slide 2.4s ease-in-out infinite"
+              : undefined,
           }}
-        >
-          HealthCircle
-        </span>
-      )}
+        />
+      </div>
     </div>
   );
 }
