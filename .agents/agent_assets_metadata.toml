@@ -41,3 +41,9 @@ id = "dkLhW77p8Q03GiK-bHgim"
 uri = "file://artifacts/askhealth/public/icon-512.png"
 type = "image"
 title = "HealthCircle Logo (512×512 PNG)"
+
+[[outputs]]
+id = "5tIWHE8YzcFtZBZRdDsCL"
+uri = "file://attached_assets/image_1777485369964.png"
+type = "image"
+title = "HealthCircle Logo - download for Google OAuth consent screen"
