@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "vRVO-2ug7ofefHo5dw7Nm"
@@ -36,3 +35,9 @@ id = "0oxBWxDTveI3BvZ3FPLp7"
 uri = "file://artifacts/askhealth/src/assets/community-heart-circle.png"
 type = "image"
 title = "heart circle cardiac health"
+
+[[outputs]]
+id = "dkLhW77p8Q03GiK-bHgim"
+uri = "file://artifacts/askhealth/public/icon-512.png"
+type = "image"
+title = "HealthCircle Logo (512×512 PNG)"
