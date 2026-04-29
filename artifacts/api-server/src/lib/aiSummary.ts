@@ -13,11 +13,36 @@ export interface PostAiSummary {
 
 const EMERGENCY_KEYWORDS = ["chest pain", "can't breathe", "suicidal", "severe bleeding", "unconscious", "stroke", "heart attack"];
 
+/**
+ * In-flight dedupe set. Without this, repeated GETs to /ai-summary while a
+ * post is still being analyzed would each fan out a fresh expensive provider
+ * call. The Set is per-process; safe for our single-instance API server.
+ */
+const inFlightSummaries = new Set<number>();
+
 export async function generatePostSummary(postId: number, title: string, content: string): Promise<PostAiSummary | null> {
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   if (!baseUrl || !apiKey) return null;
 
+  // Dedupe: if a generation for this post is already running, skip silently.
+  if (inFlightSummaries.has(postId)) return null;
+  inFlightSummaries.add(postId);
+
+  try {
+    return await generatePostSummaryInner(postId, title, content, baseUrl, apiKey);
+  } finally {
+    inFlightSummaries.delete(postId);
+  }
+}
+
+async function generatePostSummaryInner(
+  postId: number,
+  title: string,
+  content: string,
+  baseUrl: string,
+  apiKey: string,
+): Promise<PostAiSummary | null> {
   const fullText = `${title}\n\n${content}`;
   const isEmergency = EMERGENCY_KEYWORDS.some(k => fullText.toLowerCase().includes(k));
 

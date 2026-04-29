@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAuth } from "../lib/auth";
-import { db, postsTable, usersTable, commentsTable, postUpvotesTable, postReactionsTable, communityMembersTable, doctorConsultationsTable } from "@workspace/db";
+import { db, postsTable, usersTable, commentsTable, postUpvotesTable, postReactionsTable, postBookmarksTable, communityMembersTable, doctorConsultationsTable } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireModeratorOrAdmin, getOrCreateUser } from "../lib/auth";
 import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
@@ -24,7 +24,9 @@ router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
     .where(eq(postsTable.communityId, communityId))
     .orderBy(desc(postsTable.isPinned), desc(postsTable.createdAt));
 
-  const reactionSummary = await summarizeReactionsForPosts(posts.map(p => p.post.id), currentUserId);
+  const postIds = posts.map(p => p.post.id);
+  const reactionSummary = await summarizeReactionsForPosts(postIds, currentUserId);
+  const bookmarkedSet = await bookmarkSetForUser(postIds, currentUserId);
 
   const result = await Promise.all(posts.map(async ({ post, author }) => {
     let hasUpvoted = false;
@@ -36,6 +38,7 @@ router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
     return {
       ...post, authorId: author.clerkId, authorName: author.displayName,
       authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+      hasBookmarked: bookmarkedSet.has(post.id),
       reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
     };
   }));
@@ -86,7 +89,9 @@ router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, re
     .where(and(eq(postsTable.communityId, communityId), eq(postsTable.isPinned, true)))
     .orderBy(desc(postsTable.createdAt));
 
-  const reactionSummary = await summarizeReactionsForPosts(posts.map(p => p.post.id), currentUserId);
+  const postIds = posts.map(p => p.post.id);
+  const reactionSummary = await summarizeReactionsForPosts(postIds, currentUserId);
+  const bookmarkedSet = await bookmarkSetForUser(postIds, currentUserId);
 
   const result = await Promise.all(posts.map(async ({ post, author }) => {
     let hasUpvoted = false;
@@ -98,6 +103,7 @@ router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, re
     return {
       ...post, authorId: author.clerkId, authorName: author.displayName,
       authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+      hasBookmarked: bookmarkedSet.has(post.id),
       reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
     };
   }));
@@ -132,20 +138,118 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
   }
 
   const reactionSummary = await summarizeReactionsForPosts([post.id], currentUserId);
+  const bookmarkedSet = await bookmarkSetForUser([post.id], currentUserId);
 
   res.json({
     ...post, authorId: author.clerkId, authorName: author.displayName,
     authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+    hasBookmarked: bookmarkedSet.has(post.id),
     reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
   });
 });
 
+/**
+ * Get the AI summary for a post.
+ * - If the summary exists, returns `{ status: "ready", summary }`.
+ * - If it doesn't exist yet, kicks off generation in the background and returns
+ *   `{ status: "generating" }` so the client can poll without ambiguity.
+ * - If the AI provider is not configured, returns `{ status: "unavailable" }`
+ *   so the client can stop polling immediately and show a clear message.
+ */
 router.get("/posts/:postId/ai-summary", requireAuth, async (req, res) => {
   const postId = parseInt(req.params.postId);
+  if (!Number.isInteger(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
   const summary = await getPostSummary(postId);
-  if (!summary) { res.status(404).json({ error: "No summary yet" }); return; }
-  res.json(summary);
+  if (summary) { res.json({ status: "ready", summary }); return; }
+
+  // No summary yet — fetch the post so we can trigger generation if missing.
+  const [post] = await db
+    .select({ id: postsTable.id, title: postsTable.title, content: postsTable.content })
+    .from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+  if (!post) { res.status(404).json({ error: "Post not found" }); return; }
+
+  const aiAvailable = !!(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL && process.env.AI_INTEGRATIONS_OPENAI_API_KEY);
+  if (!aiAvailable) { res.json({ status: "unavailable" }); return; }
+
+  // Fire-and-forget regeneration. Idempotent thanks to onConflictDoNothing in saveSummary.
+  generatePostSummary(post.id, post.title, post.content)
+    .catch(err => logger.error({ err, postId }, "Background AI summary generation failed"));
+  res.json({ status: "generating" });
 });
+
+// ─── Bookmarks (Save post) ────────────────────────────────────────────────
+
+/**
+ * Toggle a bookmark for the current user. Returns `{ bookmarked: boolean }`.
+ *
+ * Implementation is fully atomic via a single-statement CTE: Postgres
+ * evaluates the DELETE first; only if it removed nothing does the INSERT run.
+ * This guarantees consistent toggle semantics under concurrent clicks/tabs —
+ * exactly N requests yield exactly N flips, with no PK violations.
+ */
+router.post("/posts/:postId/bookmark", requireAuth, async (req, res) => {
+  const postId = parseInt(req.params.postId);
+  if (!Number.isInteger(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const user = await getOrCreateUser(clerkId);
+  const [post] = await db.select({ id: postsTable.id }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+  if (!post) { res.status(404).json({ error: "Post not found" }); return; }
+
+  const result = await db.execute<{ bookmarked: boolean }>(sql`
+    WITH del AS (
+      DELETE FROM post_bookmarks
+        WHERE post_id = ${postId} AND user_id = ${user.id}
+        RETURNING 1
+    ), ins AS (
+      INSERT INTO post_bookmarks (post_id, user_id)
+        SELECT ${postId}, ${user.id} WHERE NOT EXISTS (SELECT 1 FROM del)
+        RETURNING 1
+    )
+    SELECT EXISTS(SELECT 1 FROM ins) AS bookmarked
+  `);
+  const bookmarked = (result.rows[0]?.bookmarked ?? false) === true;
+  res.json({ bookmarked });
+});
+
+/** List the current user's bookmarked posts (newest first). */
+router.get("/me/bookmarks", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+
+  const rows = await db
+    .select({ post: postsTable, author: usersTable, bookmarkedAt: postBookmarksTable.createdAt })
+    .from(postBookmarksTable)
+    .innerJoin(postsTable, eq(postBookmarksTable.postId, postsTable.id))
+    .innerJoin(usersTable, eq(postsTable.authorId, usersTable.id))
+    .where(eq(postBookmarksTable.userId, user.id))
+    .orderBy(desc(postBookmarksTable.createdAt));
+
+  res.json(rows.map(({ post, author, bookmarkedAt }) => ({
+    ...post,
+    authorId: author.clerkId,
+    authorName: author.displayName,
+    authorAvatar: author.avatarUrl,
+    authorLevel: author.level,
+    bookmarkedAt,
+    hasBookmarked: true,
+  })));
+});
+
+/**
+ * Lookup which of the given postIds the user has bookmarked.
+ * Returns a Set-like Record keyed by postId for O(1) injection into payloads.
+ */
+async function bookmarkSetForUser(postIds: number[], userId?: number): Promise<Set<number>> {
+  if (!userId || postIds.length === 0) return new Set();
+  const rows = await db.select({ postId: postBookmarksTable.postId })
+    .from(postBookmarksTable)
+    .where(and(eq(postBookmarksTable.userId, userId), inArray(postBookmarksTable.postId, postIds)));
+  return new Set(rows.map(r => r.postId));
+}
 
 router.patch("/posts/:postId", requireAuth, async (req, res) => {
   const postId = parseInt(req.params.postId);

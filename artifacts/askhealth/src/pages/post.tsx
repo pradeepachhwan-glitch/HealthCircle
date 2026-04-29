@@ -48,10 +48,40 @@ export default function PostDetail() {
   const upvotePost = useUpvotePost();
 
   const [commentContent, setCommentContent] = useState("");
-  const [saved, setSaved] = useState(false);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
-  const [aiLoading, setAiLoading] = useState(true);
+  type AiStatus = "loading" | "ready" | "generating" | "unavailable" | "failed";
+  const [aiStatus, setAiStatus] = useState<AiStatus>("loading");
+  const [aiRetryNonce, setAiRetryNonce] = useState(0);
   const [consultationRequested, setConsultationRequested] = useState(false);
+
+  // Server is the source of truth for the saved state. Local mirror exists only
+  // so the icon flips immediately on click; useEffect below keeps it in sync.
+  const [bookmarked, setBookmarked] = useState<boolean>(!!(post as { hasBookmarked?: boolean } | undefined)?.hasBookmarked);
+  useEffect(() => {
+    setBookmarked(!!(post as { hasBookmarked?: boolean } | undefined)?.hasBookmarked);
+  }, [(post as { hasBookmarked?: boolean } | undefined)?.hasBookmarked]);
+
+  const bookmarkMutation = useMutation({
+    mutationFn: async (): Promise<{ bookmarked: boolean }> => {
+      const r = await fetch(`${API_BASE}/posts/${postId}/bookmark`, { method: "POST", credentials: "include" });
+      if (!r.ok) throw new Error("Bookmark failed");
+      return r.json();
+    },
+    onMutate: () => {
+      const previous = bookmarked;
+      setBookmarked(!previous);
+      return { previous };
+    },
+    onSuccess: (data) => {
+      setBookmarked(data.bookmarked);
+      queryClient.invalidateQueries({ queryKey: getGetPostQueryKey(postId) });
+      toast.success(data.bookmarked ? "Saved to your bookmarks" : "Removed from bookmarks");
+    },
+    onError: (_err, _vars, context) => {
+      if (context) setBookmarked(context.previous);
+      toast.error("Couldn't update your bookmark. Please try again.");
+    },
+  });
 
   const requestConsultation = useMutation({
     mutationFn: async () => {
@@ -74,48 +104,79 @@ export default function PostDetail() {
     onError: () => toast.error("Could not submit request. Please try again."),
   });
 
+  // AI summary fetcher — polls only while server reports `generating`. Stops
+  // immediately on `ready`, `unavailable`, or hard failure. Manual "Try again"
+  // bumps `aiRetryNonce` to re-run this effect.
   useEffect(() => {
     if (!postId) return;
-    setAiLoading(true);
-    // Poll for AI summary (may take a few seconds to generate)
+    let cancelled = false;
     let attempts = 0;
-    const fetchSummary = async () => {
+    const MAX_ATTEMPTS = 8;        // ~32 seconds total
+    const POLL_INTERVAL_MS = 4000;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const controller = new AbortController();
+
+    setAiStatus("loading");
+    setAiSummary(null);
+
+    type SummaryResponse =
+      | { status: "ready"; summary: AiSummary }
+      | { status: "generating" }
+      | { status: "unavailable" };
+
+    const tick = async () => {
+      attempts++;
       try {
-        const res = await fetch(`${API_BASE}/posts/${postId}/ai-summary`, { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json() as AiSummary;
-          setAiSummary(data);
-          setAiLoading(false);
-          return true;
+        const res = await fetch(`${API_BASE}/posts/${postId}/ai-summary`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (cancelled) return;
+        if (!res.ok) {
+          // Hard failure (404 means post deleted; otherwise surface as failed).
+          setAiStatus("failed");
+          return;
         }
-        return false;
-      } catch { return false; }
+        const data = (await res.json()) as SummaryResponse;
+        if (cancelled) return;
+        if (data.status === "ready") {
+          setAiSummary(data.summary);
+          setAiStatus("ready");
+        } else if (data.status === "unavailable") {
+          setAiStatus("unavailable");
+        } else if (data.status === "generating") {
+          if (attempts >= MAX_ATTEMPTS) {
+            setAiStatus("failed");
+          } else {
+            setAiStatus("generating");
+            timer = setTimeout(tick, POLL_INTERVAL_MS);
+          }
+        }
+      } catch (err) {
+        if (cancelled || (err as Error)?.name === "AbortError") return;
+        console.error("AI summary fetch failed", err);
+        setAiStatus("failed");
+      }
     };
 
-    fetchSummary().then(found => {
-      if (!found) {
-        // Retry up to 3 times with delay
-        const retry = setInterval(async () => {
-          attempts++;
-          const ok = await fetchSummary();
-          if (ok || attempts >= 3) {
-            clearInterval(retry);
-            setAiLoading(false);
-          }
-        }, 4000);
-        return () => clearInterval(retry);
-      }
-    });
-  }, [postId]);
+    tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      controller.abort();
+    };
+  }, [postId, aiRetryNonce]);
 
   const handleUpvote = () => {
     if (upvotePost.isPending) return;
     upvotePost.mutate({ postId }, {
       onSuccess: (result) => {
-        queryClient.setQueryData(getGetPostQueryKey(postId), (old: any) =>
-          old ? { ...old, upvoteCount: result.upvoteCount, hasUpvoted: result.hasUpvoted } : old
-        );
-      }
+        queryClient.setQueryData(getGetPostQueryKey(postId), (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          return { ...(old as object), upvoteCount: result.upvoteCount, hasUpvoted: result.hasUpvoted };
+        });
+      },
+      onError: () => toast.error("Couldn't save your vote. Please try again."),
     });
   };
 
@@ -218,12 +279,32 @@ export default function PostDetail() {
                 <Eye className="w-4 h-4" /> {(post.viewCount ?? 0) + 1}
               </span>
               <button
-                className="flex items-center gap-1.5 ml-auto"
-                onClick={() => { setSaved(s => !s); toast.success(saved ? "Removed from saved" : "Saved!"); }}
+                className="flex items-center gap-1.5 ml-auto disabled:opacity-50"
+                onClick={() => bookmarkMutation.mutate()}
+                disabled={bookmarkMutation.isPending}
+                aria-label={bookmarked ? "Remove bookmark" : "Save post"}
+                data-testid="button-bookmark-header"
               >
-                <BookMarked className={cn("w-4 h-4 transition-colors", saved ? "text-primary fill-primary" : "text-muted-foreground")} />
+                <BookMarked className={cn("w-4 h-4 transition-colors", bookmarked ? "text-primary fill-primary" : "text-muted-foreground")} />
               </button>
-              <button className="flex items-center gap-1.5" onClick={() => { navigator.clipboard?.writeText(window.location.href); toast.success("Link copied"); }}>
+              <button
+                className="flex items-center gap-1.5"
+                onClick={async () => {
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({ title: post.title, url: window.location.href });
+                    } else {
+                      await navigator.clipboard.writeText(window.location.href);
+                      toast.success("Link copied");
+                    }
+                  } catch (err) {
+                    if ((err as Error)?.name !== "AbortError") {
+                      toast.error("Couldn't share. Try copying the URL from the address bar.");
+                    }
+                  }
+                }}
+                aria-label="Share post"
+              >
                 <Share2 className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
@@ -243,7 +324,7 @@ export default function PostDetail() {
               )}
             </div>
 
-            {aiLoading && !aiSummary ? (
+            {(aiStatus === "loading" || aiStatus === "generating") && !aiSummary ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
@@ -299,7 +380,24 @@ export default function PostDetail() {
                 )}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">AI summary unavailable for this post.</p>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  {aiStatus === "unavailable"
+                    ? "Yukti AI isn't available right now. The community can still help — see the replies below."
+                    : "Yukti couldn't analyse this post. You can try again in a moment."}
+                </p>
+                {aiStatus === "failed" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => setAiRetryNonce(n => n + 1)}
+                    data-testid="button-ai-summary-retry"
+                  >
+                    Try again
+                  </Button>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -321,10 +419,12 @@ export default function PostDetail() {
           <Button
             variant="outline"
             className="w-full h-auto py-3 flex-col gap-1 text-xs font-medium"
-            onClick={() => { setSaved(s => !s); toast.success(saved ? "Removed from saved" : "Saved to your profile!"); }}
+            onClick={() => bookmarkMutation.mutate()}
+            disabled={bookmarkMutation.isPending}
+            data-testid="button-bookmark-action"
           >
-            <BookMarked className={cn("w-4 h-4 transition-colors", saved ? "text-primary fill-primary" : "text-muted-foreground")} />
-            {saved ? "Saved" : "Save Post"}
+            <BookMarked className={cn("w-4 h-4 transition-colors", bookmarked ? "text-primary fill-primary" : "text-muted-foreground")} />
+            {bookmarked ? "Saved" : "Save Post"}
           </Button>
         </div>
 
