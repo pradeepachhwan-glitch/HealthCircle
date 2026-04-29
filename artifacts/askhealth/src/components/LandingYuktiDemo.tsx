@@ -114,9 +114,12 @@ export function LandingYuktiDemo() {
       setAnswer(reply);
       setUsed(true);
       // If the user dictated, automatically read the reply aloud — closes
-      // the voice loop without requiring an extra tap.
+      // the voice loop without requiring an extra tap. We deliberately do
+      // NOT pass `lang` so speak() auto-detects Devanagari → hi-IN, ensuring
+      // a Hindi reply is read with the Hindi voice (not mispronounced by
+      // the English engine). Both voices are Indian female (Yukti's persona).
       if (voiceMode && reply.reply) {
-        void speak(reply.reply, { lang: "en-IN" });
+        void speak(reply.reply);
       }
     } catch {
       setError("Network issue — please check your connection and try again.");
@@ -239,9 +242,10 @@ export function LandingYuktiDemo() {
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
                 <p className="text-[11px] uppercase tracking-wide text-primary font-bold">Yukti says</p>
                 {/* Listen button — replays the answer aloud on demand */}
+                {/* No explicit `language` — SpeakButton/speak() auto-detect
+                    Devanagari so a Hindi reply is read with the Hindi voice. */}
                 <SpeakButton
                   text={answer.reply}
-                  language="en-IN"
                   className="ml-auto"
                   testId="yukti-demo-listen"
                 />

@@ -558,3 +558,35 @@ The decorative ring + orbiting health icons (Heart/Sparkles/Activity/Leaf around
 - Icon glyphs scale from `h-4 w-4` → `sm:h-5 sm:w-5` → `lg:h-6 lg:w-6`.
 - Container is `pointer-events-none aria-hidden` so the decoration never blocks taps on the H1 text or CTAs underneath.
 - The HC brand logo in the header was already animating on every device (spinning concentric rings, pulse ripple, breathing letters, rainbow glow) — no changes needed there.
+
+## 2026-04-29 (Yukti voice — Indian female for both English and Hindi)
+Yukti is presented as an Indian woman, so for both en-IN and hi-IN output the browser TTS now picks an Indian female voice on every major platform.
+
+### Why the previous behaviour was inconsistent
+`SpeechSynthesisVoice` exposes only `name` and `lang` — it has no gender field. The old `pickPreferredVoice()` just returned the first voice matching the language, which on different platforms could be male, female, or non-Indian depending on what the OS happened to enumerate first.
+
+### What changed in `src/lib/voice.ts`
+1. Added a per-language whitelist of well-known Indian female voice names (case-insensitive substring match):
+   - **en-IN**: Neerja (Microsoft Neural), Veena (Apple), Heera (Microsoft Desktop), Google English (India), plus Aditi/Raveena/Shruti/Isha as fallbacks.
+   - **hi-IN**: Swara (Microsoft Neural), Lekha (Apple), Kalpana (Microsoft Desktop), Google हिन्दी / Google Hindi, plus Kiran.
+2. Added a male-name blacklist with word-boundary regex (`\b(rishi|ravi|prabhat|hemant|aarav|madhur)\b`). Used as a soft veto in fallback tiers — never picks a known male voice unless it's the only option.
+3. Selection priority is: known female → exact-language non-male → root-language non-male → last-ditch any. Result is cached per language.
+4. The first voice pick is logged once (`[Yukti voice] en-IN → "Veena" (en-IN) via indian-female-known`) so users and devs can verify.
+5. Slightly slowed default `rate` from 1.0 to 0.96 for a calmer, more companion-y delivery.
+
+### Auto-detect Devanagari → Hindi voice
+Added `detectIndianScript(text)` which uses the Devanagari Unicode block (U+0900–U+097F) to pick `hi-IN` when more than ~15% of the alphabetic characters are Devanagari. `speak()` now defaults to this auto-detected language when the caller doesn't pass `lang` explicitly. This means a Hindi (or Hindi-dominant code-mixed) reply automatically uses the Hindi female voice instead of being mispronounced by the English engine.
+
+### Wiring
+- `LandingYuktiDemo.tsx` no longer hard-codes `lang: "en-IN"` on the auto-speak after dictation, nor on the `<SpeakButton>` next to Yukti's reply — both rely on auto-detection now.
+- `VoiceMic.tsx`'s `<SpeakButton>` now treats `language` as optional; if omitted, `speak()` auto-detects.
+
+### Verified
+- TypeScript clean on `voice.ts`, `LandingYuktiDemo.tsx`, `VoiceMic.tsx`.
+- Unit-tested the picker against simulated voice catalogues for macOS/iOS, Windows Microsoft Desktop, Edge online Neural, Chrome/Android, and a male-only edge case. All 6 platforms picked the right Indian female voice; the male-only edge case correctly fell back to a male voice rather than silence.
+- Auto-detection passes for pure English, pure Hindi, and mixed code-switching samples.
+
+### Follow-up fixes from code review (same day)
+Architect review flagged two issues addressed in `voice.ts`:
+1. **Cache staleness** — the per-language `pickCache` was permanent and could lock in a suboptimal pick (or null) before the browser's voice catalogue had finished loading asynchronously. Added a persistent module-level `voiceschanged` listener (`ensureVoicesChangedHook`) that invalidates `cachedVoices` and clears `pickCache` whenever the OS publishes new voices, plus made `pickPreferredVoice` no longer cache a `null` result so the next call retries.
+2. **Devanagari heuristic too aggressive** — a single embedded Hindi word (e.g. "Drink water और rest") could cross the old 15% ratio threshold and force the entire reply onto the Hindi voice. Tightened to: switch to `hi-IN` only when ratio > 40% **or** Devanagari count ≥ 4 chars **and** ratio > 15%. Verified across 13 representative samples — pure English, pure Hindi, Hindi-tail code-mix, single-word switches, and short Hindi acknowledgements all map to the right voice.

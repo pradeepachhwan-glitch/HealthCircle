@@ -164,6 +164,12 @@ export const VoiceMic = forwardRef<VoiceMicHandle, VoiceMicProps>(function Voice
 export interface SpeakButtonProps {
   /** The text to speak. Empty string disables the button. */
   text: string;
+  /**
+   * Optional explicit language override. When omitted, speak() auto-detects
+   * the language from the text (Devanagari → hi-IN, otherwise en-IN).
+   * Pass an explicit value only when you know the language up-front and
+   * want to force it (e.g., a UI labelled "Listen in Hindi").
+   */
   language?: VoiceLang;
   className?: string;
   testId?: string;
@@ -173,7 +179,7 @@ export interface SpeakButtonProps {
 
 export function SpeakButton({
   text,
-  language = "en-IN",
+  language,
   className = "",
   testId = "speak-button",
   label,
@@ -198,8 +204,12 @@ export function SpeakButton({
       return;
     }
     setSpeaking(true);
+    // Only forward `lang` if the consumer explicitly set it; otherwise let
+    // speak() auto-detect Devanagari-vs-Latin so the right Indian female
+    // voice is used (Veena/Heera/Neerja for English, Lekha/Kalpana/Swara
+    // for Hindi).
     void speak(text, {
-      lang: language,
+      ...(language ? { lang: language } : {}),
       onEnd: () => setSpeaking(false),
       onError: () => setSpeaking(false),
     });
