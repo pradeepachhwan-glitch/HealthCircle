@@ -5,13 +5,14 @@ interface Props {
   showText?: boolean;
   showBar?: boolean;
   animate?: boolean;
+  transparentBg?: boolean;
 }
 
 const VIBRANT_GRADIENT =
   "linear-gradient(90deg, #a855f7 0%, #ec4899 18%, #3b82f6 38%, #06b6d4 58%, #10b981 78%, #f59e0b 100%)";
 
 export default function HealthCircleLogo(props: Props) {
-  const { size = "md", showText = true, animate = true } = props;
+  const { size = "md", showText = true, animate = true, transparentBg = false } = props;
 
   const isLg = size === "lg";
   const isMd = size === "md";
@@ -30,9 +31,9 @@ export default function HealthCircleLogo(props: Props) {
   const barHeight = isLg ? 4 : isMd ? 3.5 : isSm ? 3 : 2.5;
   const rowGap = isLg ? 6 : isMd ? 6 : isSm ? 4 : 3;
 
-  // The sliding rainbow bar is part of the logo's identity — show it by
-  // default at every size (callers can opt out with showBar={false}).
-  const showBar = props.showBar ?? true;
+  // Bar defaults: prominent on hero placements (md/lg), off in tight headers
+  // (xs/sm) unless explicitly enabled. The landing page header opts in.
+  const showBar = props.showBar ?? (isLg || isMd);
 
   const cx = containerSize / 2;
   const strokeW = isLg ? 4 : isMd ? 3.25 : isSm ? 2.5 : 2;
@@ -130,6 +131,13 @@ export default function HealthCircleLogo(props: Props) {
               left: (containerSize - imgSize) / 2,
               width: imgSize,
               height: imgSize,
+              // The source PNG has a white square background. Clip to a circle
+              // for placements over dark backgrounds (e.g. signed-in sidebar).
+              // The landing page passes `transparentBg` to opt out so the
+              // revolving ring reads cleanly against the light page.
+              ...(transparentBg
+                ? null
+                : { borderRadius: "50%", backgroundColor: "white" }),
             }}
           />
         </div>
