@@ -395,6 +395,45 @@ export default function Admin() {
   const [communityMembersDialog, setCommunityMembersDialog] = useState<{ id: number; name: string } | null>(null);
   const [aiFilter, setAiFilter] = useState<"pending" | "approved" | "rejected" | "edited">("pending");
 
+  // Create / edit community dialogs.
+  // `createCommunityOpen` controls the "New community" dialog.
+  // `editCommunityTarget` holds the community currently being edited (or null).
+  const [createCommunityOpen, setCreateCommunityOpen] = useState(false);
+  const [editCommunityTarget, setEditCommunityTarget] = useState<any | null>(null);
+  const [communityForm, setCommunityForm] = useState({
+    name: "",
+    slug: "",
+    description: "",
+    iconEmoji: "",
+    coverColor: "#06b6d4",
+  });
+  // Track whether the slug has been edited manually so name typing only
+  // overwrites it while it has not been customized.
+  const [slugTouched, setSlugTouched] = useState(false);
+  function slugify(s: string) {
+    return s.toLowerCase().trim()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .slice(0, 60);
+  }
+  function openCreateCommunity() {
+    setCommunityForm({ name: "", slug: "", description: "", iconEmoji: "", coverColor: "#06b6d4" });
+    setSlugTouched(false);
+    setCreateCommunityOpen(true);
+  }
+  function openEditCommunity(c: any) {
+    setCommunityForm({
+      name: c.name ?? "",
+      slug: c.slug ?? "",
+      description: c.description ?? "",
+      iconEmoji: c.iconEmoji ?? "",
+      coverColor: c.coverColor ?? "#06b6d4",
+    });
+    setSlugTouched(true);
+    setEditCommunityTarget(c);
+  }
+
   // Admin token (server secret) — pasted by the operator to unlock the dashboard
   // when their Clerk user is not yet promoted to admin role in the DB.
   const [adminToken, setAdminToken] = useState<string>(() => getAdminToken());
@@ -532,6 +571,58 @@ export default function Admin() {
         body: JSON.stringify({ isArchived }),
       }).then(r => r.json()),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-communities"] }); toast.success("Community updated"); },
+  });
+
+  // Create a brand-new community. Hits the public POST /communities route
+  // (admin-guarded) which already supports name/slug/description/iconEmoji/
+  // coverColor — the duplicate /admin/communities PATCH only handles a subset.
+  const createCommunity = useMutation({
+    mutationFn: (payload: { name: string; slug: string; description?: string; iconEmoji?: string; coverColor?: string }) =>
+      adminFetch(`${API_BASE}/communities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).then(async r => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error ?? `Failed (${r.status})`);
+        }
+        return r.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-communities"] });
+      setCreateCommunityOpen(false);
+      toast.success("Community created");
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not create community"),
+  });
+
+  // Edit an existing community. Uses the full PATCH /communities/:id route so
+  // we can update iconEmoji and coverColor in addition to name/description.
+  const updateCommunity = useMutation({
+    mutationFn: (payload: { id: number; name?: string; description?: string; iconEmoji?: string; coverColor?: string }) =>
+      adminFetch(`${API_BASE}/communities/${payload.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: payload.name,
+          description: payload.description,
+          iconEmoji: payload.iconEmoji,
+          coverColor: payload.coverColor,
+        }),
+      }).then(async r => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error ?? `Failed (${r.status})`);
+        }
+        return r.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-communities"] });
+      setEditCommunityTarget(null);
+      toast.success("Community updated");
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not update community"),
   });
 
   const filteredUsers = (users ?? []).filter((u: any) =>
@@ -768,6 +859,19 @@ export default function Admin() {
 
           {/* ── COMMUNITIES ── */}
           <TabsContent value="communities" className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-muted-foreground">
+                {(communities ?? []).length} communit{(communities ?? []).length === 1 ? "y" : "ies"} total
+              </div>
+              <Button
+                size="sm"
+                className="gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
+                onClick={openCreateCommunity}
+                data-testid="button-new-community"
+              >
+                <Building2 className="w-4 h-4" /> New Community
+              </Button>
+            </div>
             <Card>
               <CardContent className="p-0">
                 {commLoading ? (
@@ -804,9 +908,17 @@ export default function Admin() {
                               {c.isArchived ? <Badge variant="secondary">Archived</Badge> : <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>}
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
+                              <div className="flex justify-end gap-2 flex-wrap">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openEditCommunity(c)}
+                                  data-testid={`button-edit-community-${c.id}`}
+                                >
+                                  Edit
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={() => setCommunityMembersDialog({ id: c.id, name: c.name })}>
-                                  View Members
+                                  Members
                                 </Button>
                                 <Button
                                   variant={c.isArchived ? "outline" : "ghost"}
@@ -1054,6 +1166,160 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Create / Edit Community Dialog (one shared body for both modes) */}
+      <Dialog
+        open={createCommunityOpen || !!editCommunityTarget}
+        onOpenChange={open => {
+          if (!open) { setCreateCommunityOpen(false); setEditCommunityTarget(null); }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editCommunityTarget ? `Edit ${editCommunityTarget.name}` : "Create new community"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Live preview chip — shows the icon/color users will see in lists */}
+            <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/40">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white shrink-0"
+                style={{ background: communityForm.coverColor || "#06b6d4" }}
+              >
+                {communityForm.iconEmoji || "🏥"}
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold truncate">{communityForm.name || "Community name"}</div>
+                <div className="text-xs text-muted-foreground truncate">/{communityForm.slug || "slug"}</div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="community-name" className="text-sm font-medium">Name</label>
+              <Input
+                id="community-name"
+                value={communityForm.name}
+                onChange={e => {
+                  const name = e.target.value;
+                  setCommunityForm(f => ({
+                    ...f,
+                    name,
+                    slug: slugTouched ? f.slug : slugify(name),
+                  }));
+                }}
+                placeholder="e.g. Diabetes Care"
+                data-testid="input-community-name"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="community-slug" className="text-sm font-medium">Slug (URL handle)</label>
+              <Input
+                id="community-slug"
+                value={communityForm.slug}
+                onChange={e => { setCommunityForm(f => ({ ...f, slug: slugify(e.target.value) })); setSlugTouched(true); }}
+                placeholder="e.g. diabetes-care"
+                disabled={!!editCommunityTarget}
+                data-testid="input-community-slug"
+              />
+              {editCommunityTarget ? (
+                <p className="text-xs text-muted-foreground">Slug cannot be changed after creation.</p>
+              ) : (!communityForm.slug.trim() && communityForm.name.trim()) ? (
+                <p className="text-xs text-amber-600">
+                  We could not generate a URL handle from that name (non-Latin characters).
+                  Please type one manually — letters, numbers, and dashes only.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="community-description" className="text-sm font-medium">Description</label>
+              <textarea
+                id="community-description"
+                value={communityForm.description}
+                onChange={e => setCommunityForm(f => ({ ...f, description: e.target.value }))}
+                rows={3}
+                placeholder="What this community is about…"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                data-testid="input-community-description"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor="community-icon" className="text-sm font-medium">Icon (emoji)</label>
+                <Input
+                  id="community-icon"
+                  value={communityForm.iconEmoji}
+                  onChange={e => setCommunityForm(f => ({ ...f, iconEmoji: e.target.value.slice(0, 4) }))}
+                  placeholder="🩺"
+                  className="text-2xl text-center"
+                  data-testid="input-community-icon"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="community-color" className="text-sm font-medium">Cover color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="community-color"
+                    type="color"
+                    aria-label="Cover color picker"
+                    value={communityForm.coverColor || "#06b6d4"}
+                    onChange={e => setCommunityForm(f => ({ ...f, coverColor: e.target.value }))}
+                    className="w-10 h-10 rounded-md border cursor-pointer"
+                    data-testid="input-community-color"
+                  />
+                  <Input
+                    aria-label="Cover color hex value"
+                    value={communityForm.coverColor}
+                    onChange={e => setCommunityForm(f => ({ ...f, coverColor: e.target.value }))}
+                    placeholder="#06b6d4"
+                    className="flex-1 font-mono text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => { setCreateCommunityOpen(false); setEditCommunityTarget(null); }}
+            >
+              Cancel
+            </Button>
+            {editCommunityTarget ? (
+              <Button
+                onClick={() => updateCommunity.mutate({
+                  id: editCommunityTarget.id,
+                  name: communityForm.name.trim(),
+                  description: communityForm.description.trim() || undefined,
+                  iconEmoji: communityForm.iconEmoji || undefined,
+                  coverColor: communityForm.coverColor || undefined,
+                })}
+                disabled={!communityForm.name.trim() || updateCommunity.isPending}
+                data-testid="button-save-community"
+              >
+                {updateCommunity.isPending ? "Saving…" : "Save changes"}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => createCommunity.mutate({
+                  name: communityForm.name.trim(),
+                  slug: communityForm.slug.trim() || slugify(communityForm.name),
+                  description: communityForm.description.trim() || undefined,
+                  iconEmoji: communityForm.iconEmoji || undefined,
+                  coverColor: communityForm.coverColor || undefined,
+                })}
+                disabled={!communityForm.name.trim() || !communityForm.slug.trim() || createCommunity.isPending}
+                data-testid="button-create-community"
+              >
+                {createCommunity.isPending ? "Creating…" : "Create community"}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Community Members Dialog */}
       <Dialog open={!!communityMembersDialog} onOpenChange={open => { if (!open) { setCommunityMembersDialog(null); setMemberSearchQuery(""); } }}>

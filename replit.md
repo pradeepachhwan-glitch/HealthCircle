@@ -590,3 +590,20 @@ Added `detectIndianScript(text)` which uses the Devanagari Unicode block (U+0900
 Architect review flagged two issues addressed in `voice.ts`:
 1. **Cache staleness** — the per-language `pickCache` was permanent and could lock in a suboptimal pick (or null) before the browser's voice catalogue had finished loading asynchronously. Added a persistent module-level `voiceschanged` listener (`ensureVoicesChangedHook`) that invalidates `cachedVoices` and clears `pickCache` whenever the OS publishes new voices, plus made `pickPreferredVoice` no longer cache a `null` result so the next call retries.
 2. **Devanagari heuristic too aggressive** — a single embedded Hindi word (e.g. "Drink water और rest") could cross the old 15% ratio threshold and force the entire reply onto the Hindi voice. Tightened to: switch to `hi-IN` only when ratio > 40% **or** Devanagari count ≥ 4 chars **and** ratio > 15%. Verified across 13 representative samples — pure English, pure Hindi, Hindi-tail code-mix, single-word switches, and short Hindi acknowledgements all map to the right voice.
+
+## 2026-04-29 (Logo dark-bg fix + admin Create/Edit Community UI)
+
+### Logo: clip the white-square corners (`HealthCircleLogo.tsx`)
+The brand icon at `public/icon-192.png` is a TrueColor PNG with no alpha channel — it has a hard white square background. On light pages (sign-in, privacy, terms) the white blends in, but on the dark sidebar after sign-in it showed as a visible white square framing the circular logo.
+
+Fix: added `borderRadius: "50%"` (plus `backgroundColor: "white"` so any partial transparency stays clean) to the inline `style` of the `<img>` inside both `HealthCircleLogo` and the favicon-style `HealthCircleIcon` exported from the same file. Pure CSS clip — no rebuild of the asset needed. Looks identical on light backgrounds (white-on-white) and now renders as a clean disc on dark surfaces.
+
+### Admin: Create + Edit Community UI (`pages/admin.tsx`)
+The backend already exposed full CRUD via `POST /api/communities` and `PATCH /api/communities/:id` (both `requireAdmin`-guarded, both supporting `name / slug / description / iconEmoji / coverColor`). The admin page only wired Members + Archive — no way to create a community or edit its name/icon/color from the UI. Added:
+
+- **"+ New Community" button** at the top of the Communities tab (`data-testid="button-new-community"`).
+- **Per-row "Edit" button** (`data-testid="button-edit-community-<id>"`) added next to Members/Archive.
+- **Shared dialog** for create + edit, opened via `openCreateCommunity()` / `openEditCommunity(c)`. Fields: name, slug (auto-derived from name on create via `slugify`, locked on edit), description, icon emoji, color (HTML `<input type="color">` + hex text). Live preview chip at the top of the dialog mirrors the icon/color/name as you type.
+- **Mutations** `createCommunity` (POST /communities) and `updateCommunity` (PATCH /communities/:id). Existing `archiveCommunity` left as-is — it uses the weaker `/admin/communities/:id` PATCH which only supports `isArchived`.
+- All inputs have `htmlFor`/`id` label associations and `aria-label` on the inline color inputs for accessibility.
+- Slug helper text warns if `slugify()` produced an empty value (non-Latin name) so the user knows to type one manually.

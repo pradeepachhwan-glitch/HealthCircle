@@ -130,6 +130,11 @@ export default function HealthCircleLogo(props: Props) {
               left: (containerSize - imgSize) / 2,
               width: imgSize,
               height: imgSize,
+              // The source PNG has a white square background. Clipping to a
+              // circle removes the corner whites so the logo looks correct on
+              // dark backgrounds (e.g. the signed-in sidebar) too.
+              borderRadius: "50%",
+              backgroundColor: "white",
             }}
           />
         </div>
@@ -185,7 +190,7 @@ export function HealthCircleIcon({ size = 32 }: { size?: number }) {
       alt="HealthCircle"
       width={size}
       height={size}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, borderRadius: "50%", backgroundColor: "white" }}
       draggable={false}
     />
   );
