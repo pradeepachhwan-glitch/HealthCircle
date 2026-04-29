@@ -3,27 +3,44 @@ import { ArrowRight, Heart, Sparkles, Activity, Leaf } from "lucide-react";
 import { LandingYuktiDemo } from "@/components/LandingYuktiDemo";
 
 /**
- * Single icon chip that sits at one cardinal point on the hero's orbit ring.
- * The outer div positions it on the rim using translate; the inner div
- * counter-rotates so the chip stays upright as the parent ring rotates.
+ * One "planet" — an icon chip that orbits the hero ring at its own radius,
+ * its own speed, and starting from its own angle. Inspired by a solar system:
  *
- * Tailwind transform classes (`-translate-x-1/2`, etc.) live on the OUTER
- * wrapper while the rotation animation runs on the INNER div — putting both
- * on the same element would cause the animation's `transform: rotate(...)`
- * to overwrite the translate and the chip would snap to centre.
+ *   - Outer wrapper (`ring-orbit`) is a square pinned to a sub-region of the
+ *     ring container via `inset` (the smaller the inset, the larger the
+ *     orbital radius). It rotates clockwise with `durationS` period, and the
+ *     `delayS` shift starts it at any phase of the orbit.
+ *   - Position div places the icon at one cardinal point of the rotating
+ *     square, so the icon's actual orbital radius = (containerSize - 2*inset)/2.
+ *   - Inner div counter-rotates with the SAME duration + SAME delay so the
+ *     icon glyph stays upright while travelling around its orbit.
+ *
+ * Putting translate + rotate on the same element would let the animation's
+ * `transform: rotate(...)` overwrite the translate and snap the chip to
+ * centre, which is why we keep three nested divs.
  */
-function OrbitIcon({
-  position,
+function PlanetIcon({
+  startAt,
   ringTone,
   shadowColor,
+  durationS,
+  delayS,
+  inset = "0",
   children,
 }: {
-  position: "top" | "right" | "bottom" | "left";
+  /** Where the icon STARTS in its orbit (delay also offsets this). */
+  startAt: "top" | "right" | "bottom" | "left";
   /** Literal Tailwind ring class — must appear verbatim in source so JIT picks it up. */
   ringTone: "ring-rose-100" | "ring-violet-100" | "ring-emerald-100" | "ring-amber-100";
   /** Raw rgba colour for the soft drop shadow (inline-styled — Tailwind JIT
    *  cannot detect interpolated arbitrary-value class names). */
   shadowColor: string;
+  /** Orbital period in seconds. */
+  durationS: number;
+  /** Negative seconds → start partway through the orbit. */
+  delayS: number;
+  /** Tailwind inset value (e.g. "0", "6%", "12%"). Smaller = bigger orbit. */
+  inset?: string;
   children: React.ReactNode;
 }) {
   const positionClasses = {
@@ -31,14 +48,20 @@ function OrbitIcon({
     right:  "right-0 top-1/2 translate-x-1/2 -translate-y-1/2",
     bottom: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2",
     left:   "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2",
-  }[position];
+  }[startAt];
+  const animStyle = {
+    animationDuration: `${durationS}s`,
+    animationDelay: `${delayS}s`,
+  };
   return (
-    <div className={`absolute ${positionClasses}`}>
-      <div
-        className={`ring-orbit-counter h-12 w-12 lg:h-14 lg:w-14 rounded-2xl bg-white/85 backdrop-blur ring-1 ${ringTone} flex items-center justify-center`}
-        style={{ boxShadow: `0 8px 24px -10px ${shadowColor}` }}
-      >
-        {children}
+    <div className="absolute ring-orbit" style={{ inset, ...animStyle }}>
+      <div className={`absolute ${positionClasses}`}>
+        <div
+          className={`ring-orbit-counter h-12 w-12 lg:h-14 lg:w-14 rounded-2xl bg-white/90 backdrop-blur ring-1 ${ringTone} flex items-center justify-center`}
+          style={{ boxShadow: `0 10px 28px -8px ${shadowColor}`, ...animStyle }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -61,21 +84,38 @@ function goToDemo(e: React.MouseEvent) {
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden bg-white">
-      {/* Decorative background — warm coral blob + cool indigo blob + dotted ring.
-          Warm + cool together = alive but balanced (not Aditya-Birla-red, not corporate). */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
+    <section className="relative overflow-hidden bg-gradient-to-br from-indigo-50/80 via-white to-amber-50/60 [isolation:isolate]">
+      {/* Decorative background — warm coral blob + cool indigo blob + dotted
+          rings + planetary icons. Warm + cool together = alive but balanced.
+          Tints are pushed deeper than before so the hero reads as a coloured
+          surface (matches the soft pillar-card washes in the Three Pillars
+          section below).
+
+          NOTE: We deliberately do NOT put a negative z-index here. The section
+          now has a `bg-gradient` background, and `relative; overflow-hidden`
+          alone does not establish a stacking context — so a `-z-10` child
+          would render BEHIND the section's gradient and disappear. Natural
+          DOM order (decoration first, content second, both `z-auto`) already
+          stacks content above decoration above the gradient. */}
+      <div className="pointer-events-none absolute inset-0">
         {/* Warm coral/peach blob — left side */}
-        <div className="absolute -top-24 -left-32 h-[520px] w-[520px] rounded-full bg-gradient-to-br from-rose-200/45 via-orange-100/30 to-transparent blur-3xl" />
-        {/* Cool indigo blob — right side (kept from before) */}
-        <div className="absolute -top-32 -right-40 h-[640px] w-[640px] rounded-full bg-gradient-to-br from-indigo-100/60 via-violet-50/40 to-transparent blur-3xl" />
+        <div className="absolute -top-24 -left-32 h-[560px] w-[560px] rounded-full bg-gradient-to-br from-rose-200/65 via-orange-100/45 to-transparent blur-3xl" />
+        {/* Cool indigo blob — right side */}
+        <div className="absolute -top-32 -right-40 h-[680px] w-[680px] rounded-full bg-gradient-to-br from-indigo-200/55 via-violet-100/40 to-transparent blur-3xl" />
         {/* Soft amber wash at the bottom — sunset feeling */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[300px] w-[900px] rounded-full bg-gradient-to-t from-amber-100/30 via-rose-50/20 to-transparent blur-3xl" />
-        {/* Big centered ring spanning the hero — desktop only. Four health
-            icons orbit slowly along its rim (Heart=care, Sparkles=Yukti AI =
-            modern intelligence, Activity=EKG/vitality, Leaf=Ayurveda /
-            timeless wisdom). The rim sits ~95% of container width so it
-            kisses the side blobs without overflowing the visible hero. */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[340px] w-[980px] rounded-full bg-gradient-to-t from-amber-200/45 via-rose-100/30 to-transparent blur-3xl" />
+        {/* Centred soft mint blob — picks up the emerald orbit + tagline harmony */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[460px] w-[460px] rounded-full bg-gradient-to-br from-emerald-100/35 via-cyan-50/30 to-transparent blur-3xl" />
+
+        {/* Big planetary ring system spanning the hero — desktop only.
+            Four health icons orbit at *different* radii, *different* speeds,
+            and starting from *different* angles, so the system reads as a
+            living solar system rather than a synchronised quartet. The icons:
+              • Heart (rose) = care (outer orbit, slowest)
+              • Sparkles (violet) = Yukti AI / modern intelligence (mid orbit, faster)
+              • Activity (emerald) = EKG / vitality (inner orbit, fastest)
+              • Leaf (amber) = Ayurveda / timeless wisdom (outer orbit, slow)
+            A tiny amber "sun" sits at the centre of all the orbits. */}
         <div
           aria-hidden
           className="hidden md:flex absolute inset-0 items-center justify-center"
@@ -83,35 +123,65 @@ export function Hero() {
           <div
             className="relative"
             style={{
-              width: "min(96%, 1080px)",
+              // True square — width is the MIN of container%, viewport-height%,
+              // and an absolute cap. This guarantees aspect-ratio:1/1 isn't
+              // overridden by maxHeight conflict (which would silently turn the
+              // box into a 1080×720 rectangle and put PlanetIcons on an
+              // ellipse that no longer hugs the SVG circle).
+              width: "min(720px, 70vh, 92vw)",
               aspectRatio: "1 / 1",
-              maxHeight: "min(96%, 720px)",
             }}
           >
             <svg
               aria-hidden
-              className="absolute inset-0 h-full w-full text-indigo-200/70"
+              className="absolute inset-0 h-full w-full text-indigo-300/80"
               viewBox="0 0 800 800"
               fill="none"
             >
-              <circle cx="400" cy="400" r="395" stroke="currentColor" strokeWidth="1" />
-              <circle cx="400" cy="400" r="350" stroke="currentColor" strokeWidth="0.8" strokeDasharray="2 6" />
+              <defs>
+                <radialGradient id="hero-sun" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%"   stopColor="rgba(251,191,36,0.55)" />
+                  <stop offset="60%"  stopColor="rgba(251,146,60,0.18)" />
+                  <stop offset="100%" stopColor="rgba(251,146,60,0)" />
+                </radialGradient>
+              </defs>
+              {/* Outer rim — bold so the ring is unmistakable */}
+              <circle cx="400" cy="400" r="395" stroke="currentColor" strokeWidth="2.5" opacity="0.9" />
+              {/* Mid orbital path — dashed */}
+              <circle cx="400" cy="400" r="340" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 9" opacity="0.7" />
+              {/* Inner orbital path — fainter dashed */}
+              <circle cx="400" cy="400" r="280" stroke="currentColor" strokeWidth="1.2" strokeDasharray="2 8" opacity="0.55" />
+              {/* Centre "sun" glow — anchors the planetary system */}
+              <circle cx="400" cy="400" r="42" fill="url(#hero-sun)" />
+              <circle cx="400" cy="400" r="5"  fill="rgba(245,158,11,0.85)" />
             </svg>
-            {/* The orbiting wrapper. Rotates clockwise every 90s; reduced-motion users see icons fixed at their cardinal positions. */}
-            <div className="absolute inset-0 ring-orbit">
-              <OrbitIcon position="top"    ringTone="ring-rose-100"    shadowColor="rgba(244,63,94,0.4)">
-                <Heart className="h-5 w-5 lg:h-6 lg:w-6 text-rose-500" strokeWidth={1.75} fill="currentColor" fillOpacity={0.18} />
-              </OrbitIcon>
-              <OrbitIcon position="right"  ringTone="ring-violet-100"  shadowColor="rgba(139,92,246,0.4)">
-                <Sparkles className="h-5 w-5 lg:h-6 lg:w-6 text-violet-500" strokeWidth={1.75} />
-              </OrbitIcon>
-              <OrbitIcon position="bottom" ringTone="ring-emerald-100" shadowColor="rgba(16,185,129,0.4)">
-                <Activity className="h-5 w-5 lg:h-6 lg:w-6 text-emerald-500" strokeWidth={1.75} />
-              </OrbitIcon>
-              <OrbitIcon position="left"   ringTone="ring-amber-100"   shadowColor="rgba(217,119,6,0.4)">
-                <Leaf className="h-5 w-5 lg:h-6 lg:w-6 text-amber-600" strokeWidth={1.75} fill="currentColor" fillOpacity={0.15} />
-              </OrbitIcon>
-            </div>
+            {/* Each icon now has its OWN orbit, speed, and start angle —
+                no shared parent rotation. Reduced-motion users see them
+                fixed wherever the delay+inset places them. */}
+            <PlanetIcon
+              startAt="top"    ringTone="ring-rose-100"    shadowColor="rgba(244,63,94,0.45)"
+              inset="0"        durationS={85} delayS={0}
+            >
+              <Heart className="h-5 w-5 lg:h-6 lg:w-6 text-rose-500" strokeWidth={1.75} fill="currentColor" fillOpacity={0.2} />
+            </PlanetIcon>
+            <PlanetIcon
+              startAt="right"  ringTone="ring-violet-100"  shadowColor="rgba(139,92,246,0.45)"
+              inset="6%"       durationS={55} delayS={-14}
+            >
+              <Sparkles className="h-5 w-5 lg:h-6 lg:w-6 text-violet-500" strokeWidth={1.75} />
+            </PlanetIcon>
+            <PlanetIcon
+              startAt="bottom" ringTone="ring-emerald-100" shadowColor="rgba(16,185,129,0.45)"
+              inset="14%"      durationS={42} delayS={-28}
+            >
+              <Activity className="h-5 w-5 lg:h-6 lg:w-6 text-emerald-500" strokeWidth={1.75} />
+            </PlanetIcon>
+            <PlanetIcon
+              startAt="left"   ringTone="ring-amber-100"   shadowColor="rgba(217,119,6,0.45)"
+              inset="2%"       durationS={100} delayS={-40}
+            >
+              <Leaf className="h-5 w-5 lg:h-6 lg:w-6 text-amber-600" strokeWidth={1.75} fill="currentColor" fillOpacity={0.18} />
+            </PlanetIcon>
           </div>
         </div>
       </div>

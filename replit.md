@@ -486,3 +486,30 @@ End-to-end admin control of the doctor onboarding pipeline plus tamper-evident a
   - `TONE_CLASSES` constant uses static class strings (no interpolation) so JIT picks them all up.
   - Added per-tone `data-testid` (`button-yukti-demo-example-amber/indigo/rose`).
 - **Mobile responsiveness verified** — the Ask input sits full-width on small viewports with the mic + Send buttons inline; ring decorations hide; tagline wraps cleanly with the coloured emphases. Touch target on input ≈48px.
+
+## 2026-04-29 (fourth pass — ring rescue + planetary orbits + coloured bg)
+- **Ring rescue (root cause fix)** — In the third pass I added `bg-gradient-to-br` to the hero `<section>` while keeping the decorative wrapper at `-z-10`. Because `position:relative; overflow:hidden` does NOT establish a stacking context, the negative-z child rendered BEHIND the section's own background gradient and disappeared completely. Removed `-z-10` from the decorative wrapper; natural DOM order (decoration first, content second, both `z-auto`) already stacks content above decoration above the gradient. Long comment in `Hero.tsx` documents this trap so it doesn't happen again.
+- **Bold ring + sun** (`Hero.tsx` SVG):
+  - Outer rim: `strokeWidth=2.5 opacity=0.9` (was 1, invisible at 1080px)
+  - Mid orbital path: `strokeWidth=1.5 strokeDasharray="3 9" opacity=0.7`
+  - Inner orbital path: `strokeWidth=1.2 strokeDasharray="2 8" opacity=0.55`
+  - Colour: `text-indigo-300/80` (was `indigo-200/70`)
+  - Centre amber "sun" — radial gradient `<defs><radialGradient id="hero-sun">...` with a tiny solid amber dot, anchors the planetary system visually.
+- **Planetary motion** — replaced the single rotating wrapper holding all 4 cardinal icons with **4 independent orbits**, each via a renamed `PlanetIcon` helper. New props: `inset` (smaller value → bigger orbital radius), `durationS` (orbital period), `delayS` (start-anywhere phase offset), plus the existing `startAt` and tone props.
+  - Heart  — `inset:"0"`,  duration 85s, phase 0      (outermost orbit, slow — like an outer planet)
+  - Sparkles — `inset:"6%"`,  duration 55s, phase −14s  (mid orbit, faster)
+  - Activity — `inset:"14%"`, duration 42s, phase −28s  (innermost orbit, fastest — like Mercury)
+  - Leaf  — `inset:"2%"`,  duration 100s, phase −40s (outer orbit, slowest)
+  - Result: 4 planets at 4 different radii, 4 different periods, 4 different starting angles → no two icons are ever at the same angular position simultaneously.
+  - Each PlanetIcon now sets `animation-duration` AND `animation-delay` on BOTH the rotating outer wrapper AND the counter-rotating inner div via inline `style={{ animationDuration, animationDelay }}` — they MUST match per-icon or the icon glyph would tumble instead of staying upright.
+  - Reduced-motion users see the icons frozen wherever the inset+startAt combination places them; orbital paths stay visible.
+- **Coloured background shading** — section now `bg-gradient-to-br from-indigo-50/80 via-white to-amber-50/60` (was bare `bg-white`). Plus blob opacities pushed up: rose `/45→/65`, indigo `/60→/55` (with size +40px), amber `/30→/45`, plus a NEW central mint blob (`from-emerald-100/35 via-cyan-50/30`) that picks up the emerald orbit + traditional-wellness palette. Mirrors the soft pillar-card washes (e.g. emerald-50/teal-50 on the "Verified doctors" card).
+- **Mobile unaffected** — orbits are `hidden md:flex` so phones still see the H1 + tagline + Ask box on a clean tinted gradient with no clutter.
+
+### CSS stacking-context trap to remember
+On any section with `position:relative; overflow:hidden` AND a background colour/gradient, do NOT use `-z-N` on absolute decoration children — they will render behind the section's own background. Either drop the `-z-N` and rely on DOM order, or add `isolation: isolate` to the section to create a stacking context that contains the negative-z layers.
+
+### 2026-04-29 (fourth-pass review polish — 1×SEV1 + 1×SEV2 + 1×SEV3)
+- **SEV1 — true square container** (`Hero.tsx`): the previous `width: min(96%, 1080px); aspectRatio: 1/1; maxHeight: min(96%, 720px)` actually rendered a 1080×720 rectangle on desktop because the maxHeight conflict silently overrode aspect-ratio. That meant the SVG circle stayed circular (centered with `xMidYMid meet`) but the PlanetIcon orbits became ellipses (1080-wide × 720-tall) so the icons drifted off the visible ring at the 3 and 9 o'clock positions. Fixed with `width: min(720px, 70vh, 92vw); aspectRatio: 1/1` (no maxHeight) — now the box is a guaranteed square at all viewport sizes (the `70vh` term caps height on short viewports, `92vw` on narrow ones, `720px` on huge desktops). Icons now travel on circles that hug the SVG ring perfectly.
+- **SEV2 — dead duration in CSS** (`index.css`): removed the hardcoded `60s` from `.ring-orbit` / `.ring-orbit-counter`. They were always overridden by the inline `animationDuration` per PlanetIcon, and a stripped-style fallback would have been confusing (defaulting all 4 planets to 60s instead of their authored 42–100s). The CSS now defines only `animation-name`, `animation-timing-function`, and `animation-iteration-count`; the inline style on each planet is the single source of truth for `animation-duration` + `animation-delay`.
+- **SEV3 — explicit stacking context** (`Hero.tsx`): added `[isolation:isolate]` to the section so any future child with a `z-index` (positive or negative) is contained within the hero and can't accidentally collide with stacking from sibling sections. This is the "stacking-context insurance" the architect recommended after the `-z-10`-vs-bg-gradient incident.

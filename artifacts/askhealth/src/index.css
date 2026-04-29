@@ -297,8 +297,11 @@
      Honors prefers-reduced-motion. */
   @keyframes ring-orbit-cw  { from { transform: rotate(0deg); }   to { transform: rotate(360deg); } }
   @keyframes ring-orbit-ccw { from { transform: rotate(0deg); }   to { transform: rotate(-360deg); } }
-  .ring-orbit         { animation: ring-orbit-cw  60s linear infinite; transform-origin: center; }
-  .ring-orbit-counter { animation: ring-orbit-ccw 60s linear infinite; transform-origin: center; }
+  /* Duration is set per-icon via inline style on PlanetIcon (so each "planet"
+     gets its own orbital period). We define everything else here so the
+     inline style only ever sets `animation-duration` + `animation-delay`. */
+  .ring-orbit         { animation-name: ring-orbit-cw;  animation-timing-function: linear; animation-iteration-count: infinite; transform-origin: center; }
+  .ring-orbit-counter { animation-name: ring-orbit-ccw; animation-timing-function: linear; animation-iteration-count: infinite; transform-origin: center; }
   @media (prefers-reduced-motion: reduce) {
     .ring-orbit, .ring-orbit-counter { animation: none; }
   }
