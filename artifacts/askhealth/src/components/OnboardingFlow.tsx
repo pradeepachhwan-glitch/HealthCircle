@@ -153,6 +153,17 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
     onComplete();
   }
 
+  /**
+   * Skip the entire 6-step onboarding and drop the user straight into Yukti.
+   * Marks onboarding as done so we never re-prompt, then routes to /chat.
+   * This honours the "free means free — just by email or contact number" promise.
+   */
+  function skipAndChat() {
+    localStorage.setItem(`onboarding_done_${userId}`, "1");
+    onComplete();
+    navigate("/chat");
+  }
+
   const progress = (step / 6) * 100;
 
   return (
@@ -170,7 +181,17 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
         <div className="flex items-center gap-2">
           <span className="font-semibold text-slate-900 text-sm">HealthCircle</span>
         </div>
-        <span className="text-xs text-slate-400">{step} of 6</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={skipAndChat}
+            className="min-h-[40px] px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            data-testid="onboarding-skip"
+          >
+            Skip — just chat with Yukti
+          </button>
+          <span className="text-xs text-slate-400 hidden sm:inline">{step} of 6</span>
+        </div>
       </div>
 
       {/* Content */}

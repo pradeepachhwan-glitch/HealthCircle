@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { SiteHeader } from "@/pages/landing/SiteHeader";
 import { SiteFooter } from "@/pages/landing/SiteFooter";
+import { MarketingCrossLinks } from "./MarketingCrossLinks";
 
 interface PageShellProps {
   eyebrow?: string;
@@ -79,6 +80,8 @@ export default function PageShell({ eyebrow, title, intro, children, documentTit
         </header>
 
         {children}
+
+        <MarketingCrossLinks />
       </main>
       <SiteFooter />
     </div>

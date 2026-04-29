@@ -2,6 +2,21 @@ import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { LandingYuktiDemo } from "@/components/LandingYuktiDemo";
 
+/**
+ * Set the URL hash. The global `useHashScroll` hook in Landing.tsx listens
+ * for `hashchange` events and handles the smooth-scroll + ring-flash, so
+ * we only need to nudge the hash here. Setting it to "" first ensures
+ * `hashchange` fires even when the user clicks the same CTA twice.
+ */
+function goToDemo(e: React.MouseEvent) {
+  if (typeof window === "undefined") return;
+  e.preventDefault();
+  if (window.location.hash === "#try-yukti") {
+    window.location.hash = "";
+  }
+  window.location.hash = "try-yukti";
+}
+
 export function Hero() {
   return (
     <section className="relative overflow-hidden bg-white">
@@ -37,28 +52,29 @@ export function Hero() {
         </p>
 
         <div className="flex items-center justify-center gap-5 flex-wrap mb-5">
-          <Link
-            href="/sign-in"
+          <a
+            href="#try-yukti"
+            onClick={goToDemo}
             className="group inline-flex items-center gap-2 px-7 py-3.5 bg-slate-900 text-white rounded-full font-semibold text-base hover:bg-slate-800 shadow-[0_1px_0_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(15,23,42,0.45)] hover:shadow-[0_1px_0_rgba(0,0,0,0.04),0_12px_28px_-10px_rgba(15,23,42,0.55)] hover:-translate-y-0.5 transition-all duration-200"
             data-testid="hero-primary-cta"
           >
             Try Yukti free
             <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </Link>
+          </a>
           <Link
             href="/sign-in"
             className="text-sm font-medium text-slate-600 hover:text-slate-900 underline-offset-4 hover:underline"
           >
-            or sign in
+            or create an account
           </Link>
         </div>
 
         <p className="text-xs text-slate-400">
-          Free forever · No credit card · English & हिंदी
+          No signup required · 1 free question · English & हिंदी
         </p>
 
-        {/* Live product proof — the Yukti demo widget */}
-        <div className="mt-14 md:mt-16">
+        {/* Live product proof — the Yukti demo widget. This IS "Try Yukti free". */}
+        <div id="try-yukti" className="mt-14 md:mt-16 scroll-mt-24 transition-shadow duration-500 rounded-3xl">
           <LandingYuktiDemo />
         </div>
       </div>

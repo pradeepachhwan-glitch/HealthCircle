@@ -84,7 +84,7 @@ export default function Solutions() {
             </p>
           </div>
           <Link
-            href="/sign-in"
+            href="/#try-yukti"
             className="group inline-flex items-center gap-2 px-7 py-3.5 bg-white text-slate-900 rounded-full font-semibold text-base hover:bg-slate-100 self-start md:self-auto"
           >
             Try Yukti free

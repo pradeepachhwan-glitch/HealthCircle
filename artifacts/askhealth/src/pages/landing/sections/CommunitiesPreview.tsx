@@ -16,7 +16,7 @@ export function CommunitiesPreview() {
             </h2>
           </div>
           <Link
-            href="/sign-in"
+            href="/solutions"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900 hover:gap-2 transition-all"
           >
             See all 20 communities
@@ -28,7 +28,7 @@ export function CommunitiesPreview() {
           {COMMUNITIES_PREVIEW.map((c) => (
             <Link
               key={c.slug}
-              href="/sign-in"
+              href="/#try-yukti"
               className="group bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-slate-300 hover:shadow-[0_18px_40px_-24px_rgba(15,23,42,0.18)] hover:-translate-y-0.5 transition-all duration-300"
             >
               <div className={`bg-gradient-to-br ${c.accent} h-32 flex items-center justify-center overflow-hidden`}>

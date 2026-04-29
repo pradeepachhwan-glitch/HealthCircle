@@ -343,3 +343,14 @@
     inset: -1px;
   }
 }
+
+/* Brief glow used by the hash-scroll target so users notice
+   the section they were navigated to ("Try Yukti free" → demo). */
+@keyframes ring-flash-anim {
+  0%   { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.0); }
+  20%  { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0.18); }
+  100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.0); }
+}
+.ring-flash {
+  animation: ring-flash-anim 1.4s ease-out;
+}

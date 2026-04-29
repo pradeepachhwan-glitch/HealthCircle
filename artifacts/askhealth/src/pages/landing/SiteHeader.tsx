@@ -58,7 +58,7 @@ export function SiteHeader() {
             Sign in
           </Link>
           <Link
-            href="/sign-in"
+            href="/#try-yukti"
             className="text-sm font-semibold px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-all duration-200"
           >
             Try Yukti free
@@ -99,7 +99,7 @@ export function SiteHeader() {
                 Sign in
               </Link>
               <Link
-                href="/sign-in"
+                href="/#try-yukti"
                 className="text-center text-sm font-semibold px-4 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800"
               >
                 Try Yukti free

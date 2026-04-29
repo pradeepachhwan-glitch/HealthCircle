@@ -52,7 +52,7 @@ export default function ForDoctors() {
             </ul>
             <div className="flex flex-wrap gap-3 mt-10">
               <Link
-                href="/sign-in"
+                href="/become-a-doctor"
                 className="group inline-flex items-center gap-2 px-7 py-3.5 bg-slate-900 text-white rounded-full font-semibold text-base hover:bg-slate-800"
               >
                 Join as a Medical Professional

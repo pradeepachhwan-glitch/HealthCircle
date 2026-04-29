@@ -77,7 +77,7 @@ export function TeleConsultTeaser() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/sign-in"
+                href="/#try-yukti"
                 className="group inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-full font-semibold text-sm hover:bg-slate-800 shadow-sm hover:-translate-y-0.5 transition-all"
               >
                 Book a tele-consult

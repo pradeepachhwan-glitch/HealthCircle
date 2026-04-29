@@ -23,7 +23,7 @@ export function SiteFooter() {
             ["Solutions", "/solutions"],
             ["For Doctors", "/for-doctors"],
             ["Sign in", "/sign-in"],
-            ["Try Yukti free", "/sign-in"],
+            ["Try Yukti free", "/#try-yukti"],
           ]} />
 
           <FooterCol title="Company" links={[
