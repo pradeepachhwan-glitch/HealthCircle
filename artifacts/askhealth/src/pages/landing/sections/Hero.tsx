@@ -215,7 +215,7 @@ export function Hero() {
         </h1>
 
         <p
-          className="text-base sm:text-lg md:text-xl text-slate-700 max-w-xl sm:max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed font-medium px-2"
+          className="text-base sm:text-lg md:text-xl text-slate-700 max-w-xl sm:max-w-2xl mx-auto mb-4 sm:mb-5 leading-relaxed font-medium px-2"
           style={{ textWrap: "pretty" }}
         >
           Yukti — India's AI Health companion, built for the World; powered by{" "}
@@ -223,6 +223,15 @@ export function Hero() {
           and anchored in the{" "}
           <span className="font-semibold text-amber-700 whitespace-nowrap">timeless wisdom</span>{" "}
           of traditional wellness.
+        </p>
+
+        {/* Original product-value tagline — kept directly under the Yukti
+            intro so visitors see (a) who Yukti is, then (b) what they get. */}
+        <p
+          className="text-sm sm:text-base md:text-lg text-slate-600 max-w-xl sm:max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed px-2"
+          style={{ textWrap: "pretty" }}
+        >
+          Get evidence-backed answers, join trusted communities, and consult verified doctors.
         </p>
 
         <div className="flex items-center justify-center gap-5 flex-wrap mb-5">
