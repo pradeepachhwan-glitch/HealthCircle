@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 type Variant = "default" | "highlighted" | "loading";
 
-interface AIResponseCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface AIResponseCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   variant?: Variant;
   showIcon?: boolean;
   title?: React.ReactNode;

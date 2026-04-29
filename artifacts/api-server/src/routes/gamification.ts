@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { db, usersTable, achievementsTable, postsTable, commentsTable } from "@workspace/db";
 import { eq, desc, gte, sql } from "drizzle-orm";
-import { getAuth, requireAuth } from "../lib/auth";
+import { getAuth, requireAuth , pstr } from "../lib/auth";
 import { calculateLevel, getLevelProgress, getCreditsToNextLevel, LEVEL_NAMES } from "../lib/gamification";
 
 const router = Router();
 
 router.get("/communities/:communityId/leaderboard", requireAuth, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   const { period } = req.query as { period?: string };
   const isWeekly = period === "weekly";
 
@@ -44,7 +44,7 @@ router.get("/communities/:communityId/leaderboard", requireAuth, async (req, res
 });
 
 router.get("/users/:userId/achievements", requireAuth, async (req, res) => {
-  const clerkId = req.params.userId;
+  const clerkId = pstr(req.params.userId);
   const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
   if (!user) { res.status(404).json({ error: "Not found" }); return; }
 

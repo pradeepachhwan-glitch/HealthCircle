@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   useGetCommunity, useListPosts, useGetCommunityStats, useGetLeaderboard,
   getListPostsQueryKey, useCreatePost, getGetCommunityQueryKey,
+  getGetCommunityStatsQueryKey, getGetLeaderboardQueryKey,
 } from "@workspace/api-client-react";
 import { Link, useRoute, useLocation } from "wouter";
 import { Layout, UserAvatar } from "@/components/Layout";
@@ -33,10 +34,18 @@ export default function Community() {
   const communityId = parseInt(params?.id || "0", 10);
   const queryClient = useQueryClient();
 
-  const { data: community, isLoading: communityLoading } = useGetCommunity(communityId, { query: { enabled: !!communityId } });
-  const { data: posts, isLoading: postsLoading } = useListPosts(communityId, undefined, { query: { enabled: !!communityId } });
-  const { data: stats } = useGetCommunityStats(communityId, { query: { enabled: !!communityId } });
-  const { data: leaderboard } = useGetLeaderboard({ period: "weekly" });
+  const { data: community, isLoading: communityLoading } = useGetCommunity(communityId, {
+    query: { queryKey: getGetCommunityQueryKey(communityId), enabled: !!communityId },
+  });
+  const { data: posts, isLoading: postsLoading } = useListPosts(communityId, undefined, {
+    query: { queryKey: getListPostsQueryKey(communityId), enabled: !!communityId },
+  });
+  const { data: stats } = useGetCommunityStats(communityId, {
+    query: { queryKey: getGetCommunityStatsQueryKey(communityId), enabled: !!communityId },
+  });
+  const { data: leaderboard } = useGetLeaderboard(communityId, { period: "weekly" }, {
+    query: { queryKey: getGetLeaderboardQueryKey(communityId, { period: "weekly" }), enabled: !!communityId },
+  });
 
   const createPost = useCreatePost();
   const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";

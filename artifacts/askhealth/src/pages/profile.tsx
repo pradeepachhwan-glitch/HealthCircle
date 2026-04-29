@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useGetCurrentUser, useGetMyCreditsSummary, useGetUserAchievements } from "@workspace/api-client-react";
+import {
+  useGetCurrentUser,
+  useGetMyCreditsSummary,
+  useGetUserAchievements,
+  getGetCurrentUserQueryKey,
+  getGetMyCreditsSummaryQueryKey,
+  getGetUserAchievementsQueryKey,
+} from "@workspace/api-client-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Layout, UserAvatar } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -48,9 +55,15 @@ export default function Profile() {
 
   const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
   const authReady = clerkLoaded && isSignedIn;
-  const { data: user, isLoading: userLoading } = useGetCurrentUser({ query: { enabled: authReady } });
-  const { data: credits, isLoading: creditsLoading } = useGetMyCreditsSummary({ query: { enabled: !!user } });
-  const { data: achievements, isLoading: achievementsLoading } = useGetUserAchievements(user?.id || "", { query: { enabled: !!user?.id } });
+  const { data: user, isLoading: userLoading } = useGetCurrentUser({
+    query: { queryKey: getGetCurrentUserQueryKey(), enabled: authReady },
+  });
+  const { data: credits, isLoading: creditsLoading } = useGetMyCreditsSummary({
+    query: { queryKey: getGetMyCreditsSummaryQueryKey(), enabled: !!user },
+  });
+  const { data: achievements, isLoading: achievementsLoading } = useGetUserAchievements(user?.id || "", {
+    query: { queryKey: getGetUserAchievementsQueryKey(user?.id || ""), enabled: !!user?.id },
+  });
 
   const { data: myPosts = [], isLoading: postsLoading, isError: postsError, refetch: refetchPosts } = useQuery<MyPost[]>({
     queryKey: ["me-posts"],

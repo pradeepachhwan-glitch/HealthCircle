@@ -72,10 +72,9 @@ export default function SignInPage() {
 
   // Auto-focus the code input when we move to the verification stage.
   useEffect(() => {
-    if (stage === "code") {
-      const t = setTimeout(() => codeInputRef.current?.focus(), 80);
-      return () => clearTimeout(t);
-    }
+    if (stage !== "code") return;
+    const t = setTimeout(() => codeInputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
   }, [stage]);
 
   function reset(toMode?: Mode) {

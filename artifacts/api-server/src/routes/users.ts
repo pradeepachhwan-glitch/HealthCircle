@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getAuth } from "../lib/auth";
 import { db, usersTable, postsTable, commentsTable, communityMembersTable, communitiesTable } from "@workspace/db";
 import { eq, desc, count, and, or } from "drizzle-orm";
-import { requireAuth, requireAdmin, getOrCreateUser } from "../lib/auth";
+import { requireAuth, requireAdmin, getOrCreateUser, pstr } from "../lib/auth";
 import { checkQuota } from "../lib/quota";
 
 const router = Router();
@@ -147,14 +147,14 @@ router.get("/users", requireAdmin, async (req, res) => {
 });
 
 router.get("/users/:userId", requireAuth, async (req, res) => {
-  const clerkId = req.params.userId;
+  const clerkId = pstr(req.params.userId);
   const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
   if (!user) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toProfile(user));
 });
 
 router.patch("/users/:userId/role", requireAdmin, async (req, res) => {
-  const clerkId = req.params.userId;
+  const clerkId = pstr(req.params.userId);
   const { role } = req.body;
   const validRoles = ["admin", "moderator", "medical_professional", "member"];
   if (!validRoles.includes(role)) { res.status(400).json({ error: `role must be one of ${validRoles.join(", ")}` }); return; }
@@ -164,7 +164,7 @@ router.patch("/users/:userId/role", requireAdmin, async (req, res) => {
 });
 
 router.patch("/users/:userId/ban", requireAdmin, async (req, res) => {
-  const clerkId = req.params.userId;
+  const clerkId = pstr(req.params.userId);
   const { isBanned } = req.body;
   const [updated] = await db.update(usersTable).set({ isBanned }).where(eq(usersTable.clerkId, clerkId)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }

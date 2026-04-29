@@ -705,6 +705,8 @@ components:
           type: ["string", "null"]
         iconEmoji:
           type: ["string", "null"]
+        iconUrl:
+          type: ["string", "null"]
         coverColor:
           type: ["string", "null"]
         isArchived:
@@ -827,6 +829,8 @@ components:
           type: ["integer", "null"]
         contentSummary:
           type: ["string", "null"]
+        viewCount:
+          type: integer
         createdAt:
           type: string
           format: date-time
@@ -846,6 +850,7 @@ components:
         - hasUpvoted
         - isBroadcast
         - contentType
+        - viewCount
         - createdAt
         - updatedAt
 
@@ -939,11 +944,15 @@ components:
           type: string
         email:
           type: string
+        username:
+          type: ["string", "null"]
+        mobileNumber:
+          type: ["string", "null"]
         avatarUrl:
           type: ["string", "null"]
         role:
           type: string
-          enum: [admin, moderator, member]
+          enum: [admin, moderator, medical_professional, member]
         isBanned:
           type: boolean
         healthCredits:
@@ -952,6 +961,12 @@ components:
           type: integer
         weeklyCredits:
           type: integer
+        specialty:
+          type: ["string", "null"]
+        registrationNumber:
+          type: ["string", "null"]
+        isVerifiedPro:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -965,6 +980,7 @@ components:
         - healthCredits
         - level
         - weeklyCredits
+        - isVerifiedPro
         - createdAt
 
     UpdateUserBody:
@@ -980,7 +996,7 @@ components:
       properties:
         role:
           type: string
-          enum: [admin, moderator, member]
+          enum: [admin, moderator, medical_professional, member]
       required:
         - role
 

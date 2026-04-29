@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "../lib/auth";
+import { getAuth , pstr } from "../lib/auth";
 import { db, commentsTable, usersTable, postsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
@@ -9,7 +9,7 @@ import { generateYuktiCommentReply, mentionsYukti } from "../lib/yuktiReply";
 const router = Router();
 
 router.get("/posts/:postId/comments", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   const rows = await db
     .select({ comment: commentsTable, author: usersTable })
     .from(commentsTable)
@@ -24,7 +24,7 @@ router.get("/posts/:postId/comments", requireAuth, async (req, res) => {
 });
 
 router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -51,7 +51,7 @@ router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
 });
 
 router.delete("/comments/:commentId", requireAuth, async (req, res) => {
-  const commentId = parseInt(req.params.commentId);
+  const commentId = parseInt(pstr(req.params.commentId), 10);
   const [comment] = await db.select().from(commentsTable).where(eq(commentsTable.id, commentId)).limit(1);
   if (comment) {
     await db.update(postsTable).set({ commentCount: sql`GREATEST(${postsTable.commentCount} - 1, 0)` }).where(eq(postsTable.id, comment.postId));

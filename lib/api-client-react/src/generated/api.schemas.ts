@@ -18,6 +18,8 @@ export interface Community {
   /** @nullable */
   iconEmoji?: string | null;
   /** @nullable */
+  iconUrl?: string | null;
+  /** @nullable */
   coverColor?: string | null;
   isArchived: boolean;
   memberCount: number;
@@ -91,6 +93,7 @@ export interface Post {
   contentDurationSec?: number | null;
   /** @nullable */
   contentSummary?: string | null;
+  viewCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -142,6 +145,7 @@ export type UserProfileRole =
 export const UserProfileRole = {
   admin: "admin",
   moderator: "moderator",
+  medical_professional: "medical_professional",
   member: "member",
 } as const;
 
@@ -151,12 +155,21 @@ export interface UserProfile {
   displayName: string;
   email: string;
   /** @nullable */
+  username?: string | null;
+  /** @nullable */
+  mobileNumber?: string | null;
+  /** @nullable */
   avatarUrl?: string | null;
   role: UserProfileRole;
   isBanned: boolean;
   healthCredits: number;
   level: number;
   weeklyCredits: number;
+  /** @nullable */
+  specialty?: string | null;
+  /** @nullable */
+  registrationNumber?: string | null;
+  isVerifiedPro: boolean;
   createdAt: string;
 }
 
@@ -173,6 +186,7 @@ export type UpdateUserRoleBodyRole =
 export const UpdateUserRoleBodyRole = {
   admin: "admin",
   moderator: "moderator",
+  medical_professional: "medical_professional",
   member: "member",
 } as const;
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "../lib/auth";
+import { getAuth , pstr } from "../lib/auth";
 import { db, communitiesTable, communityMembersTable, usersTable, postsTable, commentsTable } from "@workspace/db";
 import { eq, and, gte, count, desc } from "drizzle-orm";
 import { requireAuth, requireAdmin, getOrCreateUser } from "../lib/auth";
@@ -68,7 +68,7 @@ router.post("/communities", requireAdmin, async (req, res) => {
 });
 
 router.get("/communities/:communityId", requireAuth, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   const { userId: clerkId } = getAuth(req);
   const user = clerkId ? await getOrCreateUser(clerkId) : null;
   const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId)).limit(1);
@@ -87,7 +87,7 @@ router.get("/communities/:communityId", requireAuth, async (req, res) => {
 });
 
 router.patch("/communities/:communityId", requireAdmin, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   const { name, description, iconEmoji, iconUrl, coverColor, isArchived } = req.body;
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
@@ -110,7 +110,7 @@ router.patch("/communities/:communityId", requireAdmin, async (req, res) => {
 });
 
 router.delete("/communities/:communityId", requireAdmin, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   await db.update(communitiesTable).set({ isArchived: true }).where(eq(communitiesTable.id, communityId));
   res.json({ success: true });
 });
@@ -120,7 +120,7 @@ router.post("/communities/:communityId/join", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
 
   const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId));
   if (!community || community.isArchived) { res.status(404).json({ error: "Community not found" }); return; }
@@ -137,7 +137,7 @@ router.delete("/communities/:communityId/join", requireAuth, async (req, res) =>
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
 
   await db.delete(communityMembersTable)
     .where(and(eq(communityMembersTable.communityId, communityId), eq(communityMembersTable.userId, user.id)));
@@ -146,7 +146,7 @@ router.delete("/communities/:communityId/join", requireAuth, async (req, res) =>
 });
 
 router.get("/communities/:communityId/stats", requireAuth, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const [memberRes] = await db.select({ count: count() }).from(communityMembersTable).where(eq(communityMembersTable.communityId, communityId));
@@ -178,7 +178,7 @@ router.get("/communities/:communityId/stats", requireAuth, async (req, res) => {
 });
 
 router.get("/communities/:communityId/members", requireAuth, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   const members = await db
     .select({ user: usersTable })
     .from(communityMembersTable)

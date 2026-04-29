@@ -1,6 +1,11 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { useGetCurrentUser, useGetMyCreditsSummary } from "@workspace/api-client-react";
+import {
+  useGetCurrentUser,
+  useGetMyCreditsSummary,
+  getGetCurrentUserQueryKey,
+  getGetMyCreditsSummaryQueryKey,
+} from "@workspace/api-client-react";
 import { useClerk, useAuth } from "@workspace/replit-auth-web";
 import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info, Video, BadgeCheck } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
@@ -25,8 +30,12 @@ function SidebarContent() {
   const [location] = useLocation();
   const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
   const authReady = clerkLoaded && isSignedIn;
-  const { data: user } = useGetCurrentUser({ query: { enabled: authReady } });
-  const { data: credits } = useGetMyCreditsSummary({ query: { enabled: !!user } });
+  const { data: user } = useGetCurrentUser({
+    query: { queryKey: getGetCurrentUserQueryKey(), enabled: authReady },
+  });
+  const { data: credits } = useGetMyCreditsSummary({
+    query: { queryKey: getGetMyCreditsSummaryQueryKey(), enabled: !!user },
+  });
   const { signOut } = useClerk();
 
   const navItems = [

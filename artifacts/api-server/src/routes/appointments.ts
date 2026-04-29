@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "../lib/auth";
+import { getAuth , pstr } from "../lib/auth";
 import { db } from "@workspace/db";
 import { appointmentsTable, doctorsTable, hospitalsTable } from "@workspace/db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -74,7 +74,7 @@ router.patch("/appointments/:appointmentId/cancel", requireAuth, async (req, res
     .set({ status: "cancelled" })
     .where(
       and(
-        eq(appointmentsTable.id, parseInt(req.params.appointmentId)),
+        eq(appointmentsTable.id, parseInt(pstr(req.params.appointmentId), 10)),
         eq(appointmentsTable.patientId, user.id)
       )
     )

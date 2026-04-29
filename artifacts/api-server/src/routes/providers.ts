@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { doctorsTable, hospitalsTable, providerRankingsTable } from "@workspace/db/schema";
 import { and, eq, ilike, or, desc, sql, type SQL } from "drizzle-orm";
-import { requireAuth, requireAdmin } from "../lib/auth";
+import { requireAuth, requireAdmin , pstr } from "../lib/auth";
 import { fetchLiveDoctors, fetchLiveHospitals } from "../lib/osmProviders";
 import { inferSpecialty } from "../lib/specialtyMatcher";
 import { mergeAndRankDoctors, mergeAndRankHospitals } from "../lib/providerRanker";
@@ -92,7 +92,7 @@ router.get("/doctors/:doctorId", requireAuth, async (req, res) => {
   const [doctor] = await db
     .select()
     .from(doctorsTable)
-    .where(eq(doctorsTable.id, parseInt(req.params.doctorId)));
+    .where(eq(doctorsTable.id, parseInt(pstr(req.params.doctorId), 10)));
 
   if (!doctor) { res.status(404).json({ error: "Doctor not found" }); return; }
   res.json(doctor);
@@ -116,7 +116,7 @@ router.patch("/doctors/:doctorId", requireAdmin, async (req, res) => {
   const [updated] = await db
     .update(doctorsTable)
     .set({ name, specialty, experienceYears, consultationFee, rating, location, bio, available })
-    .where(eq(doctorsTable.id, parseInt(req.params.doctorId)))
+    .where(eq(doctorsTable.id, parseInt(pstr(req.params.doctorId), 10)))
     .returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);

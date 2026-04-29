@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "../lib/auth";
+import { getAuth , pstr } from "../lib/auth";
 import { db, doctorConsultationsTable } from "@workspace/db";
 import { healthChatSessionsTable, healthChatMessagesTable } from "@workspace/db/schema";
 import { eq, desc, and, isNull, gt } from "drizzle-orm";
@@ -67,7 +67,7 @@ router.get("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) =
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
 
-  const sessionId = parseInt(req.params.sessionId);
+  const sessionId = parseInt(pstr(req.params.sessionId), 10);
   const [session] = await db
     .select()
     .from(healthChatSessionsTable)
@@ -91,7 +91,7 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
 
-  const sessionId = parseInt(req.params.sessionId);
+  const sessionId = parseInt(pstr(req.params.sessionId), 10);
   const { message, attachment } = req.body as {
     message?: string;
     attachment?: { url?: string; type?: string; name?: string } | null;
@@ -197,13 +197,14 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
         role: "assistant",
         content: structured.reply,
         intent: structured.intent,
-        structuredResponse: structured as Record<string, unknown>,
+        structuredResponse: structured as unknown as Record<string, unknown>,
         language,
       })
       .returning();
 
     if (session.title === "New Chat" && historyRows.length <= 2) {
-      const shortTitle = message.slice(0, 40) + (message.length > 40 ? "…" : "");
+      const titleSrc = trimmedMessage || "New Chat";
+      const shortTitle = titleSrc.slice(0, 40) + (titleSrc.length > 40 ? "…" : "");
       await db
         .update(healthChatSessionsTable)
         .set({ title: shortTitle })
@@ -221,7 +222,7 @@ router.post("/chat/sessions/:sessionId/request-consultation", requireAuth, async
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
-  const sessionId = parseInt(req.params.sessionId);
+  const sessionId = parseInt(pstr(req.params.sessionId), 10);
   const { reason, riskLevel } = req.body;
 
   const [session] = await db.select().from(healthChatSessionsTable).where(eq(healthChatSessionsTable.id, sessionId));
@@ -321,7 +322,7 @@ router.delete("/chat/sessions/:sessionId", requireAuth, async (req, res) => {
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
 
-  const sessionId = parseInt(req.params.sessionId);
+  const sessionId = parseInt(pstr(req.params.sessionId), 10);
   const [session] = await db
     .select()
     .from(healthChatSessionsTable)

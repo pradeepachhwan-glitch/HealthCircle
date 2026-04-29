@@ -99,7 +99,7 @@ const PATH_RE = /^\/api\/tc\/ws\/session\/(\d+)$/;
 export function attachTeleconsultSignaling(server: HttpServer): void {
   const wss = new WebSocketServer({ noServer: true });
 
-  wss.on("connection", (ws, _req, ctx: { roomId: number; userId: number }) => {
+  wss.on("connection", (ws: WebSocket, _req: IncomingMessage, ctx: { roomId: number; userId: number }) => {
     const peerId = `p_${Math.random().toString(36).slice(2, 10)}`;
     const peer: RoomPeer = {
       ws,
@@ -129,7 +129,7 @@ export function attachTeleconsultSignaling(server: HttpServer): void {
     // Notify other peers a new peer joined.
     broadcast(ctx.roomId, peer, { type: "peer-joined", peerId });
 
-    ws.on("message", (raw) => {
+    ws.on("message", (raw: WebSocket.RawData) => {
       if (raw.toString().length > MAX_MSG_BYTES) {
         sendTo(peer, { type: "error", reason: "message-too-large" });
         return;
@@ -171,7 +171,7 @@ export function attachTeleconsultSignaling(server: HttpServer): void {
       leaveRoom(ctx.roomId, peer);
     });
 
-    ws.on("error", (err) => {
+    ws.on("error", (err: Error) => {
       logger.warn({ err, roomId: ctx.roomId }, "tc-ws connection error");
     });
   });

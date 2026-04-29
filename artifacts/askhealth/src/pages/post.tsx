@@ -41,8 +41,12 @@ export default function PostDetail() {
   const postId = parseInt(params?.postId || "0", 10);
   const queryClient = useQueryClient();
 
-  const { data: post, isLoading: postLoading } = useGetPost(postId, { query: { enabled: !!postId } });
-  const { data: comments, isLoading: commentsLoading } = useListComments(postId, { query: { enabled: !!postId } });
+  const { data: post, isLoading: postLoading } = useGetPost(postId, {
+    query: { queryKey: getGetPostQueryKey(postId), enabled: !!postId },
+  });
+  const { data: comments, isLoading: commentsLoading } = useListComments(postId, {
+    query: { queryKey: getListCommentsQueryKey(postId), enabled: !!postId },
+  });
 
   const createComment = useCreateComment();
   const upvotePost = useUpvotePost();

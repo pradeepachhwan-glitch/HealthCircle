@@ -124,6 +124,15 @@ export function getAuth(req: Request): { userId: string | null } {
   return { userId: req.user?.clerkId ?? null };
 }
 
+// Express 5 widened ParamsDictionary[key] to `string | string[]`. In practice
+// route params are always plain strings — express never produces an array for
+// `:foo` segments — but the type system can't prove it. Use this helper at
+// the boundary so the rest of our code can keep working with `string`.
+export function pstr(v: string | string[] | undefined): string {
+  if (Array.isArray(v)) return v[0] ?? "";
+  return v ?? "";
+}
+
 // ---- User upsert by email ----
 export async function findOrCreateUserByEmail(email: string) {
   const normalized = normalizeEmail(email);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAuth } from "../lib/auth";
+import { getAuth , pstr } from "../lib/auth";
 import { db, postsTable, usersTable, commentsTable, postUpvotesTable, postReactionsTable, postBookmarksTable, communityMembersTable, doctorConsultationsTable } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireModeratorOrAdmin, getOrCreateUser } from "../lib/auth";
@@ -11,7 +11,7 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   const { userId: clerkId } = getAuth(req);
 
   const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
@@ -47,7 +47,7 @@ router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
 });
 
 router.post("/communities/:communityId/posts", requireAuth, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -77,7 +77,7 @@ router.post("/communities/:communityId/posts", requireAuth, async (req, res) => 
 });
 
 router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, res) => {
-  const communityId = parseInt(req.params.communityId);
+  const communityId = parseInt(pstr(req.params.communityId), 10);
   const { userId: clerkId } = getAuth(req);
   const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
   const currentUserId = currentUser[0]?.id;
@@ -112,7 +112,7 @@ router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, re
 });
 
 router.get("/posts/:postId", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   const { userId: clerkId } = getAuth(req);
   const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
   const currentUserId = currentUser[0]?.id;
@@ -157,7 +157,7 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
  *   so the client can stop polling immediately and show a clear message.
  */
 router.get("/posts/:postId/ai-summary", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   if (!Number.isInteger(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const summary = await getPostSummary(postId);
@@ -189,7 +189,7 @@ router.get("/posts/:postId/ai-summary", requireAuth, async (req, res) => {
  * exactly N requests yield exactly N flips, with no PK violations.
  */
 router.post("/posts/:postId/bookmark", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   if (!Number.isInteger(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -252,7 +252,7 @@ async function bookmarkSetForUser(postIds: number[], userId?: number): Promise<S
 }
 
 router.patch("/posts/:postId", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   const { title, content, imageUrl } = req.body;
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;
@@ -266,13 +266,13 @@ router.patch("/posts/:postId", requireAuth, async (req, res) => {
 });
 
 router.delete("/posts/:postId", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   await db.delete(postsTable).where(eq(postsTable.id, postId));
   res.json({ success: true });
 });
 
 router.patch("/posts/:postId/pin", requireModeratorOrAdmin, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   const { isPinned } = req.body;
 
   const [updated] = await db.update(postsTable).set({ isPinned }).where(eq(postsTable.id, postId)).returning();
@@ -282,7 +282,7 @@ router.patch("/posts/:postId/pin", requireModeratorOrAdmin, async (req, res) => 
 });
 
 router.post("/posts/:postId/upvote", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -308,7 +308,7 @@ router.post("/posts/:postId/upvote", requireAuth, async (req, res) => {
 });
 
 router.post("/posts/:postId/request-consultation", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -368,7 +368,7 @@ async function summarizeReactionsForPosts(postIds: number[], currentUserId?: num
 
 /** GET reactions for a single post: counts + which emoji the current user reacted with. */
 router.get("/posts/:postId/reactions", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   if (!Number.isInteger(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { userId: clerkId } = getAuth(req);
   const me = clerkId ? await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
@@ -378,7 +378,7 @@ router.get("/posts/:postId/reactions", requireAuth, async (req, res) => {
 
 /** Toggle/replace a reaction for the current user. Body: { emoji } or null to remove. */
 router.post("/posts/:postId/react", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(pstr(req.params.postId), 10);
   if (!Number.isInteger(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }

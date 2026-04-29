@@ -113,7 +113,7 @@ async function saveSummary(postId: number, summary: PostAiSummary) {
       whatToDo: summary.whatToDo,
       whenToSeeDoctor: summary.whenToSeeDoctor,
       disclaimer: summary.disclaimer,
-      fullResponse: summary as Record<string, unknown>,
+      fullResponse: summary as unknown as Record<string, unknown>,
     }).onConflictDoNothing();
   } catch (err) {
     logger.error({ err }, "Failed to save AI summary");

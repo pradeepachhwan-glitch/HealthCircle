@@ -8,6 +8,7 @@ export const searchLogsTable = pgTable("search_logs", {
   userId: integer("user_id").references(() => usersTable.id, { onDelete: "set null" }),
   query: text("query").notNull(),
   intent: text("intent"),
+  riskLevel: text("risk_level"),
   clickedResult: text("clicked_result"),
   language: text("language").notNull().default("en"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

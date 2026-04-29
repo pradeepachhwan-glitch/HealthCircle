@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, usersTable, communitiesTable, postsTable, commentsTable, communityMembersTable, aiSummariesTable, tcConsultations, doctorsTable, auditLogTable } from "@workspace/db";
 import { count, eq, gte, desc, and, sql, or, ilike, inArray } from "drizzle-orm";
-import { getAuth, requireAdmin } from "../lib/auth";
+import { getAuth, requireAdmin, pstr } from "../lib/auth";
 import { normaliseContentFields } from "../lib/contentMeta";
 import { aiChat } from "../lib/aiClient";
 import { logger } from "../lib/logger";
@@ -143,7 +143,7 @@ router.get("/admin/communities", requireAdmin, async (req, res) => {
 });
 
 router.patch("/admin/communities/:id", requireAdmin, async (req, res) => {
-  const id = Number(req.params.id);
+  const id = Number(pstr(req.params.id));
   const { isArchived, name, description } = req.body;
   const updates: Record<string, unknown> = {};
   if (isArchived !== undefined) updates.isArchived = isArchived;
@@ -155,7 +155,7 @@ router.patch("/admin/communities/:id", requireAdmin, async (req, res) => {
 });
 
 router.get("/admin/communities/:id/members", requireAdmin, async (req, res) => {
-  const communityId = Number(req.params.id);
+  const communityId = Number(pstr(req.params.id));
   const members = await db
     .select({ user: usersTable, member: communityMembersTable })
     .from(communityMembersTable)
@@ -175,8 +175,8 @@ router.get("/admin/communities/:id/members", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/communities/:id/members/:userId", requireAdmin, async (req, res) => {
-  const communityId = Number(req.params.id);
-  const clerkId = req.params.userId;
+  const communityId = Number(pstr(req.params.id));
+  const clerkId = pstr(req.params.userId);
   const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   await db.delete(communityMembersTable).where(and(
@@ -192,7 +192,7 @@ router.delete("/admin/communities/:id/members/:userId", requireAdmin, async (req
  * Returns: { added: [{userId, displayName, email}], notFound: string[] }
  */
 router.post("/admin/communities/:id/members", requireAdmin, async (req, res) => {
-  const communityId = Number(req.params.id);
+  const communityId = Number(pstr(req.params.id));
   if (!Number.isInteger(communityId)) { res.status(400).json({ error: "Invalid community id" }); return; }
 
   const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId)).limit(1);
@@ -277,7 +277,7 @@ router.get("/admin/posts", requireAdmin, async (req, res) => {
 });
 
 router.patch("/admin/posts/:id", requireAdmin, async (req, res) => {
-  const postId = Number(req.params.id);
+  const postId = Number(pstr(req.params.id));
   const { isPinned, isModerated, isBroadcast } = req.body;
   const updates: Record<string, unknown> = {};
   if (isPinned !== undefined) updates.isPinned = isPinned;
@@ -289,7 +289,7 @@ router.patch("/admin/posts/:id", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/posts/:id", requireAdmin, async (req, res) => {
-  const postId = Number(req.params.id);
+  const postId = Number(pstr(req.params.id));
   await db.delete(postsTable).where(eq(postsTable.id, postId));
   res.json({ success: true });
 });
@@ -327,7 +327,7 @@ router.post("/admin/credits/award", requireAdmin, async (req, res) => {
 });
 
 router.patch("/admin/users/:userId/verify-pro", requireAdmin, async (req, res) => {
-  const clerkId = req.params.userId;
+  const clerkId = pstr(req.params.userId);
   const { isVerifiedPro } = req.body;
   const [updated] = await db.update(usersTable)
     .set({ isVerifiedPro: !!isVerifiedPro })
@@ -339,7 +339,7 @@ router.patch("/admin/users/:userId/verify-pro", requireAdmin, async (req, res) =
 });
 
 router.patch("/admin/users/:clerkId/role", requireAdmin, async (req, res) => {
-  const { clerkId } = req.params;
+  const clerkId = pstr(req.params.clerkId);
   const { role } = req.body;
   const validRoles = ["admin", "moderator", "medical_professional", "member"];
   if (!validRoles.includes(role)) {
