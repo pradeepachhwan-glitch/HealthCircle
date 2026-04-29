@@ -620,3 +620,28 @@ Admins can now upload an actual logo image per community in addition to (or inst
   - `POST /api/uploads/inline` (existing endpoint) gets a route-level `express.json({ limit: "8mb" })` override since the global parser default (~100 KB) would reject a 4 MB image's base64 payload before validation.
 - **Admin UI**: dialog has a "Logo image (optional)" section with hidden file input (`data-testid="input-community-logo-file"`), "Upload logo" / "Replace logo" / "Remove" controls, and a 16×16 logo preview box. Live preview chip at the top renders the image when `iconUrl` is set. Helper `handleLogoFile` reads → `resizeImageToSquareDataUrl` → POSTs to `/uploads/inline` → stores the returned URL in `communityForm.iconUrl`. Toasts on size / type / network errors.
 - **Display**: every community-icon site updated to render `<img src={iconUrl}>` when present, falling back to `iconEmoji ?? "🏥"`. Affected: `communities.tsx`, `profile.tsx`, `broadcast.tsx`, `search.tsx` (with matching `iconUrl` added to `RelatedCommunity` type + DB select in `searchEngine.ts`), `community.tsx`, `medpro.tsx`, and the admin Communities table row.
+
+## 2026-04-29 (Search "doctor near me" + @askYukti async reply auto-refresh)
+
+### Bug 1: "Doctor near me" returned no results
+The free-text search (`/search`) was running a fuzzy `ILIKE` over `doctors.name / specialty / location` for the literal user query string. For generic phrasings like "doctor near me" or "find a hospital", every token in `cleanFreeTextQuery()` gets stripped (filler words), but the engine still ran the unhelpful `%doctor near me%` pattern → 0 rows. The OSM/Overpass fallback was gated on a successfully resolved city name from reverse-geocoding, so users with coords whose Nominatim lookup hit an unfamiliar locality also got an empty page.
+
+Fix in `artifacts/api-server/src/lib/searchEngine.ts` and `artifacts/api-server/src/lib/osmProviders.ts`:
+- New helper `isGenericProviderQuery(raw)` — true when stripped tokens are all fillers ("doctor near me", "find a physician").
+- For generic queries, skip the fuzzy `ILIKE` and instead just filter doctors by `available=true` (+ city if known), order by rating, limit 5. Same for hospitals.
+- New `fetchLiveDoctorsByCoords` / `fetchLiveHospitalsByCoords` use Overpass `around:radius,lat,lng` so the live OSM fallback works without a resolved city — used when `coords && !cityFull`.
+- Final last-resort safety net: if `intent === "doctor"` AND no specialty was detected AND it was a generic query AND providers are still empty, surface top-rated DB doctors nationwide. Deliberately gated to `!specialty && isGeneric` — if the user searched for "pediatrician" and we have none verified, we keep providers empty + `providerEmptyReason = "no_specialty_match"` so the UI honestly shows "no verified Pediatrician yet" rather than misleadingly listing cardiologists under a Pediatrician heading.
+- Overpass timeouts are caught in `runOverpass()` and return `[]` (graceful), so the page never hangs on a slow Overpass mirror.
+
+Verified: `doctor near me` (no coords) → 8 doctors, `pediatrician` → 0 + honest empty reason, `cardiologist` → Dr. Priya Sharma, `doctor near me + Faridabad coords` → 5 OSM hits via `around:`.
+
+### Bug 2: @askYukti comments showed user's reply but not Yukti's
+The community post page (`pages/post.tsx`) `handleComment` invalidated the comments query immediately on success. Yukti's reply is generated asynchronously (~1–3s after the user's comment is inserted), so the user only saw their own comment until they hard-refreshed.
+
+Fix in `artifacts/askhealth/src/pages/post.tsx`:
+- Detect `/@askYukti/i` in the submitted comment.
+- After the initial invalidation, schedule additional invalidations at +2s, +5s, +9s, +14s.
+- Show a small "Yukti is preparing a reply…" pending banner with a Bot icon for ~16s while polling.
+- Timer handles are tracked in `useRef<number[]>` and cleared in a `useEffect` cleanup keyed on `postId`, so navigating away or to a different post mid-poll doesn't leak timers or trigger stale `setState`. Subsequent Yukti-tagged comments on the same post call `clearYuktiTimers()` first to reset the polling window.
+
+Verified via API+DB injection: posting `@askyukti What is a healthy resting heart rate?` as user 11 caused a Yukti AI (user 26) reply to land in the comments table within ~6s — within the polling window.

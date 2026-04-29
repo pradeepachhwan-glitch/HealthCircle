@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGetPost, useListComments, useCreateComment, useUpvotePost, getGetPostQueryKey, getListCommentsQueryKey } from "@workspace/api-client-react";
 import { Link, useRoute, useLocation } from "wouter";
 import { Layout, UserAvatar } from "@/components/Layout";
@@ -48,6 +48,24 @@ export default function PostDetail() {
   const upvotePost = useUpvotePost();
 
   const [commentContent, setCommentContent] = useState("");
+  // True for ~12s after the user posts a comment that mentions @askYukti.
+  // Yukti's bot reply is generated asynchronously on the server (typically
+  // 1-3s), so we poll/refresh comments for a short window and show a
+  // "Yukti is preparing a reply…" indicator until the bot comment lands.
+  const [yuktiPending, setYuktiPending] = useState(false);
+  const yuktiTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearYuktiTimers = () => {
+    for (const t of yuktiTimersRef.current) clearTimeout(t);
+    yuktiTimersRef.current = [];
+  };
+
+  // Clean up any pending Yukti polling timers when the user leaves the page
+  // or the post changes. Without this, a user navigating away mid-poll would
+  // trigger setState on an unmounted component and waste network calls.
+  useEffect(() => {
+    return () => clearYuktiTimers();
+  }, [postId]);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   type AiStatus = "loading" | "ready" | "generating" | "unavailable" | "failed";
   const [aiStatus, setAiStatus] = useState<AiStatus>("loading");
@@ -182,12 +200,37 @@ export default function PostDetail() {
 
   const handleComment = () => {
     if (!commentContent.trim()) return;
-    createComment.mutate({ postId, data: { content: commentContent } }, {
+    const submitted = commentContent;
+    const tagsYukti = /@askYukti/i.test(submitted);
+    createComment.mutate({ postId, data: { content: submitted } }, {
       onSuccess: () => {
         setCommentContent("");
         queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(postId) });
         queryClient.invalidateQueries({ queryKey: getGetPostQueryKey(postId) });
         toast.success("Reply posted");
+
+        // Yukti's reply is generated on the server asynchronously after the
+        // comment is created. Poll a few times so it shows up automatically
+        // without the user needing to refresh. Timer handles are tracked in
+        // a ref so they can be cancelled on unmount or when a new
+        // Yukti-tagged comment is posted before the previous polling window
+        // has elapsed.
+        if (tagsYukti) {
+          clearYuktiTimers();
+          setYuktiPending(true);
+          const refreshes = [2000, 5000, 9000, 14000];
+          for (const ms of refreshes) {
+            yuktiTimersRef.current.push(
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(postId) });
+                queryClient.invalidateQueries({ queryKey: getGetPostQueryKey(postId) });
+              }, ms),
+            );
+          }
+          yuktiTimersRef.current.push(
+            setTimeout(() => setYuktiPending(false), 16000),
+          );
+        }
       },
       onError: () => toast.error("Failed to post reply"),
     });
@@ -461,6 +504,22 @@ export default function PostDetail() {
 
           {/* Comment List */}
           <div className="space-y-3">
+            {yuktiPending && (
+              <div className="flex items-center gap-3 p-3 rounded-xl border bg-primary/5 border-primary/20">
+                <div className="shrink-0 w-7 h-7 rounded-full bg-ai-gradient flex items-center justify-center shadow-sm">
+                  <Bot className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div className="flex-1 text-xs">
+                  <span className="font-semibold text-primary">Yukti is preparing a reply…</span>
+                  <span className="text-muted-foreground"> usually a few seconds</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-pulse delay-100" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/30 animate-pulse delay-200" />
+                </div>
+              </div>
+            )}
             {commentsLoading ? (
               [1, 2].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
             ) : comments?.length === 0 ? (

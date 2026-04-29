@@ -3,7 +3,39 @@ import { doctorsTable, hospitalsTable, searchLogsTable, communitiesTable, postsT
 import { ilike, or, eq, and, desc, sql } from "drizzle-orm";
 import { aiChatJson } from "./aiClient";
 import { detectEmergency } from "./emergencyDetect";
-import { fetchLiveDoctors, fetchLiveHospitals } from "./osmProviders";
+import {
+  fetchLiveDoctors,
+  fetchLiveHospitals,
+  fetchLiveDoctorsByCoords,
+  fetchLiveHospitalsByCoords,
+} from "./osmProviders";
+
+/**
+ * "doctor near me", "find a hospital", "best clinic" — all of these are
+ * generic intent strings that don't carry meaningful keywords beyond the
+ * fillers we already strip in `cleanFreeTextQuery`. Detect that case so we
+ * skip the fuzzy `ilike(name OR specialty OR location)` filter and instead
+ * just return the city's available providers (or all providers if no city).
+ *
+ * Without this, "doctor near me" hits ZERO rows because no doctor is named
+ * literally "doctor near me" — and we end up showing an empty page.
+ */
+function isGenericProviderQuery(raw: string): boolean {
+  const FILLERS = new Set([
+    "near", "me", "near-me", "nearme", "nearby",
+    "in", "at", "the", "a", "an", "of", "for", "to", "my",
+    "hospital", "hospitals", "clinic", "clinics",
+    "doctor", "doctors", "dr", "dr.", "physician", "physicians",
+    "best", "top", "good", "find", "show", "list", "search",
+  ]);
+  const tokens = (raw ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length === 0) return true;
+  return tokens.every((t) => FILLERS.has(t));
+}
 import { logger } from "./logger";
 
 export type SearchIntent = "symptom" | "treatment" | "doctor" | "lab" | "general";
@@ -427,6 +459,10 @@ export async function runHealthSearch(
   // is a worse experience than an honest "no verified pediatricians yet").
   let providers: ProviderResult[] = [];
   let providerEmptyReason: "no_specialty_match" | "no_general_match" | null = null;
+  // Generic provider intent like "doctor near me" / "find a hospital" — no
+  // meaningful keywords beyond fillers we'd strip anyway. Skip the fuzzy
+  // ILIKE that would otherwise return zero rows.
+  const isGeneric = isGenericProviderQuery(query);
   try {
     if (intent !== "lab") {
       let final: typeof doctorsTable.$inferSelect[] = [];
@@ -440,8 +476,16 @@ export async function runHealthSearch(
         if (cityCond) conds.push(cityCond);
         final = await db.select().from(doctorsTable).where(and(...conds)).limit(5);
         if (final.length === 0) providerEmptyReason = "no_specialty_match";
+      } else if (isGeneric) {
+        // "doctor near me" — no useful keyword. Just return available
+        // doctors, filtered by city if known, sorted by rating so the user
+        // gets a sensible default list instead of an empty page.
+        const conds = [eq(doctorsTable.available, true)];
+        if (cityCond) conds.push(cityCond);
+        final = await db.select().from(doctorsTable).where(and(...conds)).orderBy(desc(doctorsTable.rating)).limit(5);
+        if (final.length === 0) providerEmptyReason = "no_general_match";
       } else {
-        // No specialty intent: fuzzy match on name/specialty/location,
+        // Specific free-text query: fuzzy match on name/specialty/location,
         // AND-ed with city when known so a "diabetes" search in Faridabad
         // doesn't surface Mumbai dummy rows. Location stays inside the
         // fuzzy OR so callers without coords (no city filter) can still
@@ -469,16 +513,17 @@ export async function runHealthSearch(
         })),
       );
 
-      // Live OSM fallback for doctors when:
-      //   (a) we know the user's city, and
-      //   (b) the DB had nothing in that city for this query.
-      // This guarantees the user sees real local options instead of an
-      // empty list or — worse — unrelated big-city dummy data.
+      // Live OSM fallback for doctors. Two paths, in order of preference:
+      //   1. cityFull known     → bbox query around the city
+      //   2. coords known       → around:radius circle around lat/lng
+      // This means even if Nominatim reverse-geocode fails (rate-limited or
+      // an unfamiliar locality), the user still sees real local doctors as
+      // long as their browser shared coordinates.
       if (final.length === 0 && cityFull) {
         try {
           const live = await fetchLiveDoctors({
             specialty: specialty ?? undefined,
-            q: specialty ? undefined : query,
+            q: specialty || isGeneric ? undefined : query,
             city: cityFull,
           });
           if (live.length > 0) {
@@ -501,12 +546,53 @@ export async function runHealthSearch(
           logger.warn({ err }, "live doctor fallback failed");
         }
       }
+
+      // Coords-based OSM fallback — only used when the city-bbox path
+      // either wasn't available or produced nothing.
+      if (
+        providers.filter(p => p.type === "doctor").length === 0 &&
+        location?.coords &&
+        !cityFull
+      ) {
+        try {
+          const live = await fetchLiveDoctorsByCoords({
+            lat: location.coords.lat,
+            lng: location.coords.lng,
+            specialty: specialty ?? undefined,
+            q: specialty || isGeneric ? undefined : query,
+          });
+          if (live.length > 0) {
+            providers = providers.concat(
+              live.slice(0, 5).map(d => ({
+                id: d.id,
+                type: "doctor" as const,
+                name: d.name,
+                specialty: d.specialty,
+                location: d.location,
+                rating: d.rating,
+                available: d.available,
+                source: "openstreetmap" as const,
+                sourceUrl: d.sourceUrl,
+              })),
+            );
+            providerEmptyReason = null;
+          }
+        } catch (err) {
+          logger.warn({ err }, "live doctor coords fallback failed");
+        }
+      }
     }
 
-    // Hospitals — same AND-with-city pattern + OSM fallback.
-    const hConds = [or(ilike(hospitalsTable.name, `%${query}%`), ilike(hospitalsTable.location, `%${query}%`))];
+    // Hospitals — generic queries skip the fuzzy filter so "hospital near me"
+    // doesn't fail to match the literal string.
+    const hConds: ReturnType<typeof and>[] = [];
+    if (!isGeneric) {
+      hConds.push(or(ilike(hospitalsTable.name, `%${query}%`), ilike(hospitalsTable.location, `%${query}%`)));
+    }
     if (cityShort) hConds.push(ilike(hospitalsTable.location, `%${cityShort}%`));
-    const hospitals = await db.select().from(hospitalsTable).where(and(...hConds)).limit(3);
+    const hospitals = hConds.length
+      ? await db.select().from(hospitalsTable).where(and(...hConds)).limit(3)
+      : await db.select().from(hospitalsTable).orderBy(desc(hospitalsTable.rating)).limit(3);
 
     providers = providers.concat(
       hospitals.map(h => ({ id: h.id, type: "hospital" as const, name: h.name, location: h.location, rating: h.rating })),
@@ -514,7 +600,7 @@ export async function runHealthSearch(
 
     if (hospitals.length === 0 && cityFull) {
       try {
-        const liveH = await fetchLiveHospitals({ q: query, city: cityFull });
+        const liveH = await fetchLiveHospitals({ q: isGeneric ? undefined : query, city: cityFull });
         providers = providers.concat(
           liveH.slice(0, 3).map(h => ({
             id: h.id,
@@ -530,8 +616,72 @@ export async function runHealthSearch(
         logger.warn({ err }, "live hospital fallback failed");
       }
     }
+
+    if (
+      providers.filter(p => p.type === "hospital").length === 0 &&
+      location?.coords &&
+      !cityFull
+    ) {
+      try {
+        const liveH = await fetchLiveHospitalsByCoords({
+          lat: location.coords.lat,
+          lng: location.coords.lng,
+          q: isGeneric ? undefined : query,
+        });
+        providers = providers.concat(
+          liveH.slice(0, 3).map(h => ({
+            id: h.id,
+            type: "hospital" as const,
+            name: h.name,
+            location: h.location,
+            rating: h.rating,
+            source: "openstreetmap" as const,
+            sourceUrl: h.sourceUrl,
+          })),
+        );
+      } catch (err) {
+        logger.warn({ err }, "live hospital coords fallback failed");
+      }
+    }
   } catch {
     // graceful — empty is fine
+  }
+
+  // Last-resort safety net: if the user asked a *generic* doctor question
+  // ("doctor near me", "find a physician") and we still have nothing to
+  // show, surface the top-rated verified doctors nationwide. We deliberately
+  // do NOT do this for specialty queries — if the user searched for a
+  // pediatrician and we have none verified, we keep the result empty and
+  // let the UI show its honest "no verified Pediatrician yet" message
+  // (driven by `providerEmptyReason`). Showing a cardiologist under a
+  // "Verified Pediatricians" heading would be misleading.
+  if (providers.length === 0 && intent === "doctor" && !specialty && isGeneric) {
+    try {
+      const fallback = await db
+        .select()
+        .from(doctorsTable)
+        .where(eq(doctorsTable.available, true))
+        .orderBy(desc(doctorsTable.rating))
+        .limit(5);
+      if (fallback.length > 0) {
+        providers = providers.concat(
+          fallback.map(d => ({
+            id: d.id,
+            type: "doctor" as const,
+            name: d.name,
+            specialty: d.specialty,
+            location: d.location,
+            rating: d.rating,
+            available: d.available,
+          })),
+        );
+        // Generic-intent results found via the nationwide net are still
+        // useful, so clear the empty-reason flag.
+        providerEmptyReason = null;
+      }
+    } catch {
+      // graceful
+    }
   }
 
   // ── Communities ──
