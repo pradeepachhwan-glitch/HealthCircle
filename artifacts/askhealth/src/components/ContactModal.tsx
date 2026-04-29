@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { mailtoUrl, whatsappUrl } from "@/lib/contact";
 
 export type ContactChannel = "email" | "whatsapp";
 
@@ -14,12 +15,6 @@ interface ContactModalProps {
   /** Optional preset subject / topic — e.g. "Doctor Onboarding". */
   topic?: string;
 }
-
-// Contact endpoints are kept private to this module — they never appear in
-// the rendered UI or on the page in plain text. They're only used at submit
-// time to open the user's mail client / WhatsApp with their prefilled message.
-const SUPPORT_EMAIL = "yukticare.support@gmail.com";
-const SUPPORT_WHATSAPP = "919278347143";
 
 export function ContactModal({ open, onOpenChange, channel, topic }: ContactModalProps) {
   const [name, setName] = useState("");
@@ -56,11 +51,9 @@ export function ContactModal({ open, onOpenChange, channel, topic }: ContactModa
     ].join("\n");
 
     if (channel === "email") {
-      const url = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.location.href = url;
+      window.location.href = mailtoUrl(subject, body);
     } else {
-      const url = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(body)}`;
-      window.open(url, "_blank", "noopener,noreferrer");
+      window.open(whatsappUrl(body), "_blank", "noopener,noreferrer");
     }
 
     setTimeout(() => {

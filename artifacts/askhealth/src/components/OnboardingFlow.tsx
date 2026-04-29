@@ -355,9 +355,26 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
               <>
                 <div className="text-4xl">⚠️</div>
                 <p className="text-red-600 font-medium text-sm">{error}</p>
-                <Button onClick={() => { setError(null); handlePost(); }} className="bg-primary hover:bg-primary/90">
-                  Try Again
-                </Button>
+                <p className="text-xs text-slate-500 max-w-xs">
+                  No worries — you can retry, or skip ahead and chat with Yukti instead.
+                </p>
+                <div className="flex flex-col gap-2 w-full max-w-xs pt-2">
+                  <Button
+                    onClick={() => { setError(null); handlePost(); }}
+                    className="bg-primary hover:bg-primary/90 h-11"
+                    data-testid="onboarding-retry"
+                  >
+                    Try Again
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={skipAndChat}
+                    className="h-11"
+                    data-testid="onboarding-skip-on-error"
+                  >
+                    Skip — just chat with Yukti
+                  </Button>
+                </div>
               </>
             ) : null}
           </div>
@@ -412,10 +429,28 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
               <CheckCircle className="w-8 h-8 text-emerald-600" />
             </div>
             <h2 className="text-xl font-bold text-slate-900">Welcome to HealthCircle! 🎉</h2>
-            <p className="text-slate-500 text-sm">You've joined your communities. Start exploring!</p>
-            <Button onClick={finish} className="bg-primary hover:bg-primary/90 w-full">
-              Go to Communities
-            </Button>
+            <p className="text-slate-500 text-sm">
+              {selectedSlugs.length > 0
+                ? "You've joined your communities. Pick what you'd like to do next."
+                : "You're all set. Pick what you'd like to do next."}
+            </p>
+            <div className="flex flex-col gap-2 w-full max-w-xs pt-2">
+              <Button
+                onClick={finish}
+                className="bg-primary hover:bg-primary/90 w-full h-11"
+                data-testid="onboarding-go-communities"
+              >
+                Explore Communities
+              </Button>
+              <Button
+                variant="outline"
+                onClick={skipAndChat}
+                className="w-full h-11"
+                data-testid="onboarding-go-chat"
+              >
+                Chat with Yukti instead
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -489,9 +524,10 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
                   setStep(6);
                 }
               }}
-              className="w-full text-center text-xs text-slate-400 hover:text-slate-600 py-1"
+              className="w-full text-center text-sm text-slate-600 hover:text-slate-900 py-3 min-h-[44px] rounded-xl hover:bg-slate-50 transition-colors font-medium"
+              data-testid="onboarding-step4-skip"
             >
-              Skip for now
+              Skip — I'll ask later
             </button>
           </div>
         )}

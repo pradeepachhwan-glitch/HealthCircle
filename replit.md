@@ -289,6 +289,28 @@ Big interactivity pass on the marketing landing page using `framer-motion` (alre
 - `FloatingYuktiPill` originally nested `<motion.button>` inside `<Link>` (anchor-in-anchor). Refactored to a single `motion.a` with the dismiss button as a sibling.
 - All new `whileHover` interactions in `TrustBand`, `Pillars`, and `HowItWorks` are gated on `useReducedMotion()` so the experience is fully static for users who request it.
 
+## Contact Wiring & Onboarding Escape Hatches (Apr 2026)
+Two complaints addressed in this batch — *"those email/WhatsApp logos don't navigate"* and *"onboarding must be WhatsApp-smooth, no fall-back"*.
+
+**Single source of truth for contact info: `src/lib/contact.ts`**
+Exports `SUPPORT_EMAIL` (`yukticare.support@gmail.com`), `SUPPORT_WHATSAPP` (`919278347143` digit-only for wa.me), and `SUPPORT_WHATSAPP_DISPLAY` (`+91 92783 47143` for UI). Plus `mailtoUrl(subject?, body?)` (uses `URLSearchParams` for safe encoding) and `whatsappUrl(text?)` (uses `encodeURIComponent`). All callers now import from this one module — no risk of the email/number drifting between `ContactModal`, `SiteFooter`, and any future surfaces.
+
+**`SiteFooter.tsx` — new "Contact us" column**
+The footer previously only had Product/Company/Legal text columns; users tapped expecting contact icons and got nothing. Added a 5th column (grid expanded to `grid-cols-2 md:grid-cols-6`) with two rows:
+- Email (rose icon) → `mailtoUrl("HealthCircle Enquiry")` — opens default mail client.
+- WhatsApp (emerald icon) → `whatsappUrl("Hi HealthCircle team — I have a question.")` — opens wa.me in a new tab.
+Both rows have `min-h-[44px]` tap targets, `aria-label` for screen readers, and `data-testid` (`footer-email`, `footer-whatsapp`) for e2e tests. Visible address/number printed under each label so users can see what they're tapping into.
+
+**`ContactModal.tsx` refactor**
+Replaced inline mailto:/wa.me string-building with the shared helpers. Behaviour identical, but the modal can no longer disagree with the footer about what address/number to use.
+
+**`OnboardingFlow.tsx` — eliminated three dead-end risks**
+1. **Step 4 "Skip for now"** was previously `text-xs text-slate-400 py-1` — barely visible, sub-44px tap target. Now `text-sm text-slate-600 min-h-[44px] py-3` with hover background and the friendlier label "Skip — I'll ask later". Users no longer feel forced to type a question.
+2. **Step 5 error state** previously showed only "Try Again" — if the API kept failing (network drop, server hiccup), the user was trapped in a loop with no escape. Added a secondary outline button "Skip — just chat with Yukti" that calls the existing `skipAndChat()` helper (marks onboarding done, routes to `/chat`). Plus a one-line reassurance: *"No worries — you can retry, or skip ahead and chat with Yukti instead."*
+3. **Step 6 (no-question success)** previously only offered "Go to Communities". Now offers two parallel CTAs: "Explore Communities" and "Chat with Yukti instead", both at `h-11`. Headline copy adapts based on whether the user joined any communities.
+
+All three changes preserve the 6-step happy path for users who want it; they just guarantee that no path leads to a dead end. Architect-reviewed (PASS, no functional defects).
+
 ## UX & Routing Fixes (Apr 2026)
 - **Public Yukti demo input now reliably accepts typing.** `LandingYuktiDemo` autofocuses the question field on mount, refocuses on any click inside the card, sets `inputMode="text"` + `enterKeyHint="send"` for proper mobile keyboards, and uses `readOnly` (not `disabled`) during loading so the user never sees a non-typable field. Sample chips also refocus the input after pre-filling so users can continue editing.
 - **Admin link now flows through sign-in.** Both desktop and mobile Admin links in `SiteHeader` point to `/sign-in?next=%2Fadmin` instead of `/admin` directly. After login, `sign-in.tsx` reads the `?next=` query param (validated to same-origin relative paths) and redirects there. `ProtectedRoute` in `App.tsx` likewise redirects unauthenticated visits to `/sign-in?next=<currentPath>` instead of bouncing back to `/` so users always land on a meaningful screen.
