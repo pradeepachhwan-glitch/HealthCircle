@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, communitiesTable, postsTable, commentsTable, communityMembersTable, aiSummariesTable, tcConsultations, doctorsTable, auditLogTable } from "@workspace/db";
-import { count, eq, gte, desc, and, sql } from "drizzle-orm";
+import { count, eq, gte, desc, and, sql, or, ilike, inArray } from "drizzle-orm";
 import { getAuth, requireAdmin } from "../lib/auth";
 import { normaliseContentFields } from "../lib/contentMeta";
 import { aiChat } from "../lib/aiClient";
@@ -184,6 +184,74 @@ router.delete("/admin/communities/:id/members/:userId", requireAdmin, async (req
     eq(communityMembersTable.userId, user.id)
   ));
   res.json({ success: true });
+});
+
+/**
+ * Add one or more members to a community by clerkId or email (WhatsApp-style).
+ * Body: { userIds?: string[], emails?: string[] }
+ * Returns: { added: [{userId, displayName, email}], notFound: string[] }
+ */
+router.post("/admin/communities/:id/members", requireAdmin, async (req, res) => {
+  const communityId = Number(req.params.id);
+  if (!Number.isInteger(communityId)) { res.status(400).json({ error: "Invalid community id" }); return; }
+
+  const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId)).limit(1);
+  if (!community) { res.status(404).json({ error: "Community not found" }); return; }
+
+  const userIds: string[] = Array.isArray(req.body?.userIds) ? req.body.userIds : [];
+  const emails: string[] = Array.isArray(req.body?.emails) ? req.body.emails : [];
+  if (!userIds.length && !emails.length) {
+    res.status(400).json({ error: "Provide userIds or emails" });
+    return;
+  }
+
+  // Build the OR predicate from only the populated lookup lists. Mixing a raw
+  // `sql\`false\`` placeholder with `inArray()` confuses the Drizzle types, so
+  // we collect typed conditions first and pass them explicitly to `or(...)`.
+  const lookupConditions = [];
+  if (userIds.length) lookupConditions.push(inArray(usersTable.clerkId, userIds));
+  if (emails.length) lookupConditions.push(inArray(usersTable.email, emails));
+  const found = await db
+    .select()
+    .from(usersTable)
+    .where(lookupConditions.length === 1 ? lookupConditions[0] : or(...lookupConditions));
+
+  const foundClerkIds = new Set(found.map(u => u.clerkId));
+  const foundEmails = new Set(found.map(u => u.email).filter(Boolean) as string[]);
+  const notFound: string[] = [
+    ...userIds.filter(id => !foundClerkIds.has(id)),
+    ...emails.filter(e => !foundEmails.has(e)),
+  ];
+
+  const added: Array<{ userId: string; displayName: string; email: string | null }> = [];
+  for (const user of found) {
+    const result = await db.insert(communityMembersTable)
+      .values({ communityId, userId: user.id })
+      .onConflictDoNothing()
+      .returning();
+    if (result.length) {
+      added.push({ userId: user.clerkId, displayName: user.displayName, email: user.email });
+    }
+  }
+
+  res.status(201).json({ added, notFound, alreadyMember: found.length - added.length });
+});
+
+/**
+ * Search users for the "add members" picker. Matches displayName/email (case-insensitive).
+ * Query: ?q=string (>= 2 chars), &limit=10 (default)
+ */
+router.get("/admin/users/search", requireAdmin, async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  const limit = Math.min(Number(req.query.limit ?? 10) || 10, 50);
+  if (q.length < 2) { res.json([]); return; }
+  const like = `%${q}%`;
+  const rows = await db
+    .select({ clerkId: usersTable.clerkId, displayName: usersTable.displayName, email: usersTable.email, avatarUrl: usersTable.avatarUrl, role: usersTable.role })
+    .from(usersTable)
+    .where(or(ilike(usersTable.displayName, like), ilike(usersTable.email, like)))
+    .limit(limit);
+  res.json(rows);
 });
 
 router.get("/admin/posts", requireAdmin, async (req, res) => {

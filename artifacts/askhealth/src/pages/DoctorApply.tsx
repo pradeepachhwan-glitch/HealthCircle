@@ -190,7 +190,7 @@ export default function DoctorApply() {
       <Layout>
         <div className="max-w-md mx-auto p-6 mt-12 text-center space-y-4">
           <Stethoscope className="w-10 h-10 text-primary mx-auto" />
-          <h1 className="text-2xl font-bold">Become a Doctor on HealthCircle</h1>
+          <h1 className="text-2xl font-bold">Onboard as a Doctor on HealthCircle</h1>
           <p className="text-slate-600">Sign in to apply for verified medical professional access.</p>
           <Link href="/sign-in"><Button>Sign in</Button></Link>
         </div>
@@ -217,7 +217,7 @@ export default function DoctorApply() {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Stethoscope className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold">Become a Doctor on HealthCircle</h1>
+            <h1 className="text-2xl font-bold">Onboard as a Doctor on HealthCircle</h1>
           </div>
           <p className="text-slate-600">
             Submit your medical credentials. An administrator will verify your registration and notify you once approved.

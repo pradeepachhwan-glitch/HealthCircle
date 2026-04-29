@@ -21,18 +21,13 @@ export const providerRankingsTable = pgTable("provider_rankings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
-export const auditLogsTable = pgTable("audit_logs", {
-  id: serial("id").primaryKey(),
-  action: text("action").notNull(),
-  performedBy: integer("performed_by").references(() => usersTable.id, { onDelete: "set null" }),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+// NOTE: The audit log table lives in `./audit_log.ts` (auditLogTable) and is
+// the canonical, in-use audit log. The previous `auditLogsTable` definition
+// here was a never-used stub that conflicted with that canonical export and
+// has been removed.
 
 export const insertSearchLogSchema = createInsertSchema(searchLogsTable).omit({ id: true, createdAt: true });
 export const insertProviderRankingSchema = createInsertSchema(providerRankingsTable).omit({ id: true, updatedAt: true });
-export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({ id: true, createdAt: true });
 
 export type SearchLog = typeof searchLogsTable.$inferSelect;
 export type ProviderRanking = typeof providerRankingsTable.$inferSelect;
-export type AuditLog = typeof auditLogsTable.$inferSelect;

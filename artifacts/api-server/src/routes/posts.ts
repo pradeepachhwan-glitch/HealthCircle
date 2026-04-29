@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAuth } from "../lib/auth";
-import { db, postsTable, usersTable, commentsTable, postUpvotesTable, communityMembersTable, doctorConsultationsTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { db, postsTable, usersTable, commentsTable, postUpvotesTable, postReactionsTable, communityMembersTable, doctorConsultationsTable } from "@workspace/db";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireModeratorOrAdmin, getOrCreateUser } from "../lib/auth";
 import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
 import { generatePostSummary, getPostSummary } from "../lib/aiSummary";
@@ -24,6 +24,8 @@ router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
     .where(eq(postsTable.communityId, communityId))
     .orderBy(desc(postsTable.isPinned), desc(postsTable.createdAt));
 
+  const reactionSummary = await summarizeReactionsForPosts(posts.map(p => p.post.id), currentUserId);
+
   const result = await Promise.all(posts.map(async ({ post, author }) => {
     let hasUpvoted = false;
     if (currentUserId) {
@@ -34,6 +36,7 @@ router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
     return {
       ...post, authorId: author.clerkId, authorName: author.displayName,
       authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+      reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
     };
   }));
 
@@ -83,6 +86,8 @@ router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, re
     .where(and(eq(postsTable.communityId, communityId), eq(postsTable.isPinned, true)))
     .orderBy(desc(postsTable.createdAt));
 
+  const reactionSummary = await summarizeReactionsForPosts(posts.map(p => p.post.id), currentUserId);
+
   const result = await Promise.all(posts.map(async ({ post, author }) => {
     let hasUpvoted = false;
     if (currentUserId) {
@@ -93,6 +98,7 @@ router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, re
     return {
       ...post, authorId: author.clerkId, authorName: author.displayName,
       authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+      reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
     };
   }));
 
@@ -125,7 +131,13 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
     hasUpvoted = upvote.length > 0;
   }
 
-  res.json({ ...post, authorId: author.clerkId, authorName: author.displayName, authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted });
+  const reactionSummary = await summarizeReactionsForPosts([post.id], currentUserId);
+
+  res.json({
+    ...post, authorId: author.clerkId, authorName: author.displayName,
+    authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+    reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
+  });
 });
 
 router.get("/posts/:postId/ai-summary", requireAuth, async (req, res) => {
@@ -221,4 +233,98 @@ router.post("/posts/:postId/request-consultation", requireAuth, async (req, res)
   res.status(201).json({ success: true, consultation });
 });
 
+// ─── Reactions (Facebook/LinkedIn-style) ──────────────────────────────────
+
+const ALLOWED_REACTIONS = ["like", "love", "care", "insightful", "celebrate", "sad"] as const;
+type ReactionEmoji = typeof ALLOWED_REACTIONS[number];
+
+/**
+ * Group reaction rows for a set of post IDs into a per-post summary.
+ * Output: { [postId]: { counts: { emoji: count }, total, mine?: emoji } }
+ */
+async function summarizeReactionsForPosts(postIds: number[], currentUserId?: number) {
+  const out: Record<number, { counts: Record<string, number>; total: number; mine: string | null }> = {};
+  if (!postIds.length) return out;
+  for (const id of postIds) out[id] = { counts: {}, total: 0, mine: null };
+
+  const rows = await db
+    .select({ postId: postReactionsTable.postId, emoji: postReactionsTable.emoji, userId: postReactionsTable.userId })
+    .from(postReactionsTable)
+    .where(inArray(postReactionsTable.postId, postIds));
+
+  for (const r of rows) {
+    const bucket = out[r.postId];
+    if (!bucket) continue;
+    bucket.counts[r.emoji] = (bucket.counts[r.emoji] ?? 0) + 1;
+    bucket.total += 1;
+    if (currentUserId && r.userId === currentUserId) bucket.mine = r.emoji;
+  }
+  return out;
+}
+
+/** GET reactions for a single post: counts + which emoji the current user reacted with. */
+router.get("/posts/:postId/reactions", requireAuth, async (req, res) => {
+  const postId = parseInt(req.params.postId);
+  if (!Number.isInteger(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  const me = clerkId ? await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
+  const summary = await summarizeReactionsForPosts([postId], me[0]?.id);
+  res.json(summary[postId] ?? { counts: {}, total: 0, mine: null });
+});
+
+/** Toggle/replace a reaction for the current user. Body: { emoji } or null to remove. */
+router.post("/posts/:postId/react", requireAuth, async (req, res) => {
+  const postId = parseInt(req.params.postId);
+  if (!Number.isInteger(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const emoji: string | null = req.body?.emoji ?? null;
+  if (emoji !== null && !ALLOWED_REACTIONS.includes(emoji as ReactionEmoji)) {
+    res.status(400).json({ error: "Invalid emoji", allowed: ALLOWED_REACTIONS });
+    return;
+  }
+
+  const user = await getOrCreateUser(clerkId);
+
+  // Confirm the post exists (cheap check, also gives us authorId for credits later).
+  const [post] = await db.select({ id: postsTable.id, authorId: postsTable.authorId })
+    .from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+  if (!post) { res.status(404).json({ error: "Post not found" }); return; }
+
+  // Find current reaction (if any). This read is informational — all writes
+  // below are concurrency-safe via DELETE-by-key (idempotent) or upsert via
+  // ON CONFLICT, so two simultaneous taps cannot 500 on a PK violation.
+  const [existing] = await db
+    .select()
+    .from(postReactionsTable)
+    .where(and(eq(postReactionsTable.postId, postId), eq(postReactionsTable.userId, user.id)))
+    .limit(1);
+
+  const isToggleOff = emoji === null || (existing && existing.emoji === emoji);
+
+  if (isToggleOff) {
+    // Idempotent DELETE — safe under concurrent toggles.
+    await db.delete(postReactionsTable)
+      .where(and(eq(postReactionsTable.postId, postId), eq(postReactionsTable.userId, user.id)));
+  } else {
+    // Atomic upsert: insert if absent, replace emoji if present. Last write wins.
+    await db.insert(postReactionsTable)
+      .values({ postId, userId: user.id, emoji: emoji as string })
+      .onConflictDoUpdate({
+        target: [postReactionsTable.postId, postReactionsTable.userId],
+        set: { emoji: emoji as string, createdAt: new Date() },
+      });
+
+    // Award a credit only on first-time reaction (when there was no prior row).
+    if (!existing && post.authorId !== user.id) {
+      await awardCredits(post.authorId, CREDIT_EVENTS.RECEIVE_UPVOTE).catch(() => {});
+    }
+  }
+
+  const summary = await summarizeReactionsForPosts([postId], user.id);
+  res.json(summary[postId] ?? { counts: {}, total: 0, mine: null });
+});
+
+export { summarizeReactionsForPosts };
 export default router;

@@ -4,6 +4,7 @@ export * from "./communities";
 export * from "./community_members";
 export * from "./posts";
 export * from "./post_upvotes";
+export * from "./post_reactions";
 export * from "./comments";
 export * from "./achievements";
 export * from "./conversations";

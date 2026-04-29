@@ -42,7 +42,7 @@ function SidebarContent() {
   if (user?.role === "medical_professional" || user?.role === "admin") {
     navItems.push({ href: "/medpro", icon: Stethoscope, label: "Med Pro Portal" });
   } else if (user?.role === "member") {
-    navItems.push({ href: "/become-a-doctor", icon: BadgeCheck, label: "Become a Doctor" });
+    navItems.push({ href: "/become-a-doctor", icon: BadgeCheck, label: "Onboard as a Doctor" });
   }
 
   if (user?.role === "admin" || user?.role === "moderator") {

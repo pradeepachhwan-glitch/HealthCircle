@@ -479,6 +479,35 @@ export default function Admin() {
     onSuccess: () => { refetchMembers(); toast.success("Member removed"); },
   });
 
+  // Search users to add to a community (debounced via the input itself).
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const { data: userSearchResults } = useQuery({
+    queryKey: ["admin-user-search", memberSearchQuery],
+    enabled: memberSearchQuery.trim().length >= 2,
+    queryFn: () =>
+      adminFetch(`${API_BASE}/admin/users/search?q=${encodeURIComponent(memberSearchQuery.trim())}&limit=10`)
+        .then(r => r.json()),
+  });
+
+  const addMember = useMutation({
+    mutationFn: ({ communityId, userId }: { communityId: number; userId: string }) =>
+      adminFetch(`${API_BASE}/admin/communities/${communityId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userIds: [userId] }),
+      }).then(r => r.json()),
+    onSuccess: (data: { added: any[]; alreadyMember: number }) => {
+      refetchMembers();
+      if (data.added?.length) {
+        toast.success(`Added ${data.added[0].displayName}`);
+        setMemberSearchQuery("");
+      } else if (data.alreadyMember) {
+        toast.info("User is already a member");
+      }
+    },
+    onError: () => toast.error("Could not add member"),
+  });
+
   const moderatePost = useMutation({
     mutationFn: ({ postId, action }: { postId: number; action: Record<string, boolean> }) =>
       adminFetch(`${API_BASE}/admin/posts/${postId}`, {
@@ -1027,11 +1056,57 @@ export default function Admin() {
       </div>
 
       {/* Community Members Dialog */}
-      <Dialog open={!!communityMembersDialog} onOpenChange={open => !open && setCommunityMembersDialog(null)}>
+      <Dialog open={!!communityMembersDialog} onOpenChange={open => { if (!open) { setCommunityMembersDialog(null); setMemberSearchQuery(""); } }}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{communityMembersDialog?.name} — Members</DialogTitle>
           </DialogHeader>
+
+          {/* Add Members section — search by name or email, click to add (WhatsApp-style) */}
+          <div className="space-y-2 border-b border-border pb-4 mb-2">
+            <div className="text-sm font-medium">Add members</div>
+            <Input
+              placeholder="Search by name or email…"
+              value={memberSearchQuery}
+              onChange={e => setMemberSearchQuery(e.target.value)}
+              data-testid="input-member-search"
+            />
+            {memberSearchQuery.trim().length >= 2 && (
+              <div className="border border-border rounded max-h-48 overflow-y-auto">
+                {!userSearchResults || userSearchResults.length === 0 ? (
+                  <div className="text-xs text-muted-foreground p-3 text-center">No users found</div>
+                ) : (
+                  userSearchResults.map((u: any) => {
+                    const alreadyMember = (communityMembers ?? []).some((m: any) => m.userId === u.clerkId);
+                    return (
+                      <div key={u.clerkId} className="flex items-center justify-between gap-2 p-2 hover:bg-muted/50 border-b border-border last:border-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <UserAvatar name={u.displayName} url={u.avatarUrl} className="w-7 h-7 text-xs" />
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{u.displayName}</div>
+                            <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={alreadyMember ? "ghost" : "default"}
+                          disabled={alreadyMember || addMember.isPending}
+                          onClick={() => communityMembersDialog && addMember.mutate({ communityId: communityMembersDialog.id, userId: u.clerkId })}
+                          data-testid={`button-add-member-${u.clerkId}`}
+                        >
+                          {alreadyMember ? "Member" : "Add"}
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+            {memberSearchQuery.trim().length < 2 && (
+              <p className="text-xs text-muted-foreground">Type at least 2 characters to search.</p>
+            )}
+          </div>
+
           {membersLoading ? (
             <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
           ) : (

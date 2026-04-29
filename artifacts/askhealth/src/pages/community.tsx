@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useGetCommunity, useListPosts, useGetCommunityStats, useGetLeaderboard,
   getListPostsQueryKey, useCreatePost, getGetCommunityQueryKey,
@@ -562,96 +562,260 @@ export default function Community() {
   );
 }
 
+// Map of reaction key → display emoji + label, used by the picker and the
+// summary chip strip. Keep keys in sync with ALLOWED_REACTIONS on the server.
+const REACTION_DISPLAY: Record<string, { emoji: string; label: string }> = {
+  like: { emoji: "👍", label: "Like" },
+  love: { emoji: "❤️", label: "Love" },
+  care: { emoji: "🤗", label: "Care" },
+  insightful: { emoji: "💡", label: "Insightful" },
+  celebrate: { emoji: "🎉", label: "Celebrate" },
+  sad: { emoji: "😢", label: "Sad" },
+};
+const REACTION_ORDER = ["like", "love", "care", "insightful", "celebrate", "sad"];
+
 function PostCard({ post, communityId, communitySlug, communityName }: { post: any; communityId: number; communitySlug?: string; communityName?: string }) {
-  const riskColors: Record<string, string> = {
-    low: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400",
-    medium: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400",
-    high: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400",
-    emergency: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400",
-  };
+  const queryClient = useQueryClient();
+  const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+
+  // Local optimistic mirrors of the server-truth values.
+  const [localUpvoted, setLocalUpvoted] = useState<boolean>(!!post.hasUpvoted);
+  const [localUpvoteCount, setLocalUpvoteCount] = useState<number>(post.upvoteCount ?? 0);
+  const [localReactions, setLocalReactions] = useState<{ counts: Record<string, number>; total: number; mine: string | null }>(
+    post.reactions ?? { counts: {}, total: 0, mine: null }
+  );
+
+  // Re-sync mirrors whenever a fresh `post` arrives from React Query (e.g. after
+  // background refetch or another user's action), otherwise we'd display stale
+  // counts/reaction chips after invalidations.
+  useEffect(() => {
+    setLocalUpvoted(!!post.hasUpvoted);
+    setLocalUpvoteCount(post.upvoteCount ?? 0);
+    setLocalReactions(post.reactions ?? { counts: {}, total: 0, mine: null });
+  }, [post.hasUpvoted, post.upvoteCount, post.reactions]);
+
+  const upvoteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API_BASE}/posts/${post.id}/upvote`, { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error("Upvote failed");
+      return res.json() as Promise<{ upvoteCount: number; hasUpvoted: boolean }>;
+    },
+    // Snapshot pre-mutate state so onError can roll back to the exact prior
+    // value without depending on (possibly stale) closure variables.
+    onMutate: (): { wasUpvoted: boolean; wasCount: number } => {
+      const wasUpvoted = localUpvoted;
+      const wasCount = localUpvoteCount;
+      setLocalUpvoted(!wasUpvoted);
+      setLocalUpvoteCount(wasCount + (wasUpvoted ? -1 : 1));
+      return { wasUpvoted, wasCount };
+    },
+    onSuccess: (data) => {
+      setLocalUpvoted(data.hasUpvoted);
+      setLocalUpvoteCount(data.upvoteCount);
+      queryClient.invalidateQueries({ queryKey: getListPostsQueryKey(communityId) });
+    },
+    onError: (_err, _vars, context) => {
+      if (context) {
+        setLocalUpvoted(context.wasUpvoted);
+        setLocalUpvoteCount(context.wasCount);
+      }
+      toast.error("Could not save your vote");
+    },
+  });
+
+  const reactMutation = useMutation({
+    mutationFn: async (emoji: string | null) => {
+      const res = await fetch(`${API_BASE}/posts/${post.id}/react`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji }),
+      });
+      if (!res.ok) throw new Error("React failed");
+      return res.json() as Promise<{ counts: Record<string, number>; total: number; mine: string | null }>;
+    },
+    onSuccess: (data) => {
+      setLocalReactions(data);
+      setShowReactionPicker(false);
+      queryClient.invalidateQueries({ queryKey: getListPostsQueryKey(communityId) });
+    },
+    onError: () => toast.error("Could not save your reaction"),
+  });
 
   // A post is a "content card" when admin attached an embeddable payload.
   // Falsy / 'discussion' contentType keeps the legacy text-only render.
   const hasContent = post.contentType && post.contentType !== "discussion" && post.contentUrl;
   const contentTypeLabel: Record<string, string> = { video: "VIDEO", article: "ARTICLE", audio: "PODCAST" };
 
+  // Pre-compute the top-3 emojis to display as a stacked chip (Facebook-style).
+  const topReactions = REACTION_ORDER
+    .filter(k => (localReactions.counts[k] ?? 0) > 0)
+    .sort((a, b) => (localReactions.counts[b] ?? 0) - (localReactions.counts[a] ?? 0))
+    .slice(0, 3);
+
+  // Helper that prevents a child interactive control from triggering the
+  // parent navigation when the title/body Link is clicked.
+  const stop = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); };
+
   return (
-    <Link href={`/communities/${communityId}/post/${post.id}`}>
-      <Card className="hover:border-primary/40 transition-all cursor-pointer shadow-sm hover:shadow-md group">
-        <CardContent className="p-4">
-          <div className="flex gap-3">
-            {/* Vote Column */}
-            <div className="flex flex-col items-center gap-0.5 shrink-0 pt-0.5">
-              <ArrowUp className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-xs font-bold text-foreground">{post.upvoteCount}</span>
+    <Card className="hover:border-primary/40 transition-all shadow-sm hover:shadow-md group" data-testid={`post-card-${post.id}`}>
+      <CardContent className="p-4">
+        <div className="flex gap-3">
+          {/* Vote Column — clickable, does NOT navigate */}
+          <div className="flex flex-col items-center gap-0.5 shrink-0 pt-0.5">
+            <button
+              type="button"
+              onClick={(e) => { stop(e); upvoteMutation.mutate(); }}
+              disabled={upvoteMutation.isPending}
+              data-testid={`button-upvote-${post.id}`}
+              className={cn(
+                "p-1 rounded hover:bg-primary/10 transition-colors",
+                localUpvoted ? "text-primary" : "text-muted-foreground hover:text-primary"
+              )}
+              aria-label={localUpvoted ? "Remove upvote" : "Upvote"}
+            >
+              <ArrowUp className={cn("w-4 h-4", localUpvoted && "fill-current")} />
+            </button>
+            <span className={cn("text-xs font-bold", localUpvoted ? "text-primary" : "text-foreground")}>{localUpvoteCount}</span>
+          </div>
+
+          {/* Content — wrap only the title/body in the Link so action buttons stay clickable */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5 flex-wrap">
+              <UserAvatar name={post.authorName} url={post.authorAvatar} className="w-4 h-4" />
+              <span className="font-medium text-foreground/80">{post.authorName}</span>
+              {post.isBroadcast && (
+                <Badge className="text-[9px] h-4 px-1.5 bg-blue-600">ANNOUNCEMENT</Badge>
+              )}
+              {hasContent && (
+                <Badge className="text-[9px] h-4 px-1.5 bg-purple-600">
+                  {contentTypeLabel[post.contentType] ?? post.contentType.toUpperCase()}
+                </Badge>
+              )}
+              <span className="text-muted-foreground/50">•</span>
+              <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5 flex-wrap">
-                <UserAvatar name={post.authorName} url={post.authorAvatar} className="w-4 h-4" />
-                <span className="font-medium text-foreground/80">{post.authorName}</span>
-                {post.isBroadcast && (
-                  <Badge className="text-[9px] h-4 px-1.5 bg-blue-600">ANNOUNCEMENT</Badge>
+            <Link href={`/communities/${communityId}/post/${post.id}`}>
+              <div className="cursor-pointer">
+                <h3 className="font-bold text-base text-foreground leading-snug mb-1.5 group-hover:text-primary transition-colors">
+                  {post.title}
+                </h3>
+                {!hasContent && (
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
+                    {post.content}
+                  </p>
                 )}
-                {hasContent && (
-                  <Badge className="text-[9px] h-4 px-1.5 bg-purple-600">
-                    {contentTypeLabel[post.contentType] ?? post.contentType.toUpperCase()}
-                  </Badge>
+              </div>
+            </Link>
+
+            {hasContent && (
+              <ContentEmbed
+                title={post.title}
+                payload={{
+                  contentType: post.contentType,
+                  contentUrl: post.contentUrl,
+                  contentSource: post.contentSource ?? null,
+                  contentThumbnail: post.contentThumbnail ?? null,
+                  contentDurationSec: post.contentDurationSec ?? null,
+                  contentSummary: post.contentSummary ?? post.content ?? null,
+                }}
+                communitySlug={communitySlug}
+                communityName={communityName}
+              />
+            )}
+
+            {/* Reaction summary strip — stacked emoji chips with running total */}
+            {localReactions.total > 0 && (
+              <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                <div className="flex -space-x-1">
+                  {topReactions.map(k => (
+                    <span key={k} className="inline-flex items-center justify-center w-4 h-4 text-[11px] rounded-full bg-white border border-border" title={REACTION_DISPLAY[k].label}>
+                      {REACTION_DISPLAY[k].emoji}
+                    </span>
+                  ))}
+                </div>
+                <span>{localReactions.total}</span>
+              </div>
+            )}
+
+            <div className={cn("flex items-center gap-3 text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50")}>
+              {/* Reaction picker trigger */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => { stop(e); setShowReactionPicker(v => !v); }}
+                  data-testid={`button-react-${post.id}`}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded hover:bg-primary/10 transition-colors",
+                    localReactions.mine ? "text-primary font-medium" : "text-muted-foreground hover:text-primary"
+                  )}
+                  aria-label="React"
+                >
+                  {localReactions.mine ? (
+                    <>
+                      <span className="text-sm leading-none">{REACTION_DISPLAY[localReactions.mine]?.emoji ?? "👍"}</span>
+                      <span>{REACTION_DISPLAY[localReactions.mine]?.label ?? "Like"}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm leading-none">😊</span>
+                      <span>React</span>
+                    </>
+                  )}
+                </button>
+                {showReactionPicker && (
+                  <div
+                    onClick={stop}
+                    className="absolute bottom-full left-0 mb-2 z-20 bg-white dark:bg-card border border-border rounded-full shadow-lg px-2 py-1 flex items-center gap-1"
+                  >
+                    {REACTION_ORDER.map(k => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={(e) => { stop(e); reactMutation.mutate(k); }}
+                        disabled={reactMutation.isPending}
+                        title={REACTION_DISPLAY[k].label}
+                        data-testid={`reaction-option-${k}-${post.id}`}
+                        className="text-xl hover:scale-125 transition-transform p-0.5"
+                      >
+                        {REACTION_DISPLAY[k].emoji}
+                      </button>
+                    ))}
+                    {localReactions.mine && (
+                      <button
+                        type="button"
+                        onClick={(e) => { stop(e); reactMutation.mutate(null); }}
+                        className="text-xs text-muted-foreground hover:text-destructive px-2 border-l border-border ml-1"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 )}
-                <span className="text-muted-foreground/50">•</span>
-                <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
               </div>
 
-              <h3 className="font-bold text-base text-foreground leading-snug mb-1.5 group-hover:text-primary transition-colors">
-                {post.title}
-              </h3>
-
-              {/* Hide the long body when there's an embed — the embed + summary
-                  carry the message, and we don't want a wall of duplicated copy
-                  above an inline player. */}
-              {!hasContent && (
-                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
-                  {post.content}
-                </p>
-              )}
-
-              {hasContent && (
-                <ContentEmbed
-                  title={post.title}
-                  payload={{
-                    contentType: post.contentType,
-                    contentUrl: post.contentUrl,
-                    contentSource: post.contentSource ?? null,
-                    contentThumbnail: post.contentThumbnail ?? null,
-                    contentDurationSec: post.contentDurationSec ?? null,
-                    contentSummary: post.contentSummary ?? post.content ?? null,
-                  }}
-                  communitySlug={communitySlug}
-                  communityName={communityName}
-                />
-              )}
-
-              <div className={cn("flex items-center gap-3 text-xs text-muted-foreground", hasContent ? "mt-3" : "")}> 
-                <span className="flex items-center gap-1">
+              <Link href={`/communities/${communityId}/post/${post.id}`}>
+                <span className="flex items-center gap-1 cursor-pointer hover:text-primary transition-colors">
                   <MessageSquare className="w-3.5 h-3.5" /> {post.commentCount}
                 </span>
-                <span className="flex items-center gap-1">
-                  <Eye className="w-3.5 h-3.5" /> {post.viewCount ?? 0}
-                </span>
-                {post.commentCount === 0 && (
-                  <Badge variant="outline" className="text-[9px] h-4 px-1.5 text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
-                    Unanswered
-                  </Badge>
-                )}
-                <div className="ml-auto">
-                  <Bot className="w-3.5 h-3.5 text-primary/60" title="AI summary available" />
-                </div>
+              </Link>
+              <span className="flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5" /> {post.viewCount ?? 0}
+              </span>
+              {post.commentCount === 0 && (
+                <Badge variant="outline" className="text-[9px] h-4 px-1.5 text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                  Unanswered
+                </Badge>
+              )}
+              <div className="ml-auto">
+                <Bot className="w-3.5 h-3.5 text-primary/60" />
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
