@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>You're offline — HealthCircle</title>
-  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <meta name="theme-color" content="#2563EB" />
   <style>
     :root { color-scheme: light; }
@@ -28,12 +29,11 @@
       box-shadow: 0 20px 50px -20px rgba(37,99,235,0.18);
     }
     .icon {
-      width: 64px; height: 64px;
-      border-radius: 18px;
-      background: linear-gradient(135deg, #2563EB, #6366F1);
+      width: 72px; height: 72px;
       display: inline-flex; align-items: center; justify-content: center;
       margin-bottom: 20px;
     }
+    .icon img { width: 100%; height: 100%; object-fit: contain; }
     h1 { font-size: 22px; margin: 0 0 8px; font-weight: 700; }
     p { color: #475569; font-size: 14px; line-height: 1.55; margin: 0 0 24px; }
     button {
@@ -49,9 +49,7 @@
 <body>
   <div class="card">
     <div class="icon">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12h4l3-7 4 14 3-7h4"/>
-      </svg>
+      <img src="/icon-192.png" alt="HealthCircle" />
     </div>
     <h1>You're offline</h1>
     <p>HealthCircle needs an internet connection for live communities, AI consultations and bookings. Reconnect and try again.</p>

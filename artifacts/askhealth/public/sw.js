@@ -1,6 +1,6 @@
 // HealthCircle PWA service worker — minimal, network-first for navigations,
 // cache-first for static assets, and a friendly offline fallback.
-const SW_VERSION = "v1.0.1";
+const SW_VERSION = "v1.0.2";
 const STATIC_CACHE = `hc-static-${SW_VERSION}`;
 const RUNTIME_CACHE = `hc-runtime-${SW_VERSION}`;
 const OFFLINE_URL = "/offline.html";
@@ -9,11 +9,10 @@ const PRECACHE = [
   "/",
   "/offline.html",
   "/manifest.json",
-  "/icon.svg",
+  "/favicon.png",
   "/icon-192.png",
   "/icon-512.png",
   "/apple-touch-icon.png",
-  "/favicon.svg",
 ];
 
 self.addEventListener("install", (event) => {
