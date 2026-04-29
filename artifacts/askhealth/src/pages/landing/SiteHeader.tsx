@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Shield } from "lucide-react";
 import HealthCircleLogo from "@/components/HealthCircleLogo";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import { NAV_ITEMS } from "./data";
@@ -51,6 +51,14 @@ export function SiteHeader() {
 
         <div className="hidden md:flex items-center gap-1.5">
           <PWAInstallButton variant="ghost" label="Install app" />
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors"
+            data-testid="landing-admin-link"
+          >
+            <Shield className="h-3.5 w-3.5" strokeWidth={2} />
+            Admin
+          </Link>
           <Link
             href="/sign-in"
             className="text-sm font-medium px-3.5 py-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors"
