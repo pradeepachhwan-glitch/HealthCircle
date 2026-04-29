@@ -12,6 +12,7 @@ const LETTER_COLORS = [
 const LETTERS = ["H", "E", "A", "L", "T", "H"];
 
 const RING_GRADIENT_ID = "hc-ring-grad";
+const RING_GRADIENT_ID_2 = "hc-ring-grad-2";
 
 interface Props {
   size?: "sm" | "md" | "lg";
@@ -38,16 +39,20 @@ export default function HealthCircleLogo({
   const iconSize = isLg ? 64 : isSm ? 32 : 44;
   const fontSize = isLg ? 28 : isSm ? 11 : 16;
   const strokeW = isLg ? 4 : isSm ? 2.5 : 3;
+  const innerStrokeW = isLg ? 2 : isSm ? 1.25 : 1.5;
   const textSizeClass = isLg ? "text-3xl" : isSm ? "text-base" : "text-xl";
   const gapClass = isLg ? "gap-3" : isSm ? "gap-2" : "gap-2.5";
 
-  const r = (iconSize / 2) - strokeW - 2;
   const cx = iconSize / 2;
+  const r = iconSize / 2 - strokeW - 2;
+  const r2 = r - strokeW - 2;
   const circumference = 2 * Math.PI * r;
+  const circumference2 = 2 * Math.PI * r2;
+  const dotR = isLg ? 3 : isSm ? 1.5 : 2;
 
   return (
-    <div className={`inline-flex items-center ${gapClass}`}>
-      {/* Spinning ring icon with HC */}
+    <div className={`group inline-flex items-center ${gapClass}`}>
+      {/* Concentric animated rings + HC letters */}
       <div
         className="relative flex items-center justify-center shrink-0"
         style={{ width: iconSize, height: iconSize }}
@@ -57,21 +62,19 @@ export default function HealthCircleLogo({
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
-          @keyframes hc-trace {
-            0%   { stroke-dashoffset: ${circumference}; opacity: 1; }
-            70%  { stroke-dashoffset: 0; opacity: 1; }
-            85%  { stroke-dashoffset: 0; opacity: 0.3; }
-            100% { stroke-dashoffset: ${circumference}; opacity: 1; }
+          @keyframes hc-spin-rev {
+            0% { transform: rotate(360deg); }
+            100% { transform: rotate(0deg); }
+          }
+          @keyframes hc-breathe {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
           }
           @keyframes hc-pop {
             0%   { opacity: 0; transform: scale(0.3) translateY(6px); }
             60%  { transform: scale(1.15) translateY(-2px); }
             80%  { transform: scale(0.95) translateY(0); }
             100% { opacity: 1; transform: scale(1) translateY(0); }
-          }
-          @keyframes hc-shimmer {
-            0%, 100% { filter: brightness(1); }
-            50% { filter: brightness(1.35) saturate(1.3); }
           }
           @keyframes hc-letter-pop {
             0%   { opacity: 0; transform: translateY(12px) scale(0.5); }
@@ -80,13 +83,39 @@ export default function HealthCircleLogo({
             100% { opacity: 1; transform: translateY(0) scale(1); }
           }
           @keyframes hc-ring-glow {
-            0%, 100% { filter: drop-shadow(0 0 ${isLg ? 8 : 5}px #a855f766); }
-            33%  { filter: drop-shadow(0 0 ${isLg ? 12 : 7}px #06b6d466); }
-            66%  { filter: drop-shadow(0 0 ${isLg ? 12 : 7}px #10b98166); }
+            0%, 100% { filter: drop-shadow(0 0 ${isLg ? 6 : 4}px #a855f755); }
+            33%      { filter: drop-shadow(0 0 ${isLg ? 10 : 6}px #06b6d455); }
+            66%      { filter: drop-shadow(0 0 ${isLg ? 10 : 6}px #10b98155); }
+          }
+          @keyframes hc-pulse-ring {
+            0%   { transform: scale(0.85); opacity: 0.7; }
+            80%  { transform: scale(1.25); opacity: 0; }
+            100% { transform: scale(1.25); opacity: 0; }
+          }
+          @keyframes hc-letter-breathe {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50%      { transform: scale(1.04); filter: brightness(1.15); }
+          }
+          .hc-spin-fast { animation-duration: 1.6s !important; }
+          .group:hover .hc-hover-fast { animation-duration: 1.4s !important; }
+          @media (prefers-reduced-motion: reduce) {
+            .hc-anim { animation: none !important; }
           }
         `}</style>
 
-        {/* SVG ring */}
+        {/* Outer pulse ring (Windows Hello style ripple) */}
+        {animate && (
+          <span
+            className="hc-anim absolute inset-0 rounded-full pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(168,85,247,0.25) 0%, rgba(6,182,212,0.18) 50%, transparent 70%)",
+              animation: "hc-pulse-ring 2.8s ease-out infinite",
+            }}
+          />
+        )}
+
+        {/* Main SVG with two concentric rings + orbital dots */}
         <svg
           width={iconSize}
           height={iconSize}
@@ -104,8 +133,14 @@ export default function HealthCircleLogo({
               <stop offset="75%"  stopColor="#10b981" />
               <stop offset="100%" stopColor="#f59e0b" />
             </linearGradient>
+            <linearGradient id={RING_GRADIENT_ID_2} x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%"   stopColor="#ef4444" />
+              <stop offset="50%"  stopColor="#f59e0b" />
+              <stop offset="100%" stopColor="#10b981" />
+            </linearGradient>
           </defs>
-          {/* Background circle track */}
+
+          {/* Outer track */}
           <circle
             cx={cx} cy={cx} r={r}
             fill="none"
@@ -113,7 +148,7 @@ export default function HealthCircleLogo({
             strokeWidth={strokeW}
             className="text-slate-100 dark:text-slate-800"
           />
-          {/* Animated tracing arc */}
+          {/* Outer animated arc */}
           <circle
             cx={cx} cy={cx} r={r}
             fill="none"
@@ -121,19 +156,63 @@ export default function HealthCircleLogo({
             strokeWidth={strokeW}
             strokeLinecap="round"
             strokeDasharray={`${circumference * 0.72} ${circumference * 0.28}`}
+            className="hc-anim hc-hover-fast"
             style={{
               transformOrigin: `${cx}px ${cx}px`,
-              animation: animate
-                ? "hc-spin 2.4s linear infinite"
-                : undefined,
+              animation: animate ? "hc-spin 2.4s linear infinite" : undefined,
             }}
           />
+          {/* Inner counter-rotating arc */}
+          <circle
+            cx={cx} cy={cx} r={r2}
+            fill="none"
+            stroke={`url(#${RING_GRADIENT_ID_2})`}
+            strokeWidth={innerStrokeW}
+            strokeLinecap="round"
+            strokeDasharray={`${circumference2 * 0.4} ${circumference2 * 0.6}`}
+            className="hc-anim hc-hover-fast"
+            style={{
+              transformOrigin: `${cx}px ${cx}px`,
+              animation: animate ? "hc-spin-rev 3.2s linear infinite" : undefined,
+              opacity: 0.85,
+            }}
+          />
+
+          {/* Orbital dot traveling along the outer ring */}
+          {animate && (
+            <g
+              className="hc-anim"
+              style={{
+                transformOrigin: `${cx}px ${cx}px`,
+                animation: "hc-spin 2.4s linear infinite",
+              }}
+            >
+              <circle cx={cx} cy={cx - r} r={dotR} fill="#ffffff" />
+              <circle cx={cx} cy={cx - r} r={dotR * 0.6} fill="#a855f7" />
+            </g>
+          )}
+          {/* Second orbital dot, opposite side, slower */}
+          {animate && !isSm && (
+            <g
+              className="hc-anim"
+              style={{
+                transformOrigin: `${cx}px ${cx}px`,
+                animation: "hc-spin-rev 3.2s linear infinite",
+              }}
+            >
+              <circle cx={cx} cy={cx + r2} r={dotR * 0.85} fill="#ffffff" />
+              <circle cx={cx} cy={cx + r2} r={dotR * 0.5} fill="#10b981" />
+            </g>
+          )}
         </svg>
 
-        {/* HC letters in center */}
+        {/* HC letters in center with subtle breathing */}
         <div
           className="relative z-10 flex items-end leading-none"
-          style={{ gap: 1 }}
+          style={{
+            gap: 1,
+            animation: animate ? "hc-breathe 3s ease-in-out infinite" : undefined,
+          }}
         >
           <span
             style={{
@@ -142,7 +221,7 @@ export default function HealthCircleLogo({
               color: "#a855f7",
               lineHeight: 1,
               animation: animate && visible
-                ? "hc-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both"
+                ? "hc-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both, hc-letter-breathe 3s ease-in-out 0.5s infinite"
                 : undefined,
             }}
           >H</span>
@@ -153,7 +232,7 @@ export default function HealthCircleLogo({
               color: "#06b6d4",
               lineHeight: 1,
               animation: animate && visible
-                ? "hc-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.08s both"
+                ? "hc-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.08s both, hc-letter-breathe 3s ease-in-out 0.7s infinite"
                 : undefined,
             }}
           >C</span>

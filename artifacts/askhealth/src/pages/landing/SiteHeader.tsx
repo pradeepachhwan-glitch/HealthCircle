@@ -28,7 +28,7 @@ export function SiteHeader() {
     >
       <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 md:h-[68px] flex items-center justify-between">
         <Link href="/" className="cursor-pointer">
-          <HealthCircleLogo size="sm" animate={false} />
+          <HealthCircleLogo size="sm" animate={true} />
         </Link>
 
         <nav className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-600">
