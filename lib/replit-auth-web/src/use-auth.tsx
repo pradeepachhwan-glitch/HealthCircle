@@ -54,6 +54,10 @@ export interface AuthState {
   requestOtp: (email: string) => Promise<ApiResult>;
   verifyOtp: (email: string, code: string) => Promise<ApiUserResult>;
 
+  // Google Sign-In: pass the JWT credential string returned by Google
+  // Identity Services to the backend for verification + session creation.
+  loginWithGoogle: (credential: string) => Promise<ApiUserResult>;
+
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 
@@ -194,6 +198,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
+  // ---- Google Sign-In ----------------------------------------------------
+  // The credential is a Google-issued JWT (id_token). We forward it as-is
+  // to the backend, which verifies the signature server-side. We never trust
+  // anything in this token client-side — the server is the source of truth.
+  const loginWithGoogle = useCallback(async (credential: string) => {
+    const { status, json } = await postJson("/api/auth/google", { credential });
+    const result = toUserResult(status, json, "Could not sign you in with Google.");
+    if (result.ok && result.user) setUser(result.user);
+    return result;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -216,13 +231,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       requestOtp,
       verifyOtp,
+      loginWithGoogle,
       logout,
       refresh,
       isLoaded: !isLoading,
       isSignedIn: !!user,
       signOut: logout,
     }),
-    [user, isLoading, signup, verifyEmail, resendVerification, login, requestPasswordReset, resetPassword, requestOtp, verifyOtp, logout, refresh],
+    [user, isLoading, signup, verifyEmail, resendVerification, login, requestPasswordReset, resetPassword, requestOtp, verifyOtp, loginWithGoogle, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

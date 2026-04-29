@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, Eye, EyeOff, HeartPulse, Loader2, Lock, Mail, User } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -283,6 +284,26 @@ export default function SignInPage() {
 
           <h1 className="text-xl font-semibold text-slate-900">{titleByMode[mode]}</h1>
           <p className="mt-1 text-sm text-slate-500">{subtitleByMode[mode]}</p>
+
+          {/* Google Sign-In: shown ONLY on the email/password form stage so
+              we don't crowd the OTP / new-password screens. The button hides
+              itself entirely if the server hasn't been configured with a
+              Google client ID, so we always render it safely. After a
+              successful Google sign-in we route to `nextHref` exactly the
+              same way as a password sign-in. */}
+          {stage === "form" && mode !== "forgot" && (
+            <div className="mt-6">
+              <GoogleSignInButton
+                onError={(msg) => setError(msg)}
+                onSuccess={() => goNext()}
+              />
+              <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span>or continue with email</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+            </div>
+          )}
 
           {/* ---- Stage: form ---- */}
           {stage === "form" && (

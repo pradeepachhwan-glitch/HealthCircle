@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod/v4";
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
+import { OAuth2Client } from "google-auth-library";
 import {
   PASSWORD_MAX_LEN,
   PASSWORD_MIN_LEN,
@@ -84,9 +85,16 @@ function weakPassword(res: Response): void {
   });
 }
 
+// ---- Google ID-token verifier ---------------------------------------------
+// One shared OAuth2Client instance — it caches Google's signing keys (JWKs)
+// internally so we don't re-fetch them on every request. The audience is
+// validated per-call inside verifyIdToken({ audience }) below.
+const googleClient = new OAuth2Client();
+
 // ---- Schemas ---------------------------------------------------------------
 
 const emailSchema = z.object({ email: z.string().min(3).max(320) });
+const googleSchema = z.object({ credential: z.string().min(20).max(8192) });
 const emailCodeSchema = z.object({
   email: z.string().min(3).max(320),
   code: z.string().min(4).max(8),
@@ -104,6 +112,15 @@ const resetSchema = z.object({
   email: z.string().min(3).max(320),
   code: z.string().min(4).max(8),
   newPassword: z.string().min(PASSWORD_MIN_LEN).max(PASSWORD_MAX_LEN),
+});
+
+// ---- Public auth config (client reads this to know which providers are on)
+// Returning null for googleClientId means "Google sign-in not configured" —
+// the frontend hides the button entirely instead of rendering a broken one.
+router.get("/auth/config", (_req: Request, res: Response) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID ?? null,
+  });
 });
 
 // ---- Current user ---------------------------------------------------------
@@ -492,6 +509,138 @@ router.post("/auth/verify-otp", async (req: Request, res: Response) => {
   } catch (err) {
     logger.error({ err }, "[auth] verify-otp failed");
     res.status(500).json({ error: "Could not verify your code right now. Please try again." });
+  }
+});
+
+// ---- Google Sign-In -------------------------------------------------------
+// Client-side flow:
+//   1. Google Identity Services renders a button using GOOGLE_CLIENT_ID.
+//   2. User taps it → Google returns an ID token (a JWT signed by Google).
+//   3. Client POSTs that JWT here as `credential`.
+//   4. We verify the signature against Google's public keys, check that the
+//      audience matches OUR client ID (so a token issued for someone else's
+//      site can't be replayed against us), and check `email_verified`.
+//   5. Find-or-create the user (linking by googleId first, then email so an
+//      existing email/password user can later add Google without losing data).
+//   6. Issue our normal session cookie — same `sid` cookie the rest of the
+//      auth system uses, so the user is indistinguishable from a password
+//      sign-in for downstream code.
+
+router.post("/auth/google", async (req: Request, res: Response) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    res.status(503).json({ error: "Google sign-in is not configured on this server." });
+    return;
+  }
+
+  const parsed = googleSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Missing Google credential." });
+    return;
+  }
+
+  // ---- Step 1: verify the ID token came from Google AND is for our app ---
+  let payload: Awaited<ReturnType<OAuth2Client["verifyIdToken"]>> extends infer T
+    ? T extends { getPayload(): infer P } ? P : never : never;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: parsed.data.credential,
+      audience: clientId,
+    });
+    payload = ticket.getPayload();
+  } catch (err) {
+    logger.warn({ err }, "[auth] Google ID token verification failed");
+    res.status(401).json({ error: "Could not verify your Google sign-in. Please try again." });
+    return;
+  }
+
+  if (!payload || !payload.sub || !payload.email) {
+    res.status(401).json({ error: "Google did not return a usable account. Please try again." });
+    return;
+  }
+  // We require Google to have already verified the email itself. Without
+  // this check, a malicious actor with a Google account claiming to own
+  // someone else's email could take over that someone else's HealthCircle
+  // account via the email-fallback branch below.
+  if (payload.email_verified !== true) {
+    res.status(401).json({ error: "Your Google account email is not verified. Please verify it with Google first." });
+    return;
+  }
+
+  const googleId = `google:${payload.sub}`;
+  const email = normalizeEmail(payload.email);
+  const displayName = (payload.name ?? payload.given_name ?? email.split("@")[0] ?? "Healthcare Member").slice(0, 80);
+  const avatarUrl = payload.picture ?? null;
+
+  try {
+    // ---- Step 2: find existing user (by googleId first, then by email) ---
+    // Looking up by EITHER lets a returning Google user always land on their
+    // googleId row, while a user who originally signed up with email/password
+    // gets their existing row linked to Google on first Google sign-in (no
+    // duplicate accounts).
+    const [existing] = await db
+      .select()
+      .from(usersTable)
+      .where(or(eq(usersTable.googleId, googleId), eq(usersTable.email, email)))
+      .limit(1);
+
+    let user = existing;
+
+    if (user) {
+      if (user.isBanned) {
+        res.status(403).json({ error: "This account has been suspended. Please contact support." });
+        return;
+      }
+
+      // Backfill any missing fields the user didn't have before. We
+      // intentionally DO NOT overwrite displayName/avatarUrl if the user
+      // has already customised them in HealthCircle — Google should not
+      // silently revert profile edits on every sign-in.
+      const updates: Record<string, unknown> = {};
+      if (!user.googleId) updates.googleId = googleId;
+      if (!user.emailVerifiedAt) updates.emailVerifiedAt = new Date();
+      if (!user.avatarUrl && avatarUrl) updates.avatarUrl = avatarUrl;
+      // displayName: only seed if the existing one is the auto-derived
+      // "<local-part-of-email>" placeholder, which means the user never
+      // picked a real name.
+      if (user.displayName === email.split("@")[0]) updates.displayName = displayName;
+
+      if (Object.keys(updates).length > 0) {
+        const [updated] = await db
+          .update(usersTable)
+          .set(updates)
+          .where(eq(usersTable.id, user.id))
+          .returning();
+        user = updated;
+      }
+    } else {
+      // ---- Step 3: brand-new user → create the row ----
+      // clerkId is the legacy unique field still used by older queries; we
+      // make it stable per Google account so it survives email changes.
+      const [created] = await db.insert(usersTable).values({
+        clerkId: googleId,
+        googleId,
+        displayName,
+        email,
+        avatarUrl,
+        role: "member",
+        isBanned: false,
+        healthCredits: 0,
+        weeklyCredits: 0,
+        level: 1,
+        passwordHash: null,
+        emailVerifiedAt: new Date(), // Google already verified it
+      }).returning();
+      user = created;
+    }
+
+    // ---- Step 4: issue our session cookie ----
+    const sid = await createSession({ userId: user.id });
+    setSessionCookie(res, sid);
+    res.json({ success: true, user: userResponse(user as NonNullable<Request["user"]>) });
+  } catch (err) {
+    logger.error({ err }, "[auth] Google sign-in failed");
+    res.status(500).json({ error: "Could not sign you in with Google right now. Please try again." });
   }
 });
 

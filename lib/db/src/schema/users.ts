@@ -24,6 +24,11 @@ export const usersTable = pgTable("users", {
   subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
   passwordHash: text("password_hash"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  // Google OAuth: stable user ID from Google's `sub` claim. We store this
+  // as `google:<sub>` so a single users.googleId column can later be reused
+  // for other OIDC providers (e.g. `apple:<sub>`) without a new column. The
+  // value is set on first Google sign-in and is unique per provider account.
+  googleId: text("google_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
