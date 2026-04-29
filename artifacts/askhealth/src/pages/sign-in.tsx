@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import HealthCircleLogo from "@/components/HealthCircleLogo";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -236,15 +237,8 @@ export default function SignInPage() {
       <div className="w-full max-w-md">
         <div className="text-center">
           <Link href="/">
-            <div className="inline-flex items-center gap-2.5 cursor-pointer mb-6">
-              <img
-                src="/icon-192.png"
-                alt="HealthCircle"
-                width={40}
-                height={40}
-                className="w-10 h-10 rounded-xl"
-              />
-              <span className="text-xl font-bold text-slate-900">HealthCircle</span>
+            <div className="inline-flex cursor-pointer mb-6">
+              <HealthCircleLogo size="sm" animate={true} />
             </div>
           </Link>
         </div>

@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import HealthCircleLogo from "@/components/HealthCircleLogo";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -9,15 +10,8 @@ export default function TermsPage() {
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href={`${basePath}/`}>
-            <div className="inline-flex items-center gap-2 cursor-pointer">
-              <img
-                src={`${basePath}/icon-192.png`}
-                alt="HealthCircle"
-                width={32}
-                height={32}
-                className="w-8 h-8 rounded-lg"
-              />
-              <span className="font-bold text-slate-900">HealthCircle</span>
+            <div className="inline-flex cursor-pointer">
+              <HealthCircleLogo size="sm" animate={true} />
             </div>
           </Link>
           <Link href={`${basePath}/`} className="text-sm text-slate-500 hover:text-primary inline-flex items-center gap-1.5">
