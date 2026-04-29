@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { WhyThisAnswer } from "@/components/WhyThisAnswer";
 import { cn } from "@/lib/utils";
+
+// Standard clinical sources Yukti grounds answers in. The authed Yukti chat
+// endpoint doesn't currently return per-message metadata (only `reply`), so
+// for the in-app footer we surface the constant evidence base from the
+// system prompt alongside the user-facing community context.
+const YUKTI_STANDARD_SOURCES = ["Mayo Clinic", "WHO guidelines", "ICMR guidelines"];
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -133,24 +140,38 @@ export function YuktiChat({ communityId, communityName }: { communityId?: number
       <CardContent className="flex-1 p-0 flex flex-col overflow-hidden bg-background">
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
           <div className="space-y-4">
-            {messages.map((msg, i) => (
-              <div key={i} className={cn("flex gap-3 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto")}>
-                <div className={cn(
-                  "w-8 h-8 rounded-full flex shrink-0 items-center justify-center",
-                  msg.role === "user" ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
-                )}>
-                  {msg.role === "user" ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+            {messages.map((msg, i) => {
+              // "Why this answer?" trust footer is shown under every real
+              // assistant reply — not under the welcome greeting (index 0)
+              // since it carries no clinical content.
+              const showWhyFooter = msg.role === "assistant" && i > 0;
+              return (
+                <div key={i} className={cn("flex gap-3 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto")}>
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex shrink-0 items-center justify-center",
+                    msg.role === "user" ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
+                  )}>
+                    {msg.role === "user" ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                  </div>
+                  <div className={cn(
+                    "px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap",
+                    msg.role === "user"
+                      ? "bg-secondary text-secondary-foreground rounded-tr-sm"
+                      : "bg-muted text-foreground rounded-tl-sm"
+                  )}>
+                    {msg.content}
+                    {showWhyFooter && (
+                      <WhyThisAnswer
+                        communityName={communityName}
+                        sources={YUKTI_STANDARD_SOURCES}
+                        variant="muted"
+                        testId={`yukti-chat-why-${i}`}
+                      />
+                    )}
+                  </div>
                 </div>
-                <div className={cn(
-                  "px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap",
-                  msg.role === "user" 
-                    ? "bg-secondary text-secondary-foreground rounded-tr-sm" 
-                    : "bg-muted text-foreground rounded-tl-sm"
-                )}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {chatMutation.isPending && (
               <div className="flex gap-3 max-w-[85%] mr-auto">
                 <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex shrink-0 items-center justify-center">

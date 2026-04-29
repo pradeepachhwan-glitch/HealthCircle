@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Loader2, Sparkles, AlertTriangle, ArrowRight, Send } from "lucide-react";
+import { WhyThisAnswer } from "@/components/WhyThisAnswer";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const SAMPLE_QUESTIONS = [
@@ -15,6 +16,10 @@ interface PublicAskResponse {
   recommendations: string[];
   risk_level: "low" | "medium" | "high" | "emergency";
   emergency: boolean;
+  /** "Why this answer?" trust-footer fields — optional so older API
+   *  responses (or the public demo before this change shipped) still parse. */
+  topic_tags?: string[];
+  sources?: string[];
 }
 
 export function LandingYuktiDemo() {
@@ -137,6 +142,12 @@ export function LandingYuktiDemo() {
                   ))}
                 </ul>
               )}
+              <WhyThisAnswer
+                topicTags={answer.topic_tags}
+                sources={answer.sources}
+                variant="light"
+                testId="landing-yukti-why"
+              />
             </div>
 
             <div className="bg-gradient-to-br from-primary to-indigo-600 rounded-xl p-5 text-white shadow-md">

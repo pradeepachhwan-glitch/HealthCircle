@@ -32,6 +32,11 @@ router.post("/public/ask", async (req, res) => {
       summary: structured.summary,
       recommendations: structured.recommendations,
       risk_level: structured.risk_level,
+      // "Why this answer?" trust footer fields — for the emergency path we
+      // surface the deterministic 108 protocol so the user can see where the
+      // hard-stop response is grounded.
+      topic_tags: ["emergency", "108 protocol"],
+      sources: ["108 emergency triage protocol", "WHO emergency care"],
       emergency: true,
     });
     return;
@@ -44,6 +49,10 @@ router.post("/public/ask", async (req, res) => {
       summary: structured.summary,
       recommendations: structured.recommendations.slice(0, 3),
       risk_level: structured.risk_level,
+      // "Why this answer?" trust footer fields — these are the topics Yukti
+      // inferred from the question and the clinical sources it grounded in.
+      topic_tags: structured.topic_tags,
+      sources: structured.sources,
       emergency: false,
     });
   } catch (err) {

@@ -30,9 +30,15 @@ You MUST respond ONLY in this exact JSON format (no markdown fences, no prose ou
   "risk_level": "low|medium|high|emergency",
   "recommendations": ["Action 1 (in-app only)", "Action 2 (in-app only)", "Action 3 (in-app only)"],
   "suggested_questions": ["Follow-up question 1", "Follow-up question 2"],
+  "topic_tags": ["short topic 1", "short topic 2"],
+  "sources": ["Mayo Clinic", "WHO guidelines"],
   "disclaimer": "This information is for educational purposes only. Consult a HealthCircle verified doctor for diagnosis and treatment.",
   "reply": "Conversational response that is warm and helpful — NEVER mention external apps or services"
 }
+
+FIELD RULES:
+- "topic_tags": 1–4 SHORT (1–3 word) topic descriptors that capture what the user is really asking about (examples: "sleep", "anxiety", "diabetes diet", "PCOS", "child fever", "blood pressure"). These power the "Why this answer?" trust footer the user sees in the UI — keep them concrete and specific to the question.
+- "sources": 1–4 SHORT names of the evidence categories you drew from. Use ONLY trusted clinical references like: "Mayo Clinic", "WHO guidelines", "CDC", "NIH", "ICMR guidelines", "AHA (American Heart Association)", "ADA (American Diabetes Association)", "FOGSI guidelines", "IAP guidelines", "NICE guidelines", "Cochrane reviews". NEVER list random websites, blogs, or third-party apps.
 
 CRITICAL: All actions in "recommendations" MUST be things the user can do INSIDE HealthCircle:
 - "Browse our verified doctors directory" / "Tap a specialist card to book"
@@ -52,8 +58,73 @@ export interface StructuredHealthResponse {
   risk_level: RiskLevel;
   recommendations: string[];
   suggested_questions: string[];
+  /** 1–4 short topic descriptors the AI inferred from the user's question.
+   *  Powers the "Why this answer?" trust footer in the UI. */
+  topic_tags: string[];
+  /** 1–4 short clinical-source names the answer is grounded in (e.g.
+   *  "Mayo Clinic", "WHO guidelines"). Surfaced in the same trust footer. */
+  sources: string[];
   disclaimer: string;
   reply: string;
+}
+
+const TRUSTED_SOURCE_ALLOWLIST = new Set([
+  "mayo clinic", "who", "who guidelines", "cdc", "nih", "icmr",
+  "icmr guidelines", "aha", "american heart association", "ada",
+  "american diabetes association", "fogsi", "fogsi guidelines",
+  "iap", "iap guidelines", "nice", "nice guidelines", "cochrane",
+  "cochrane reviews",
+]);
+
+function sanitizeTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return [];
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+  for (const raw of tags) {
+    if (typeof raw !== "string") continue;
+    const t = raw.trim();
+    if (t.length === 0 || t.length > 40) continue;
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    cleaned.push(t);
+    if (cleaned.length >= 4) break;
+  }
+  return cleaned;
+}
+
+// Permitted qualifier words that may follow a trusted source name. This keeps
+// "Mayo Clinic sleep research" or "WHO guidelines on diabetes" valid while
+// rejecting injected prose like "WHO: unofficial blog" or "Mayo Clinic is wrong".
+const SOURCE_QUALIFIER_RE = /^(guidelines?|research|recommendations?|reviews?|advisory|consensus|stud(y|ies)|trials?|protocol|protocols|standards?|criteria|reports?|on|for)(\s|$)/;
+
+function sanitizeSources(sources: unknown): string[] {
+  if (!Array.isArray(sources)) return [];
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+  for (const raw of sources) {
+    if (typeof raw !== "string") continue;
+    const s = raw.trim();
+    if (s.length === 0 || s.length > 60) continue;
+    const k = s.toLowerCase().replace(/[()]/g, "").trim();
+    let allowedHere = false;
+    for (const allowed of TRUSTED_SOURCE_ALLOWLIST) {
+      if (k === allowed) { allowedHere = true; break; }
+      if (k.startsWith(allowed + " ")) {
+        // The trailing fragment after the trusted name must be a clinical
+        // qualifier (e.g. "guidelines", "research") — not arbitrary prose.
+        const tail = k.slice(allowed.length + 1).trim();
+        if (SOURCE_QUALIFIER_RE.test(tail)) { allowedHere = true; break; }
+      }
+    }
+    if (!allowedHere) continue;
+    const dedupeKey = k;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    cleaned.push(s);
+    if (cleaned.length >= 4) break;
+  }
+  return cleaned;
 }
 
 const FORBIDDEN_REFERRALS = [
@@ -77,6 +148,8 @@ function sanitizeResponse(r: StructuredHealthResponse): StructuredHealthResponse
     reply: sanitizeExternalRefs(r.reply),
     recommendations: r.recommendations.map(sanitizeExternalRefs),
     suggested_questions: r.suggested_questions.map(sanitizeExternalRefs),
+    topic_tags: r.topic_tags.map(sanitizeExternalRefs),
+    sources: r.sources.map(sanitizeExternalRefs),
   };
 }
 
@@ -135,6 +208,8 @@ export async function getHealthAssistantResponse(
       risk_level: "low",
       recommendations: [],
       suggested_questions: [],
+      topic_tags: [],
+      sources: [],
       disclaimer: "Consult a HealthCircle verified doctor for diagnosis and treatment.",
       reply: result.text,
     });
@@ -146,6 +221,8 @@ export async function getHealthAssistantResponse(
     risk_level: parsed.risk_level ?? "low",
     recommendations: parsed.recommendations ?? [],
     suggested_questions: parsed.suggested_questions ?? [],
+    topic_tags: sanitizeTags(parsed.topic_tags),
+    sources: sanitizeSources(parsed.sources),
     disclaimer: parsed.disclaimer ?? "Consult a HealthCircle verified doctor for diagnosis and treatment.",
     reply: parsed.reply ?? "I'm here to help. Please share a bit more detail.",
   });
