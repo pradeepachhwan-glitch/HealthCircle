@@ -140,27 +140,37 @@ export function Layout({ children }: { children: ReactNode }) {
         <SidebarContent />
       </div>
 
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4 z-50">
+      {/* Mobile Header — pt-safe respects iOS notch / Android display cutout
+          when the app is launched as a standalone PWA. The .layout-mobile-header
+          utility supplies a min-height that grows to absorb the inset. */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4 z-50 pt-safe layout-mobile-header">
         <Link href="/">
-          <div className="flex items-center gap-2 text-sidebar-foreground cursor-pointer">
+          <div className="flex items-center gap-2 text-sidebar-foreground cursor-pointer min-h-[44px]">
             <HealthCircleLogo size="xs" animate={false} />
           </div>
         </Link>
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:bg-sidebar-accent">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Open menu"
+              className="text-sidebar-foreground hover:bg-sidebar-accent min-h-[44px] min-w-[44px]"
+            >
               <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0 bg-sidebar border-r-sidebar-border">
+          <SheetContent side="left" className="w-72 p-0 bg-sidebar border-r-sidebar-border">
             <SidebarContent />
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 md:pl-64 pt-14 md:pt-0 pb-20 md:pb-0">
+      {/* Main Content — .layout-mobile-shell handles top + bottom padding on
+          mobile (header height + notch inset on top; BottomNav + home bar on
+          bottom) and resets to 0 at the md breakpoint, so the desktop sidebar
+          layout is unaffected. */}
+      <div className="flex-1 md:pl-64 layout-mobile-shell">
         <main className="h-full">
           {children}
         </main>

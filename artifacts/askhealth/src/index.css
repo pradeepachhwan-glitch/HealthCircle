@@ -237,6 +237,45 @@
 }
 
 @layer utilities {
+  /* iOS / Android safe-area utilities. We expose three padding helpers so any
+     fixed/sticky UI (bottom navs, modals, headers) can stay clear of the
+     iPhone notch and home indicator. The base padding is 0 — these only kick
+     in on devices that actually report safe-area insets, so they're safe to
+     use unconditionally on every screen. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe-nav {
+    /* Reserve space for the BottomNav (~64px) PLUS the home-bar inset, so
+       page content never hides behind the iOS home indicator or the nav. */
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+  /* Layout shell padding for mobile: top clears the fixed mobile header
+     (3.5rem) plus any notch inset; bottom clears the BottomNav and home bar.
+     A media query resets both to 0 at the md breakpoint so the desktop
+     sidebar layout is unaffected. We can't use Tailwind's `md:pt-0`
+     responsive variants because inline styles override classes — so the
+     responsive reset has to live inside the same CSS rule. */
+  .layout-mobile-shell {
+    padding-top: calc(3.5rem + env(safe-area-inset-top));
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 768px) {
+    .layout-mobile-shell {
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+  }
+  /* Mobile header height that grows to absorb the iOS notch / Android
+     display cutout. Hidden at md+ (the header itself is md:hidden), but
+     keeping the rule scoped is harmless. */
+  .layout-mobile-header {
+    min-height: calc(3.5rem + env(safe-area-inset-top));
+  }
+
   /* HealthCircle: AI gradient surfaces */
   .bg-ai-gradient {
     background-image: linear-gradient(135deg, #2563EB 0%, #6366F1 50%, #22D3EE 100%);

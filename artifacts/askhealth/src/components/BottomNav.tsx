@@ -14,7 +14,10 @@ export function BottomNav() {
   const [location, navigate] = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border/60 safe-area-pb md:hidden">
+    // pb-safe adds env(safe-area-inset-bottom) so the iOS home indicator
+    // never overlaps the nav buttons. shadow-lg lifts the bar so users can
+    // tell it's docked above content rather than blending into a card.
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border/60 pb-safe shadow-[0_-2px_12px_rgba(15,23,42,0.04)] md:hidden">
       <div className="flex items-center justify-around px-1 py-1">
         {navItems.map((item) => {
           const active = item.href === "/"
@@ -68,13 +71,16 @@ function NavItem({ href, icon: Icon, label, active, navigate }: { href: string; 
     <button
       onClick={() => navigate(href)}
       data-testid={`bottom-nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
+      // min-h-[48px] meets the 44px Apple HIG / Google Material touch-target
+      // floor with a small buffer. Active state gets a subtle pill background
+      // so the selected tab is obvious at a glance on small screens.
       className={cn(
-        "flex flex-col items-center justify-center gap-0.5 py-2 px-3 flex-1 transition-colors",
+        "flex flex-col items-center justify-center gap-0.5 py-1.5 px-2 flex-1 min-h-[48px] rounded-lg mx-0.5 transition-colors active:bg-slate-100",
         active ? "text-primary" : "text-muted-foreground"
       )}
     >
       <Icon className={cn("w-5 h-5 transition-transform", active && "scale-110")} />
-      <span className={cn("text-[10px] font-medium", active ? "text-primary" : "text-muted-foreground/70")}>{label}</span>
+      <span className={cn("text-[10px] font-medium leading-tight", active ? "text-primary" : "text-muted-foreground/70")}>{label}</span>
     </button>
   );
 }
