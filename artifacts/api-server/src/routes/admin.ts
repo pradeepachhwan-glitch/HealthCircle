@@ -102,6 +102,33 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
   const totalCredits = await db.select({ total: sql<number>`SUM(health_credits)` }).from(usersTable);
   const totalHC = Number(totalCredits[0]?.total ?? 0);
 
+  // DAU/WAU/MAU: distinct users with any meaningful activity in the window.
+  // We union across the high-signal user-action tables so a user counts as
+  // active if they posted, commented, asked Yukti, or ran a search. Logging
+  // in alone (no action) doesn't count — that would inflate the numbers.
+  const activeUsersResult = await db.execute<{ dau: number; wau: number; mau: number }>(sql`
+    SELECT
+      COUNT(DISTINCT user_id) FILTER (WHERE created_at >= NOW() - INTERVAL '1 day')   AS dau,
+      COUNT(DISTINCT user_id) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')  AS wau,
+      COUNT(DISTINCT user_id) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS mau
+    FROM (
+      SELECT author_id AS user_id, created_at FROM posts
+      UNION ALL
+      SELECT author_id AS user_id, created_at FROM comments
+      UNION ALL
+      SELECT user_id, created_at FROM search_logs WHERE user_id IS NOT NULL
+      UNION ALL
+      SELECT s.user_id, m.created_at
+        FROM health_chat_messages m
+        JOIN health_chat_sessions s ON s.id = m.session_id
+       WHERE m.role = 'user'
+    ) AS activity
+  `);
+  const activeUsers = activeUsersResult.rows?.[0];
+  const dau = Number(activeUsers?.dau ?? 0);
+  const wau = Number(activeUsers?.wau ?? 0);
+  const mau = Number(activeUsers?.mau ?? 0);
+
   const communities = await db.select().from(communitiesTable).where(eq(communitiesTable.isArchived, false)).orderBy(desc(communitiesTable.createdAt));
   const topCommunities = await Promise.all(communities.map(async (c) => {
     const [mc] = await db.select({ count: count() }).from(communityMembersTable).where(eq(communityMembersTable.communityId, c.id));
@@ -123,6 +150,9 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
     totalComments: Number(commentCount?.count ?? 0),
     weeklyActiveUsers: Number(weeklyUsers?.count ?? 0),
     newUsersThisWeek: Number(newUsersCount?.count ?? 0),
+    dau,
+    wau,
+    mau,
     todayPosts: Number(todayPosts?.count ?? 0),
     pendingAISummaries: Number(pendingAI?.count ?? 0),
     approvedAISummaries: Number(approvedAI?.count ?? 0),

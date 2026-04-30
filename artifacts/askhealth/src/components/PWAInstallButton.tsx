@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Check, Share, X } from "lucide-react";
+import { Download, Check, Share, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -30,6 +30,19 @@ function isStandalone(): boolean {
   return document.referrer.startsWith("android-app://");
 }
 
+// Browsers will not fire `beforeinstallprompt` inside a cross-origin iframe
+// (e.g. the Replit preview iframe). Detect that so we can guide the user to
+// open the app in a real browser tab where install actually works.
+function isInIframe(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    // Cross-origin frame access throws — that itself confirms we're framed.
+    return true;
+  }
+}
+
 export interface PWAInstallButtonProps {
   variant?: "primary" | "ghost" | "compact";
   className?: string;
@@ -45,10 +58,12 @@ export default function PWAInstallButton({
   const [installed, setInstalled] = useState<boolean>(false);
   const [showIosSheet, setShowIosSheet] = useState(false);
   const [platform, setPlatform] = useState<Platform>("other");
+  const [framed, setFramed] = useState(false);
 
   useEffect(() => {
     setPlatform(detectPlatform());
     setInstalled(isStandalone());
+    setFramed(isInIframe());
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
@@ -80,7 +95,8 @@ export default function PWAInstallButton({
     );
   }
 
-  // On iOS Safari there's no beforeinstallprompt — show "Add to Home Screen" instructions.
+  // Click handler always shows *something*: native prompt if available,
+  // otherwise platform-specific instructions sheet.
   const handleClick = async () => {
     if (deferredPrompt) {
       try {
@@ -95,12 +111,13 @@ export default function PWAInstallButton({
       }
       return;
     }
-    if (platform === "ios") {
-      setShowIosSheet(true);
-      return;
-    }
-    // Other platforms with no prompt yet — show iOS-style instructions as a generic guide.
     setShowIosSheet(true);
+  };
+
+  const openInBrowser = () => {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const baseClasses =
@@ -157,6 +174,25 @@ export default function PWAInstallButton({
               </button>
             </div>
 
+            {framed && (
+              <div className="mb-4 p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-xs leading-relaxed">
+                <div className="font-semibold mb-1">You're viewing HealthCircle inside a preview window.</div>
+                Browsers only allow installing a Progressive Web App from a real
+                browser tab — not from inside an embedded frame. Open it in your
+                browser first, then tap Install.
+                <Button
+                  type="button"
+                  onClick={openInBrowser}
+                  className="mt-3 w-full bg-amber-600 hover:bg-amber-700 text-white"
+                  size="sm"
+                  data-testid="pwa-open-in-browser"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open HealthCircle in my browser
+                </Button>
+              </div>
+            )}
+
             {platform === "ios" ? (
               <ol className="space-y-3 text-sm text-slate-700">
                 <li className="flex items-start gap-3">
@@ -174,11 +210,11 @@ export default function PWAInstallButton({
                   <span>Tap <strong>Add</strong> — and you're done!</span>
                 </li>
               </ol>
-            ) : (
+            ) : platform === "android-chrome" ? (
               <ol className="space-y-3 text-sm text-slate-700">
                 <li className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">1</span>
-                  <span>Open the browser <strong>menu</strong> (⋮ on Chrome, ⋯ on Edge).</span>
+                  <span>Tap the <strong>⋮ menu</strong> in the top-right of Chrome.</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">2</span>
@@ -186,13 +222,30 @@ export default function PWAInstallButton({
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">3</span>
-                  <span>Confirm — HealthCircle will appear on your home screen.</span>
+                  <span>Confirm — the HealthCircle icon will appear on your home screen.</span>
+                </li>
+              </ol>
+            ) : (
+              <ol className="space-y-3 text-sm text-slate-700">
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                  <span>Look for the <strong>install icon</strong> (a small monitor with a down-arrow) in your address bar.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                  <span>Or open the browser <strong>menu</strong> (⋮ Chrome, ⋯ Edge) and pick <strong>"Install HealthCircle"</strong>.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+                  <span>Confirm — HealthCircle opens in its own window with no browser bars.</span>
                 </li>
               </ol>
             )}
 
             <div className="mt-6 p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed">
-              Once installed, HealthCircle opens like a native app — full-screen, fast, and right on your home screen.
+              {deferredPrompt
+                ? `Once installed, HealthCircle opens like a native app — full-screen, fast, and right on your home screen.`
+                : `Some browsers only show the one-tap install button after you've spent a few seconds on the site. The steps above work in supported browsers (Chrome, Edge, Brave, Samsung Internet, and iOS Safari). In-app browsers like Instagram or Facebook can't install PWAs — open the link in your normal browser first.`}
             </div>
           </div>
         </div>

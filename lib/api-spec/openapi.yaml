@@ -1187,6 +1187,15 @@ components:
           type: integer
         newUsersThisWeek:
           type: integer
+        dau:
+          type: integer
+          description: Daily active users — distinct users with any activity in last 24h.
+        wau:
+          type: integer
+          description: Weekly active users — distinct users with any activity in last 7 days.
+        mau:
+          type: integer
+          description: Monthly active users — distinct users with any activity in last 30 days.
         topCommunities:
           type: array
           items:

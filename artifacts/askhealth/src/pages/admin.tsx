@@ -785,9 +785,18 @@ export default function Admin() {
               </div>
             ) : stats ? (
               <>
+                {/* Active-user funnel: DAU / WAU / MAU. A user counts as
+                    "active" if they posted, commented, asked Yukti, or
+                    searched in the window — not just by being logged in. */}
+                <div className="grid grid-cols-3 gap-3">
+                  <StatCard icon={Activity} color="bg-emerald-100 text-emerald-700" value={(stats as any).dau ?? 0} label="DAU" sub="active in last 24h" />
+                  <StatCard icon={Activity} color="bg-violet-100 text-violet-700" value={(stats as any).wau ?? 0} label="WAU" sub="active in last 7 days" />
+                  <StatCard icon={Activity} color="bg-blue-100 text-blue-700" value={(stats as any).mau ?? 0} label="MAU" sub="active in last 30 days" />
+                </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                   <StatCard icon={Users} color="bg-blue-100 text-blue-600" value={stats.totalUsers} label="Total Users" sub={`+${stats.newUsersThisWeek} this week`} />
-                  <StatCard icon={Activity} color="bg-violet-100 text-violet-600" value={stats.weeklyActiveUsers} label="Weekly Active" />
+                  <StatCard icon={Activity} color="bg-violet-100 text-violet-600" value={stats.weeklyActiveUsers} label="Weekly Touched" />
                   <StatCard icon={Stethoscope} color="bg-emerald-100 text-emerald-600" value={(stats as any).medProCount ?? 0} label="Med Professionals" />
                   <StatCard icon={ShieldAlert} color="bg-red-100 text-red-600" value={(stats as any).bannedUsers ?? 0} label="Banned Users" />
                   <StatCard icon={Building2} color="bg-cyan-100 text-cyan-600" value={stats.totalCommunities} label="Communities" />

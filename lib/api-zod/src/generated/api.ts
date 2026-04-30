@@ -755,6 +755,24 @@ export const GetAdminStatsResponse = zod.object({
   totalComments: zod.number(),
   weeklyActiveUsers: zod.number(),
   newUsersThisWeek: zod.number(),
+  dau: zod
+    .number()
+    .optional()
+    .describe(
+      "Daily active users — distinct users with any activity in last 24h.",
+    ),
+  wau: zod
+    .number()
+    .optional()
+    .describe(
+      "Weekly active users — distinct users with any activity in last 7 days.",
+    ),
+  mau: zod
+    .number()
+    .optional()
+    .describe(
+      "Monthly active users — distinct users with any activity in last 30 days.",
+    ),
   topCommunities: zod.array(
     zod.object({
       id: zod.number(),

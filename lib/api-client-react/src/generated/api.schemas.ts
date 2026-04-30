@@ -284,6 +284,12 @@ export interface AdminStats {
   totalComments: number;
   weeklyActiveUsers: number;
   newUsersThisWeek: number;
+  /** Daily active users — distinct users with any activity in last 24h. */
+  dau?: number;
+  /** Weekly active users — distinct users with any activity in last 7 days. */
+  wau?: number;
+  /** Monthly active users — distinct users with any activity in last 30 days. */
+  mau?: number;
   topCommunities: Community[];
 }
 
