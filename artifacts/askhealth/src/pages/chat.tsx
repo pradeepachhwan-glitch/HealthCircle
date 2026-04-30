@@ -288,7 +288,12 @@ export default function ChatPage() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Default sidebar OPEN on desktop, CLOSED on mobile. On phones the sidebar
+  // is rendered as a flex sibling that takes 288px, so when it was always
+  // open the message input got pushed off-screen and users couldn't type.
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 768 : true,
+  );
   const [consultationRequested, setConsultationRequested] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
@@ -587,9 +592,21 @@ export default function ChatPage() {
   const activeSession = sessions.find(s => s.id === activeSessionId);
 
   return (
-    <div className="flex h-[100dvh] bg-slate-50 overflow-hidden">
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? "w-72" : "w-0"} flex-shrink-0 transition-all duration-300 overflow-hidden bg-white border-r border-slate-200 flex flex-col`}>
+    <div className="flex h-[100dvh] bg-slate-50 overflow-hidden relative">
+      {/* Mobile backdrop — tap to close sidebar (md+ keeps it as a flex sibling) */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          onClick={() => setSidebarOpen(false)}
+          className="md:hidden fixed inset-0 z-30 bg-black/40"
+        />
+      )}
+      {/* Sidebar — flex sibling on desktop, fixed overlay on mobile so it
+          never pushes the chat input off-screen */}
+      <div
+        className={`${sidebarOpen ? "w-72 translate-x-0" : "w-0 -translate-x-full md:translate-x-0"} fixed md:static inset-y-0 left-0 z-40 md:z-auto flex-shrink-0 transition-all duration-300 overflow-hidden bg-white border-r border-slate-200 flex flex-col`}
+      >
         <div className="p-4 border-b border-slate-100">
           <Link href="/" className="flex items-center gap-2 mb-4 group">
             <span className="font-bold text-slate-900">HealthCircle</span>
