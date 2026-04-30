@@ -29,6 +29,16 @@ export const healthChatMessagesTable = pgTable("health_chat_messages", {
   attachmentType: text("attachment_type"),
   attachmentName: text("attachment_name"),
   language: text("language").notNull().default("en"),
+  // Doctor-in-the-loop verification. Only meaningful for assistant messages.
+  // 'pending' is the honest default for any AI-generated reply: a real
+  // physician has not yet reviewed it. 'verified' is set by a medical pro
+  // through the verify endpoint. We snapshot the doctor's display name at
+  // verification time so the badge keeps reading correctly even if their
+  // profile changes later.
+  verificationStatus: text("verification_status", { enum: ["pending", "verified"] }),
+  verifiedById: integer("verified_by_id").references(() => usersTable.id, { onDelete: "set null" }),
+  verifiedByName: text("verified_by_name"),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -206,11 +206,28 @@ router.patch("/medpro/consultations/:id/resolve", requireMedPro, async (req, res
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const doctor = await getOrCreateUser(clerkId);
-  const id = Number(req.params.id);
-  const { doctorNote, status } = req.body;
 
+  // Resolving a consultation also makes the doctor eligible to stamp the
+  // linked Yukti chat as "Verified by Dr. X" — so only *verified* medical
+  // professionals (not admins, not unverified medpro applicants) may resolve.
+  // This closes a loophole where an admin could self-authorize as a doctor.
+  if (doctor.role !== "medical_professional" || !doctor.isVerifiedPro) {
+    res.status(403).json({
+      error: "Only verified medical professionals can resolve consultations",
+    });
+    return;
+  }
+
+  const id = Number(req.params.id);
+  const { doctorNote } = req.body;
+
+  // Force status to "resolved" — accepting a client-supplied status would
+  // let a doctor write resolvedAt+resolvedById while leaving status as
+  // 'pending' or 'in_review', creating inconsistent rows. The verify
+  // endpoint already requires status='resolved', so honor that invariant
+  // at the write site.
   const [updated] = await db.update(doctorConsultationsTable).set({
-    status: status ?? "resolved",
+    status: "resolved",
     doctorNote: doctorNote ?? null,
     resolvedById: doctor.id,
     resolvedAt: new Date(),

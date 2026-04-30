@@ -2,8 +2,9 @@ import { Router } from "express";
 import { getAuth , pstr } from "../lib/auth";
 import { db, doctorConsultationsTable } from "@workspace/db";
 import { healthChatSessionsTable, healthChatMessagesTable } from "@workspace/db/schema";
-import { eq, desc, and, isNull, gt } from "drizzle-orm";
+import { eq, desc, and, isNull, isNotNull, gt } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
+import { usersTable } from "@workspace/db/schema";
 import { getHealthAssistantResponse } from "../lib/healthAssistant";
 import { detectLanguage } from "../lib/languageDetect";
 import { detectEmergency, buildEmergencyResponse } from "../lib/emergencyDetect";
@@ -151,6 +152,7 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
         intent: structured.intent,
         structuredResponse: structured as unknown as Record<string, unknown>,
         language: emergency.language,
+        verificationStatus: "pending",
       })
       .returning();
     res.json({ userMessage: message, assistantMessage: assistantMsg, structured, emergency: true });
@@ -199,6 +201,7 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
         intent: structured.intent,
         structuredResponse: structured as unknown as Record<string, unknown>,
         language,
+        verificationStatus: "pending",
       })
       .returning();
 
@@ -334,6 +337,104 @@ router.delete("/chat/sessions/:sessionId", requireAuth, async (req, res) => {
 
   await db.delete(healthChatSessionsTable).where(eq(healthChatSessionsTable.id, sessionId));
   res.json({ success: true });
+});
+
+// ── Doctor-in-the-loop verification ────────────────────────────────────────
+// A *verified* medical professional (NOT a regular admin or unverified
+// medpro applicant) can mark an individual Yukti (assistant) message as
+// physician-verified. We require:
+//   1. role === 'medical_professional' AND isVerifiedPro === true.
+//      An admin without medical credentials cannot stamp "Verified by a
+//      doctor" on AI output — that would be dishonest.
+//   2. The verifying doctor must already be assigned to a doctor_consultation
+//      tied to that chat session (i.e. the user explicitly requested a
+//      doctor's review). This prevents random verified doctors from
+//      enumerating or rubber-stamping arbitrary private chats.
+//   3. Verification is idempotent and immutable — once verified the
+//      original verifier is never overwritten.
+router.post("/chat/messages/:messageId/verify", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const verifier = await getOrCreateUser(clerkId);
+
+  if (verifier.role !== "medical_professional" || !verifier.isVerifiedPro) {
+    res.status(403).json({
+      error: "Only verified medical professionals can verify Yukti answers",
+    });
+    return;
+  }
+
+  const messageId = parseInt(pstr(req.params.messageId), 10);
+  if (!Number.isFinite(messageId)) {
+    res.status(400).json({ error: "Invalid message id" }); return;
+  }
+
+  const [msg] = await db
+    .select()
+    .from(healthChatMessagesTable)
+    .where(eq(healthChatMessagesTable.id, messageId));
+
+  if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
+  if (msg.role !== "assistant") {
+    res.status(400).json({ error: "Only assistant messages can be verified" }); return;
+  }
+
+  // Authorization scope FIRST — don't leak the message body of an
+  // already-verified private chat to a doctor who didn't handle it.
+  // Require the consultation to be fully resolved (status='resolved' AND
+  // resolvedAt IS NOT NULL) by this verifier, so partially handled or
+  // half-claimed consultations don't grant verification rights.
+  const [consult] = await db
+    .select({ id: doctorConsultationsTable.id })
+    .from(doctorConsultationsTable)
+    .where(and(
+      eq(doctorConsultationsTable.chatSessionId, msg.sessionId),
+      eq(doctorConsultationsTable.resolvedById, verifier.id),
+      eq(doctorConsultationsTable.status, "resolved"),
+      isNotNull(doctorConsultationsTable.resolvedAt),
+    ))
+    .limit(1);
+
+  if (!consult) {
+    res.status(403).json({
+      error: "You can only verify messages from a consultation you have resolved",
+    });
+    return;
+  }
+
+  // Idempotent: never overwrite a previous verifier's attribution.
+  if (msg.verificationStatus === "verified") {
+    res.status(200).json({ success: true, message: msg, alreadyVerified: true });
+    return;
+  }
+
+  // Concurrency-safe write: only flip to 'verified' if still pending/null.
+  // If a competing request beat us to it, re-read and return that record so
+  // the original verifier's attribution is preserved.
+  const updatedRows = await db
+    .update(healthChatMessagesTable)
+    .set({
+      verificationStatus: "verified",
+      verifiedById: verifier.id,
+      verifiedByName: verifier.displayName,
+      verifiedAt: new Date(),
+    })
+    .where(and(
+      eq(healthChatMessagesTable.id, messageId),
+      isNull(healthChatMessagesTable.verifiedAt),
+    ))
+    .returning();
+
+  if (updatedRows.length === 0) {
+    const [current] = await db
+      .select()
+      .from(healthChatMessagesTable)
+      .where(eq(healthChatMessagesTable.id, messageId));
+    res.status(200).json({ success: true, message: current, alreadyVerified: true });
+    return;
+  }
+
+  res.json({ success: true, message: updatedRows[0] });
 });
 
 export default router;
