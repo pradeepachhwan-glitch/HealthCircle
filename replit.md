@@ -22,7 +22,7 @@ A full-featured healthcare super app combining WhatsApp-style AI chat, a doctor/
 
 ## Artifacts
 
-- `artifacts/askhealth/` — Main React frontend (previewPath: `/`). Installable PWA — `manifest.json`, service worker (`/sw.js`), icons (`/icon.svg`, `/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png`), offline fallback (`/offline.html`). Install button in `src/components/PWAInstallButton.tsx` uses `beforeinstallprompt` for Chromium and shows iOS Add-to-Home-Screen instructions for Safari. SW registers only in `import.meta.env.PROD` to avoid intercepting the workspace dev iframe.
+- `artifacts/askhealth/` — Main React frontend (previewPath: `/`). Installable PWA — `manifest.json`, service worker (`/sw.js`), icons (`/icon.svg`, `/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png`), offline fallback (`/offline.html`). Install button in `src/components/PWAInstallButton.tsx` uses `beforeinstallprompt` for Chromium and shows iOS Add-to-Home-Screen instructions for Safari. SW registers only in `import.meta.env.PROD` to avoid intercepting the workspace dev iframe. **Critical rendering note**: the install instructions modal MUST render via `createPortal(..., document.body)` — `SiteHeader` uses `backdrop-blur-md` (= `backdrop-filter`), which CSS-spec creates a containing block for any fixed-positioned descendants. Without the portal, a `fixed inset-0` overlay rendered inside the header gets trapped inside the 64px-tall sticky header strip and looks like nothing happened when the button is clicked. The sheet also uses `max-h-[calc(100dvh-...)] overflow-y-auto` + safe-area padding so it never overflows on short / landscape phones.
 - `artifacts/api-server/` — Express API server (previewPath: `/api`)
 
 ## Architecture

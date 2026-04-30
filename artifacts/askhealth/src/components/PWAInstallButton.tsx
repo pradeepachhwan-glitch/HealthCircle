@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Download, Check, Share, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -140,7 +141,10 @@ export default function PWAInstallButton({
         {label}
       </Button>
 
-      {showIosSheet && (
+      {showIosSheet && typeof document !== "undefined" && createPortal(
+        // Rendered into document.body via portal — the SiteHeader uses
+        // backdrop-filter, which would otherwise create a containing block
+        // and trap this fixed overlay inside the 64px header strip.
         <div
           className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setShowIosSheet(false)}
@@ -149,7 +153,14 @@ export default function PWAInstallButton({
           aria-labelledby="pwa-install-title"
         >
           <div
-            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 pb-8 animate-in slide-in-from-bottom"
+            // max-h + overflow-y-auto: on short phones (e.g. landscape, or
+            // when the framed banner is also shown) the sheet content can
+            // exceed viewport height. dvh respects the dynamic mobile URL bar,
+            // and the env() insets keep us clear of iOS notches and home bars.
+            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 pb-8 animate-in slide-in-from-bottom max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto"
+            style={{
+              paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-4">
@@ -248,7 +259,8 @@ export default function PWAInstallButton({
                 : `Some browsers only show the one-tap install button after you've spent a few seconds on the site. The steps above work in supported browsers (Chrome, Edge, Brave, Samsung Internet, and iOS Safari). In-app browsers like Instagram or Facebook can't install PWAs — open the link in your normal browser first.`}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
