@@ -243,7 +243,7 @@ router.get("/me/bookmarks", requireAuth, async (req, res) => {
  * Lookup which of the given postIds the user has bookmarked.
  * Returns a Set-like Record keyed by postId for O(1) injection into payloads.
  */
-async function bookmarkSetForUser(postIds: number[], userId?: number): Promise<Set<number>> {
+export async function bookmarkSetForUser(postIds: number[], userId?: number): Promise<Set<number>> {
   if (!userId || postIds.length === 0) return new Set();
   const rows = await db.select({ postId: postBookmarksTable.postId })
     .from(postBookmarksTable)
@@ -346,7 +346,7 @@ type ReactionEmoji = typeof ALLOWED_REACTIONS[number];
  * Group reaction rows for a set of post IDs into a per-post summary.
  * Output: { [postId]: { counts: { emoji: count }, total, mine?: emoji } }
  */
-async function summarizeReactionsForPosts(postIds: number[], currentUserId?: number) {
+export async function summarizeReactionsForPosts(postIds: number[], currentUserId?: number) {
   const out: Record<number, { counts: Record<string, number>; total: number; mine: string | null }> = {};
   if (!postIds.length) return out;
   for (const id of postIds) out[id] = { counts: {}, total: 0, mine: null };
@@ -430,5 +430,4 @@ router.post("/posts/:postId/react", requireAuth, async (req, res) => {
   res.json(summary[postId] ?? { counts: {}, total: 0, mine: null });
 });
 
-export { summarizeReactionsForPosts };
 export default router;

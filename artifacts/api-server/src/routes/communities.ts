@@ -53,7 +53,7 @@ function normalizeIconUrl(value: unknown): { ok: true; value: string | null } | 
 }
 
 router.post("/communities", requireAdmin, async (req, res) => {
-  const { name, slug, description, iconEmoji, iconUrl, coverColor } = req.body;
+  const { name, slug, description, iconEmoji, iconUrl, coverColor, isPubliclyReadable } = req.body;
   const icon = normalizeIconUrl(iconUrl);
   if (!icon.ok) { res.status(400).json({ error: icon.error }); return; }
   const [community] = await db.insert(communitiesTable).values({
@@ -63,6 +63,7 @@ router.post("/communities", requireAdmin, async (req, res) => {
     iconEmoji: iconEmoji ?? null,
     iconUrl: icon.value,
     coverColor: coverColor ?? null,
+    isPubliclyReadable: typeof isPubliclyReadable === "boolean" ? isPubliclyReadable : false,
   }).returning();
   res.status(201).json({ ...community, memberCount: 0, postCount: 0, isMember: false });
 });
@@ -88,7 +89,7 @@ router.get("/communities/:communityId", requireAuth, async (req, res) => {
 
 router.patch("/communities/:communityId", requireAdmin, async (req, res) => {
   const communityId = parseInt(pstr(req.params.communityId), 10);
-  const { name, description, iconEmoji, iconUrl, coverColor, isArchived } = req.body;
+  const { name, description, iconEmoji, iconUrl, coverColor, isArchived, isPubliclyReadable } = req.body;
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (description !== undefined) updates.description = description;
@@ -101,6 +102,7 @@ router.patch("/communities/:communityId", requireAdmin, async (req, res) => {
   }
   if (coverColor !== undefined) updates.coverColor = coverColor;
   if (isArchived !== undefined) updates.isArchived = isArchived;
+  if (typeof isPubliclyReadable === "boolean") updates.isPubliclyReadable = isPubliclyReadable;
 
   const [updated] = await db.update(communitiesTable).set(updates).where(eq(communitiesTable.id, communityId)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }

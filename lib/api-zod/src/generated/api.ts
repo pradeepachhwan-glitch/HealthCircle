@@ -30,6 +30,12 @@ export const ListCommunitiesResponseItem = zod.object({
   iconUrl: zod.string().nullish(),
   coverColor: zod.string().nullish(),
   isArchived: zod.boolean(),
+  isPubliclyReadable: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the community can be browsed read-only by unauthenticated visitors via \/public\/\* endpoints. Writes always require auth.",
+    ),
   memberCount: zod.number(),
   postCount: zod.number(),
   createdAt: zod.coerce.date(),
@@ -45,6 +51,7 @@ export const CreateCommunityBody = zod.object({
   description: zod.string().nullish(),
   iconEmoji: zod.string().nullish(),
   coverColor: zod.string().nullish(),
+  isPubliclyReadable: zod.boolean().nullish(),
 });
 
 /**
@@ -63,6 +70,12 @@ export const GetCommunityResponse = zod.object({
   iconUrl: zod.string().nullish(),
   coverColor: zod.string().nullish(),
   isArchived: zod.boolean(),
+  isPubliclyReadable: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the community can be browsed read-only by unauthenticated visitors via \/public\/\* endpoints. Writes always require auth.",
+    ),
   memberCount: zod.number(),
   postCount: zod.number(),
   createdAt: zod.coerce.date(),
@@ -81,6 +94,7 @@ export const UpdateCommunityBody = zod.object({
   iconEmoji: zod.string().nullish(),
   coverColor: zod.string().nullish(),
   isArchived: zod.boolean().nullish(),
+  isPubliclyReadable: zod.boolean().nullish(),
 });
 
 export const UpdateCommunityResponse = zod.object({
@@ -92,6 +106,12 @@ export const UpdateCommunityResponse = zod.object({
   iconUrl: zod.string().nullish(),
   coverColor: zod.string().nullish(),
   isArchived: zod.boolean(),
+  isPubliclyReadable: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the community can be browsed read-only by unauthenticated visitors via \/public\/\* endpoints. Writes always require auth.",
+    ),
   memberCount: zod.number(),
   postCount: zod.number(),
   createdAt: zod.coerce.date(),
@@ -783,6 +803,12 @@ export const GetAdminStatsResponse = zod.object({
       iconUrl: zod.string().nullish(),
       coverColor: zod.string().nullish(),
       isArchived: zod.boolean(),
+      isPubliclyReadable: zod
+        .boolean()
+        .optional()
+        .describe(
+          "When true, the community can be browsed read-only by unauthenticated visitors via \/public\/\* endpoints. Writes always require auth.",
+        ),
       memberCount: zod.number(),
       postCount: zod.number(),
       createdAt: zod.coerce.date(),
@@ -811,3 +837,154 @@ export const YuktiChatResponse = zod.object({
   reply: zod.string(),
   communityContext: zod.string().nullish(),
 });
+
+/**
+ * @summary List communities that admins have made publicly readable
+ */
+export const ListPublicCommunitiesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().nullish(),
+  iconEmoji: zod.string().nullish(),
+  iconUrl: zod.string().nullish(),
+  coverColor: zod.string().nullish(),
+  isArchived: zod.boolean(),
+  isPubliclyReadable: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the community can be browsed read-only by unauthenticated visitors via \/public\/\* endpoints. Writes always require auth.",
+    ),
+  memberCount: zod.number(),
+  postCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+export const ListPublicCommunitiesResponse = zod.array(
+  ListPublicCommunitiesResponseItem,
+);
+
+/**
+ * @summary Get a publicly readable community by slug
+ */
+export const GetPublicCommunityParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetPublicCommunityResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().nullish(),
+  iconEmoji: zod.string().nullish(),
+  iconUrl: zod.string().nullish(),
+  coverColor: zod.string().nullish(),
+  isArchived: zod.boolean(),
+  isPubliclyReadable: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the community can be browsed read-only by unauthenticated visitors via \/public\/\* endpoints. Writes always require auth.",
+    ),
+  memberCount: zod.number(),
+  postCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List posts in a publicly readable community
+ */
+export const ListPublicPostsParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const ListPublicPostsResponseItem = zod.object({
+  id: zod.number(),
+  communityId: zod.number(),
+  authorId: zod.string(),
+  authorName: zod.string(),
+  authorAvatar: zod.string().nullish(),
+  authorLevel: zod.number().optional(),
+  title: zod.string(),
+  content: zod.string(),
+  imageUrl: zod.string().nullish(),
+  isPinned: zod.boolean(),
+  upvoteCount: zod.number(),
+  commentCount: zod.number(),
+  hasUpvoted: zod.boolean(),
+  isBroadcast: zod.boolean(),
+  contentType: zod
+    .string()
+    .describe("discussion (default) | video | article | audio"),
+  contentUrl: zod.string().nullish(),
+  contentSource: zod
+    .string()
+    .nullish()
+    .describe("youtube | ted | vimeo | spotify | external"),
+  contentThumbnail: zod.string().nullish(),
+  contentDurationSec: zod.number().nullish(),
+  contentSummary: zod.string().nullish(),
+  viewCount: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListPublicPostsResponse = zod.array(ListPublicPostsResponseItem);
+
+/**
+ * @summary Get a single post (only if its community is publicly readable)
+ */
+export const GetPublicPostParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const GetPublicPostResponse = zod.object({
+  id: zod.number(),
+  communityId: zod.number(),
+  authorId: zod.string(),
+  authorName: zod.string(),
+  authorAvatar: zod.string().nullish(),
+  authorLevel: zod.number().optional(),
+  title: zod.string(),
+  content: zod.string(),
+  imageUrl: zod.string().nullish(),
+  isPinned: zod.boolean(),
+  upvoteCount: zod.number(),
+  commentCount: zod.number(),
+  hasUpvoted: zod.boolean(),
+  isBroadcast: zod.boolean(),
+  contentType: zod
+    .string()
+    .describe("discussion (default) | video | article | audio"),
+  contentUrl: zod.string().nullish(),
+  contentSource: zod
+    .string()
+    .nullish()
+    .describe("youtube | ted | vimeo | spotify | external"),
+  contentThumbnail: zod.string().nullish(),
+  contentDurationSec: zod.number().nullish(),
+  contentSummary: zod.string().nullish(),
+  viewCount: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List comments on a publicly readable post
+ */
+export const ListPublicCommentsParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const ListPublicCommentsResponseItem = zod.object({
+  id: zod.number(),
+  postId: zod.number(),
+  authorId: zod.string(),
+  authorName: zod.string(),
+  authorAvatar: zod.string().nullish(),
+  authorLevel: zod.number(),
+  content: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const ListPublicCommentsResponse = zod.array(
+  ListPublicCommentsResponseItem,
+);

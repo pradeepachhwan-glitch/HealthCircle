@@ -407,6 +407,7 @@ export default function Admin() {
     iconEmoji: "",
     iconUrl: "",
     coverColor: "#06b6d4",
+    isPubliclyReadable: false,
   });
   const [logoUploading, setLogoUploading] = useState(false);
   // Track whether the slug has been edited manually so name typing only
@@ -420,7 +421,7 @@ export default function Admin() {
       .slice(0, 60);
   }
   function openCreateCommunity() {
-    setCommunityForm({ name: "", slug: "", description: "", iconEmoji: "", iconUrl: "", coverColor: "#06b6d4" });
+    setCommunityForm({ name: "", slug: "", description: "", iconEmoji: "", iconUrl: "", coverColor: "#06b6d4", isPubliclyReadable: false });
     setSlugTouched(false);
     setCreateCommunityOpen(true);
   }
@@ -432,6 +433,7 @@ export default function Admin() {
       iconEmoji: c.iconEmoji ?? "",
       iconUrl: c.iconUrl ?? "",
       coverColor: c.coverColor ?? "#06b6d4",
+      isPubliclyReadable: !!c.isPubliclyReadable,
     });
     setSlugTouched(true);
     setEditCommunityTarget(c);
@@ -651,7 +653,7 @@ export default function Admin() {
   // (admin-guarded) which already supports name/slug/description/iconEmoji/
   // coverColor — the duplicate /admin/communities PATCH only handles a subset.
   const createCommunity = useMutation({
-    mutationFn: (payload: { name: string; slug: string; description?: string; iconEmoji?: string; iconUrl?: string; coverColor?: string }) =>
+    mutationFn: (payload: { name: string; slug: string; description?: string; iconEmoji?: string; iconUrl?: string; coverColor?: string; isPubliclyReadable?: boolean }) =>
       adminFetch(`${API_BASE}/communities`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -674,7 +676,7 @@ export default function Admin() {
   // Edit an existing community. Uses the full PATCH /communities/:id route so
   // we can update iconEmoji and coverColor in addition to name/description.
   const updateCommunity = useMutation({
-    mutationFn: (payload: { id: number; name?: string; description?: string; iconEmoji?: string; iconUrl?: string | null; coverColor?: string }) =>
+    mutationFn: (payload: { id: number; name?: string; description?: string; iconEmoji?: string; iconUrl?: string | null; coverColor?: string; isPubliclyReadable?: boolean }) =>
       adminFetch(`${API_BASE}/communities/${payload.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -684,6 +686,7 @@ export default function Admin() {
           iconEmoji: payload.iconEmoji,
           iconUrl: payload.iconUrl,
           coverColor: payload.coverColor,
+          isPubliclyReadable: payload.isPubliclyReadable,
         }),
       }).then(async r => {
         if (!r.ok) {
@@ -1429,6 +1432,40 @@ export default function Admin() {
                 </div>
               </div>
             </div>
+
+            {/* Public-readable toggle. When ON, the community's posts/comments
+                can be browsed by anyone (no login) via the /public/* API.
+                Writes (post, react, comment, join) ALWAYS require auth — this
+                only affects read access. */}
+            <div className="flex items-start justify-between gap-3 rounded-md border bg-muted/30 p-3">
+              <div className="min-w-0">
+                <label htmlFor="community-public" className="block text-sm font-medium">
+                  Allow non-members to read posts
+                </label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  When ON, anyone (including search engines and signed-out visitors)
+                  can browse this community's posts and comments. Posting, reacting,
+                  and commenting still require an account.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={communityForm.isPubliclyReadable}
+                id="community-public"
+                onClick={() => setCommunityForm(f => ({ ...f, isPubliclyReadable: !f.isPubliclyReadable }))}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  communityForm.isPubliclyReadable ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+                data-testid="toggle-community-public"
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                    communityForm.isPubliclyReadable ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button
@@ -1447,6 +1484,7 @@ export default function Admin() {
                   // Empty string means "remove the logo" — server normalizes to null.
                   iconUrl: communityForm.iconUrl || "",
                   coverColor: communityForm.coverColor || undefined,
+                  isPubliclyReadable: communityForm.isPubliclyReadable,
                 })}
                 disabled={!communityForm.name.trim() || updateCommunity.isPending}
                 data-testid="button-save-community"
@@ -1462,6 +1500,7 @@ export default function Admin() {
                   iconEmoji: communityForm.iconEmoji || undefined,
                   iconUrl: communityForm.iconUrl || undefined,
                   coverColor: communityForm.coverColor || undefined,
+                  isPubliclyReadable: communityForm.isPubliclyReadable,
                 })}
                 disabled={!communityForm.name.trim() || !communityForm.slug.trim() || createCommunity.isPending}
                 data-testid="button-create-community"

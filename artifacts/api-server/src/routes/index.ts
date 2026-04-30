@@ -20,6 +20,7 @@ import uploadsRouter from "./uploads";
 import publicAiRouter from "./publicAi";
 import teleconsultRouter from "./teleconsult";
 import doctorApplicationsRouter from "./doctorApplications";
+import publicCommunitiesRouter from "./publicCommunities";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(uploadsRouter);
 router.use(publicAiRouter);
 router.use(teleconsultRouter);
 router.use(doctorApplicationsRouter);
+router.use(publicCommunitiesRouter);
 
 export default router;

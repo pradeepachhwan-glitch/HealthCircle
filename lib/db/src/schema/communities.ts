@@ -13,6 +13,13 @@ export const communitiesTable = pgTable("communities", {
   iconUrl: text("icon_url"),
   coverColor: text("cover_color"),
   isArchived: boolean("is_archived").notNull().default(false),
+  // When true, this community's posts/comments can be read by unauthenticated
+  // visitors via the /public/* endpoints — useful for discovery, SEO, and
+  // letting prospective members preview a community before signing up.
+  // Defaults to false so existing communities stay members-only unless an
+  // admin explicitly opts in. Writes (posting, reacting, commenting) always
+  // require auth regardless of this flag.
+  isPubliclyReadable: boolean("is_publicly_readable").notNull().default(false),
   isPremium: boolean("is_premium").notNull().default(false),
   premiumPriceInr: integer("premium_price_inr").notNull().default(0),
   premiumPerks: text("premium_perks"),

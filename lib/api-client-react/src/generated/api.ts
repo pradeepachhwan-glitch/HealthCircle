@@ -2901,3 +2901,428 @@ export const useYuktiChat = <
 > => {
   return useMutation(getYuktiChatMutationOptions(options));
 };
+
+/**
+ * @summary List communities that admins have made publicly readable
+ */
+export const getListPublicCommunitiesUrl = () => {
+  return `/api/public/communities`;
+};
+
+export const listPublicCommunities = async (
+  options?: RequestInit,
+): Promise<Community[]> => {
+  return customFetch<Community[]>(getListPublicCommunitiesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPublicCommunitiesQueryKey = () => {
+  return [`/api/public/communities`] as const;
+};
+
+export const getListPublicCommunitiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPublicCommunities>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicCommunities>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPublicCommunitiesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPublicCommunities>>
+  > = ({ signal }) => listPublicCommunities({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicCommunities>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPublicCommunitiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublicCommunities>>
+>;
+export type ListPublicCommunitiesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List communities that admins have made publicly readable
+ */
+
+export function useListPublicCommunities<
+  TData = Awaited<ReturnType<typeof listPublicCommunities>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicCommunities>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPublicCommunitiesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a publicly readable community by slug
+ */
+export const getGetPublicCommunityUrl = (slug: string) => {
+  return `/api/public/communities/${slug}`;
+};
+
+export const getPublicCommunity = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<Community> => {
+  return customFetch<Community>(getGetPublicCommunityUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicCommunityQueryKey = (slug: string) => {
+  return [`/api/public/communities/${slug}`] as const;
+};
+
+export const getGetPublicCommunityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicCommunity>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicCommunity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPublicCommunityQueryKey(slug);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicCommunity>>
+  > = ({ signal }) => getPublicCommunity(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicCommunity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicCommunityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicCommunity>>
+>;
+export type GetPublicCommunityQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a publicly readable community by slug
+ */
+
+export function useGetPublicCommunity<
+  TData = Awaited<ReturnType<typeof getPublicCommunity>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicCommunity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicCommunityQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List posts in a publicly readable community
+ */
+export const getListPublicPostsUrl = (slug: string) => {
+  return `/api/public/communities/${slug}/posts`;
+};
+
+export const listPublicPosts = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<Post[]> => {
+  return customFetch<Post[]>(getListPublicPostsUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPublicPostsQueryKey = (slug: string) => {
+  return [`/api/public/communities/${slug}/posts`] as const;
+};
+
+export const getListPublicPostsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPublicPosts>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicPosts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPublicPostsQueryKey(slug);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPublicPosts>>> = ({
+    signal,
+  }) => listPublicPosts(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicPosts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPublicPostsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublicPosts>>
+>;
+export type ListPublicPostsQueryError = ErrorType<void>;
+
+/**
+ * @summary List posts in a publicly readable community
+ */
+
+export function useListPublicPosts<
+  TData = Awaited<ReturnType<typeof listPublicPosts>>,
+  TError = ErrorType<void>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicPosts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPublicPostsQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single post (only if its community is publicly readable)
+ */
+export const getGetPublicPostUrl = (postId: number) => {
+  return `/api/public/posts/${postId}`;
+};
+
+export const getPublicPost = async (
+  postId: number,
+  options?: RequestInit,
+): Promise<Post> => {
+  return customFetch<Post>(getGetPublicPostUrl(postId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicPostQueryKey = (postId: number) => {
+  return [`/api/public/posts/${postId}`] as const;
+};
+
+export const getGetPublicPostQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicPost>>,
+  TError = ErrorType<void>,
+>(
+  postId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicPost>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPublicPostQueryKey(postId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicPost>>> = ({
+    signal,
+  }) => getPublicPost(postId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!postId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicPost>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicPostQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicPost>>
+>;
+export type GetPublicPostQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a single post (only if its community is publicly readable)
+ */
+
+export function useGetPublicPost<
+  TData = Awaited<ReturnType<typeof getPublicPost>>,
+  TError = ErrorType<void>,
+>(
+  postId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicPost>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicPostQueryOptions(postId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List comments on a publicly readable post
+ */
+export const getListPublicCommentsUrl = (postId: number) => {
+  return `/api/public/posts/${postId}/comments`;
+};
+
+export const listPublicComments = async (
+  postId: number,
+  options?: RequestInit,
+): Promise<Comment[]> => {
+  return customFetch<Comment[]>(getListPublicCommentsUrl(postId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPublicCommentsQueryKey = (postId: number) => {
+  return [`/api/public/posts/${postId}/comments`] as const;
+};
+
+export const getListPublicCommentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPublicComments>>,
+  TError = ErrorType<void>,
+>(
+  postId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPublicCommentsQueryKey(postId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPublicComments>>
+  > = ({ signal }) => listPublicComments(postId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!postId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicComments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPublicCommentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublicComments>>
+>;
+export type ListPublicCommentsQueryError = ErrorType<void>;
+
+/**
+ * @summary List comments on a publicly readable post
+ */
+
+export function useListPublicComments<
+  TData = Awaited<ReturnType<typeof listPublicComments>>,
+  TError = ErrorType<void>,
+>(
+  postId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPublicComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPublicCommentsQueryOptions(postId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

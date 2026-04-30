@@ -75,7 +75,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/chat", aiRateLimiter);
 app.use("/api/ai", aiRateLimiter);
 app.use("/api/health-search", aiRateLimiter);
-app.use("/api/public", publicAiRateLimiter);
+// Scope the AI demo limiter to ONLY the AI demo endpoint. Mounting it on
+// the whole `/api/public` prefix would also throttle unrelated public read
+// routes (e.g. /api/public/communities, /api/public/posts/...), causing
+// signed-out visitors to hit a misleading "Too many demo questions" 429.
+app.use("/api/public/ask", publicAiRateLimiter);
 app.use("/api/admin", adminRateLimiter);
 app.use("/api/auth", authRateLimiter);
 app.use("/api", generalRateLimiter);

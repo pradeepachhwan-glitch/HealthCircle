@@ -22,6 +22,8 @@ export interface Community {
   /** @nullable */
   coverColor?: string | null;
   isArchived: boolean;
+  /** When true, the community can be browsed read-only by unauthenticated visitors via /public/* endpoints. Writes always require auth. */
+  isPubliclyReadable?: boolean;
   memberCount: number;
   postCount: number;
   createdAt: string;
@@ -36,6 +38,8 @@ export interface CreateCommunityBody {
   iconEmoji?: string | null;
   /** @nullable */
   coverColor?: string | null;
+  /** @nullable */
+  isPubliclyReadable?: boolean | null;
 }
 
 export interface UpdateCommunityBody {
@@ -49,6 +53,8 @@ export interface UpdateCommunityBody {
   coverColor?: string | null;
   /** @nullable */
   isArchived?: boolean | null;
+  /** @nullable */
+  isPubliclyReadable?: boolean | null;
 }
 
 export interface CommunityStats {
