@@ -90,17 +90,21 @@ export default function Broadcast() {
     );
   };
 
-  const handleSend = () => {
-    if (!title.trim() || !content.trim()) {
-      toast.error("Please provide both title and content");
-      return;
-    }
-    if (!postToAll && selectedCommunities.length === 0) {
-      toast.error("Please select at least one community");
-      return;
-    }
+  // Inline validation message: shown directly above the Send button so it
+  // can't be missed (toast-only errors disappear in 3s and are easy to lose).
+  const validationError: string | null = (() => {
+    if (!title.trim()) return "Add an announcement title.";
+    if (!content.trim()) return "Add some body text describing the announcement.";
+    if (!postToAll && selectedCommunities.length === 0) return "Select at least one community, or turn on “Post to all”.";
     if (contentType !== "discussion" && !contentUrl.trim()) {
-      toast.error("Add a URL for the attached content, or switch back to Discussion");
+      return `You picked the ${contentType} tab — paste a ${contentType} URL above, or switch back to the Discussion tab.`;
+    }
+    return null;
+  })();
+
+  const handleSend = () => {
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
@@ -126,7 +130,15 @@ export default function Broadcast() {
           toast.success(`Broadcasted to ${result.postsCreated} communities`);
           setLocation("/admin");
         },
-        onError: () => toast.error("Failed to send broadcast"),
+        onError: (err: unknown) => {
+          // Surface the actual server message instead of a generic "Failed".
+          // The codegen client throws an Error whose message is the response
+          // body when the status is non-2xx — so we render that verbatim.
+          const msg = err instanceof Error && err.message ? err.message : "Unknown error";
+          // eslint-disable-next-line no-console
+          console.error("[broadcast] send failed", err);
+          toast.error(`Broadcast failed: ${msg.slice(0, 200)}`);
+        },
       }
     );
   };
@@ -312,6 +324,14 @@ export default function Broadcast() {
               )}
             </div>
 
+            {validationError && (
+              <div
+                className="mt-4 px-4 py-3 rounded-md border border-amber-300 bg-amber-50 text-amber-900 text-sm dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+                role="alert"
+              >
+                <strong className="font-medium">Can't send yet:</strong> {validationError}
+              </div>
+            )}
             <div className="pt-6 flex justify-end">
               <Button
                 size="lg"
