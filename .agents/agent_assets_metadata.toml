@@ -47,3 +47,9 @@ id = "5tIWHE8YzcFtZBZRdDsCL"
 uri = "file://attached_assets/image_1777485369964.png"
 type = "image"
 title = "HealthCircle Logo - download for Google OAuth consent screen"
+
+[[outputs]]
+id = "8ejiObPVZQgjh5z1kMa6l"
+uri = "file://HEALTHCIRCLE_FEATURES.md"
+type = "text"
+title = "HealthCircle — Features & Flow Reference"
