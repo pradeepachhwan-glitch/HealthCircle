@@ -85,7 +85,19 @@ export default function Broadcast() {
           setContentSummary(res.summary);
           toast.success("AI summary generated");
         },
-        onError: () => toast.error("Couldn't generate summary — try again"),
+        onError: (err: unknown) => {
+          // Surface the real reason so admins know whether to retry, fix the
+          // input, or escalate (e.g. AI service unavailable means the
+          // integration itself is broken — not something a retry will solve).
+          const msg = err instanceof Error && err.message ? err.message : "Unknown error";
+          // eslint-disable-next-line no-console
+          console.error("[summarize] failed", err);
+          if (/AI service unavailable|503/i.test(msg)) {
+            toast.error("AI service is unavailable. The Anthropic/OpenAI integration needs to be reconnected.");
+          } else {
+            toast.error(`Couldn't generate summary: ${msg.slice(0, 200)}`);
+          }
+        },
       }
     );
   };
