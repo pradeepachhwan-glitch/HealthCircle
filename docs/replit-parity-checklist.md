@@ -23,8 +23,8 @@ should not remove existing Replit-era workflows.
 |---|---|---|---|
 | PWA shell | `artifacts/askhealth`, `public/manifest.json`, `public/sw.js` | Cloud Run static serving | Built by Docker image |
 | Auth/session | `/api/auth/*`, `sid` cookie, `sessions` table | `SESSION_SECRET`, HTTPS | Code present |
-| Email OTP | Resend email helper | `RESEND_API_KEY`, `EMAIL_FROM` | Env-dependent |
-| Google login | `/api/auth/google` | `GOOGLE_CLIENT_ID` | Env-dependent |
+| Email OTP | Resend email helper | `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_AUTH_ENABLED=true` | Preserved but hidden in production until sender verification is complete |
+| Google login | `/api/auth/google` | `GOOGLE_CLIENT_ID` | Primary production login |
 | Communities/posts | `routes/communities.ts`, `routes/posts.ts` | DB schema + data | Code present; data must be restored/seeded |
 | Premium unlock | `routes/payments.ts`, UPI flow | DB data; manual confirmation | Code present |
 | Admin console | `pages/admin.tsx`, `/api/admin/*` | admin role or `ADMIN_TOKEN` | Code present |
@@ -55,6 +55,27 @@ Initial hospital account scope is deliberately small:
 - hospital dashboard placeholder after login
 - no insurance-policy features
 - no disruption to patient communities, admin, MedPro, or teleconsult logic
+
+## Production auth mode
+
+Current production login is Google-first / Google-only to remove the Resend OTP
+dependency while the sender domain is being verified. The email/password/OTP
+backend remains in place and can be restored without code changes by setting:
+
+```bash
+EMAIL_AUTH_ENABLED=true
+```
+
+and attaching working Resend secrets:
+
+```text
+RESEND_API_KEY
+EMAIL_FROM
+```
+
+Google login still creates a durable `users` row in PostgreSQL, so admin role
+promotion, MedPro access, doctor applications, community memberships, and audit
+history continue to work from the same database model.
 
 ## Phase 3 - Database and seed verification
 

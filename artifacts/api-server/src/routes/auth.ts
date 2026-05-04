@@ -132,6 +132,7 @@ const resetSchema = z.object({
 router.get("/auth/config", (_req: Request, res: Response) => {
   res.json({
     googleClientId: process.env.GOOGLE_CLIENT_ID ?? null,
+    emailAuthEnabled: process.env.EMAIL_AUTH_ENABLED === "true",
   });
 });
 
