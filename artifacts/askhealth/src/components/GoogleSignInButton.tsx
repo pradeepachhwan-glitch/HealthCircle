@@ -33,6 +33,7 @@ interface Props {
   accountType?: AccountType;
   /** Localised label hint passed to GIS. Defaults to "signin_with". */
   text?: "signin_with" | "signup_with" | "continue_with" | "signin";
+  onConfig?: (config: { googleClientId: string | null; emailAuthEnabled: boolean }) => void;
 }
 
 // ---- GIS script loader (shared across all button instances) ----
@@ -102,7 +103,7 @@ interface WindowWithGoogle extends Window {
   google?: { accounts?: { id?: GoogleAccountsId } };
 }
 
-export function GoogleSignInButton({ onSuccess, onError, accountType = "personal", text = "continue_with" }: Props) {
+export function GoogleSignInButton({ onSuccess, onError, accountType = "personal", text = "continue_with", onConfig }: Props) {
   const { loginWithGoogle } = useAuth();
   const [clientId, setClientId] = useState<string | null>(null);
   const [configChecked, setConfigChecked] = useState(false);
@@ -117,19 +118,24 @@ export function GoogleSignInButton({ onSuccess, onError, accountType = "personal
     let alive = true;
     fetch("/api/auth/config", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { googleClientId: string | null } | null) => {
+      .then((data: { googleClientId: string | null; emailAuthEnabled?: boolean } | null) => {
         if (!alive) return;
         setClientId(data?.googleClientId ?? null);
+        onConfig?.({
+          googleClientId: data?.googleClientId ?? null,
+          emailAuthEnabled: data?.emailAuthEnabled === true,
+        });
         setConfigChecked(true);
       })
       .catch(() => {
         if (!alive) return;
+        onConfig?.({ googleClientId: null, emailAuthEnabled: false });
         setConfigChecked(true);
       });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [onConfig]);
 
   // Step 2: once we have a clientId, load GIS and render the button.
   useEffect(() => {

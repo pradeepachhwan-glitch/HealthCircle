@@ -42,6 +42,8 @@ export default function SignInPage() {
   } = useAuth();
   const [, setLocation] = useLocation();
   const accountType = readAccountType();
+  const [emailAuthEnabled, setEmailAuthEnabled] = useState(false);
+  const [authConfigLoaded, setAuthConfigLoaded] = useState(false);
 
   // Capture an optional ?next=... so users sent to /sign-in from a
   // protected route (e.g. /admin) are returned to where they came from.
@@ -77,6 +79,24 @@ export default function SignInPage() {
   const [cooldown, setCooldown] = useState(0);
 
   const codeInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/auth/config", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { emailAuthEnabled?: boolean } | null) => {
+        if (!alive) return;
+        setEmailAuthEnabled(data?.emailAuthEnabled === true);
+        setAuthConfigLoaded(true);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setAuthConfigLoaded(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Already signed in → home.
   useEffect(() => {
@@ -263,7 +283,7 @@ export default function SignInPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-          {stage === "form" && mode !== "forgot" && (
+          {emailAuthEnabled && stage === "form" && mode !== "forgot" && (
             <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-lg mb-5 text-sm">
               <button
                 type="button"
@@ -318,16 +338,23 @@ export default function SignInPage() {
                 onError={(msg) => setError(msg)}
                 onSuccess={() => goNext()}
               />
-              <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span>or continue with email</span>
-                <div className="flex-1 h-px bg-slate-200" />
-              </div>
+              {emailAuthEnabled ? (
+                <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span>or continue with email</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+              ) : (
+                <p className="mt-4 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs leading-5 text-slate-500">
+                  We use Google Sign-In right now so you can enter securely without waiting for an email OTP.
+                  Email/password access will return after sender verification is complete.
+                </p>
+              )}
             </div>
           )}
 
           {/* ---- Stage: form ---- */}
-          {stage === "form" && (
+          {emailAuthEnabled && stage === "form" && (
             <>
               {mode === "login" && (
                 <form className="mt-6 space-y-4" onSubmit={handleLogin}>
@@ -405,6 +432,12 @@ export default function SignInPage() {
                 </form>
               )}
             </>
+          )}
+
+          {!emailAuthEnabled && stage === "form" && authConfigLoaded && (
+            <div className="mt-5 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs leading-5 text-amber-800">
+              Need a different login method? Contact HealthCircle support. Existing Replit email/OTP code is preserved but temporarily hidden in production.
+            </div>
           )}
 
           {/* ---- Stage: code (signup or forgot) ---- */}
