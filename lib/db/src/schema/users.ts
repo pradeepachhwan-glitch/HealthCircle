@@ -4,6 +4,8 @@ import { z } from "zod/v4";
 
 export const USER_ROLES = ["admin", "moderator", "medical_professional", "member"] as const;
 export type UserRole = typeof USER_ROLES[number];
+export const USER_ACCOUNT_TYPES = ["personal", "hospital"] as const;
+export type UserAccountType = typeof USER_ACCOUNT_TYPES[number];
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -14,6 +16,7 @@ export const usersTable = pgTable("users", {
   mobileNumber: text("mobile_number").unique(),
   avatarUrl: text("avatar_url"),
   role: text("role", { enum: USER_ROLES }).notNull().default("member"),
+  accountType: text("account_type", { enum: USER_ACCOUNT_TYPES }).notNull().default("personal"),
   isBanned: boolean("is_banned").notNull().default(false),
   healthCredits: integer("health_credits").notNull().default(0),
   weeklyCredits: integer("weekly_credits").notNull().default(0),

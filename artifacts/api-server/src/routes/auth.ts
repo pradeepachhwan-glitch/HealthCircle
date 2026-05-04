@@ -29,6 +29,13 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
+const ACCOUNT_TYPES = ["personal", "hospital"] as const;
+type AccountType = typeof ACCOUNT_TYPES[number];
+
+function normaliseAccountType(value: unknown): AccountType {
+  return ACCOUNT_TYPES.includes(value as AccountType) ? (value as AccountType) : "personal";
+}
+
 // ---- Shared helpers --------------------------------------------------------
 
 function userResponse(u: NonNullable<Request["user"]>) {
@@ -40,6 +47,7 @@ function userResponse(u: NonNullable<Request["user"]>) {
     avatarUrl: u.avatarUrl,
     role: u.role,
     isBanned: u.isBanned,
+    accountType: normaliseAccountType((u as unknown as { accountType?: unknown }).accountType),
     username: u.username,
     mobileNumber: u.mobileNumber,
     healthCredits: u.healthCredits,
@@ -94,7 +102,10 @@ const googleClient = new OAuth2Client();
 // ---- Schemas ---------------------------------------------------------------
 
 const emailSchema = z.object({ email: z.string().min(3).max(320) });
-const googleSchema = z.object({ credential: z.string().min(20).max(8192) });
+const googleSchema = z.object({
+  credential: z.string().min(20).max(8192),
+  accountType: z.enum(ACCOUNT_TYPES).optional(),
+});
 const emailCodeSchema = z.object({
   email: z.string().min(3).max(320),
   code: z.string().min(4).max(8),
@@ -103,6 +114,7 @@ const signupSchema = z.object({
   email: z.string().min(3).max(320),
   password: z.string().min(PASSWORD_MIN_LEN).max(PASSWORD_MAX_LEN),
   displayName: z.string().min(1).max(80).optional(),
+  accountType: z.enum(ACCOUNT_TYPES).optional(),
 });
 const loginSchema = z.object({
   email: z.string().min(3).max(320),
@@ -167,6 +179,7 @@ router.post("/auth/signup", async (req: Request, res: Response) => {
 
     const passwordHash = await hashPassword(parsed.data.password);
     const displayName = parsed.data.displayName?.trim() || email.split("@")[0] || "Healthcare Member";
+    const accountType = normaliseAccountType(parsed.data.accountType);
 
     if (existing) {
       // Pre-existing UNVERIFIED row (abandoned signup). Safe to update the
@@ -176,6 +189,7 @@ router.post("/auth/signup", async (req: Request, res: Response) => {
         .set({
           passwordHash,
           displayName: existing.displayName === existing.email.split("@")[0] ? displayName : existing.displayName,
+          accountType,
         })
         .where(eq(usersTable.id, existing.id));
     } else {
@@ -185,6 +199,7 @@ router.post("/auth/signup", async (req: Request, res: Response) => {
         email,
         avatarUrl: null,
         role: "member",
+        accountType,
         isBanned: false,
         healthCredits: 0,
         weeklyCredits: 0,
@@ -628,6 +643,7 @@ router.post("/auth/google", async (req: Request, res: Response) => {
           email,
           avatarUrl,
           role: "member",
+          accountType: normaliseAccountType(parsed.data.accountType),
           isBanned: false,
           healthCredits: 0,
           weeklyCredits: 0,

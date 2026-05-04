@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAuth } from "../lib/auth";
-import { db, usersTable, postsTable, commentsTable, communityMembersTable, communitiesTable } from "@workspace/db";
+import { db, usersTable, postsTable, commentsTable, communityMembersTable, communitiesTable, USER_ACCOUNT_TYPES } from "@workspace/db";
 import { eq, desc, count, and, or } from "drizzle-orm";
 import { requireAuth, requireAdmin, getOrCreateUser, pstr } from "../lib/auth";
 import { checkQuota } from "../lib/quota";
@@ -19,6 +19,7 @@ function toProfile(u: typeof usersTable.$inferSelect) {
   return {
     id: u.clerkId, clerkId: u.clerkId, displayName: u.displayName,
     email: u.email, avatarUrl: u.avatarUrl, role: u.role,
+    accountType: u.accountType,
     isBanned: u.isBanned, healthCredits: u.healthCredits,
     level: u.level, weeklyCredits: u.weeklyCredits, createdAt: u.createdAt,
     specialty: u.specialty ?? null,
@@ -64,7 +65,7 @@ router.get("/users/me", requireAuth, async (req, res) => {
 router.patch("/users/me", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
-  const { displayName, avatarUrl, specialty, registrationNumber, username, mobileNumber } = req.body;
+  const { displayName, avatarUrl, specialty, registrationNumber, username, mobileNumber, accountType } = req.body;
   const updates: Record<string, unknown> = {};
   if (displayName !== undefined) updates.displayName = displayName;
   if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
@@ -72,6 +73,13 @@ router.patch("/users/me", requireAuth, async (req, res) => {
   if (registrationNumber !== undefined) updates.registrationNumber = registrationNumber;
   if (username !== undefined) updates.username = username;
   if (mobileNumber !== undefined) updates.mobileNumber = mobileNumber;
+  if (accountType !== undefined) {
+    if (typeof accountType !== "string" || !USER_ACCOUNT_TYPES.includes(accountType as (typeof USER_ACCOUNT_TYPES)[number])) {
+      res.status(400).json({ error: "Invalid account type" });
+      return;
+    }
+    updates.accountType = accountType;
+  }
 
   const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.clerkId, clerkId)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }

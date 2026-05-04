@@ -40,6 +40,8 @@ import TeleconsultDoctors from "@/pages/TeleconsultDoctors";
 import TeleconsultSession from "@/pages/TeleconsultSession";
 import TeleconsultSummary from "@/pages/TeleconsultSummary";
 import DoctorApply from "@/pages/DoctorApply";
+import AccountTypePage from "@/pages/account-type";
+import HospitalDashboard from "@/pages/hospital-dashboard";
 import Landing from "@/pages/landing/Landing";
 import SolutionsPage from "@/pages/marketing/Solutions";
 import ForDoctorsPage from "@/pages/marketing/ForDoctors";
@@ -63,6 +65,21 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function SignInPage() {
   return <CustomSignIn />;
+}
+
+function HospitalRoute({ children }: { children: React.ReactNode }) {
+  const { isLoading, user } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (user?.accountType !== "hospital" && user?.role !== "admin") {
+    return <Redirect to="/communities" />;
+  }
+  return <>{children}</>;
 }
 
 
@@ -260,7 +277,7 @@ function AuthQueryCacheInvalidator() {
 }
 
 function HomeRedirect() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, user } = useAuth();
   if (isLoading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -268,7 +285,7 @@ function HomeRedirect() {
       </div>
     );
   }
-  if (isAuthenticated) return <Redirect to="/communities" />;
+  if (isAuthenticated) return <Redirect to={user?.accountType === "hospital" ? "/hospital" : "/communities"} />;
   return <Landing />;
 }
 
@@ -278,6 +295,10 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (isLoading || !user) return;
+    if (user.accountType === "hospital") {
+      setDone(true);
+      return;
+    }
     const completed = localStorage.getItem(`onboarding_done_${user.clerkId}`);
     setDone(!!completed);
   }, [isLoading, user]);
@@ -331,6 +352,7 @@ function AppRoutes() {
         <AuthQueryCacheInvalidator />
         <Switch>
           <Route path="/" component={HomeRedirect} />
+          <Route path="/account-type" component={AccountTypePage} />
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/terms" component={TermsPage} />
           <Route path="/privacy" component={PrivacyPage} />
@@ -397,6 +419,10 @@ function AppRoutes() {
 
           <Route path="/become-a-doctor">
             <ProtectedRoute><DoctorApply /></ProtectedRoute>
+          </Route>
+
+          <Route path="/hospital">
+            <ProtectedRoute><HospitalRoute><HospitalDashboard /></HospitalRoute></ProtectedRoute>
           </Route>
 
           <Route path="/admin">

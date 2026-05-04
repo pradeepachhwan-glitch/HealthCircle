@@ -63,7 +63,7 @@ export function SiteFooter() {
           <FooterCol title="Product" links={[
             ["Solutions", "/solutions"],
             ["For Doctors", "/for-doctors"],
-            ["Sign in", "/sign-in"],
+            ["Sign in", "/account-type"],
             ["Try Yukti free", "/#try-yukti"],
           ]} />
 

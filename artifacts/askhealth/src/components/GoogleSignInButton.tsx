@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useAuth } from "@workspace/replit-auth-web";
+import { useAuth, type AccountType } from "@workspace/replit-auth-web";
 
 /**
  * Google Sign-In button (Google Identity Services / GIS).
@@ -30,6 +30,7 @@ import { useAuth } from "@workspace/replit-auth-web";
 interface Props {
   onSuccess: () => void;
   onError: (message: string) => void;
+  accountType?: AccountType;
   /** Localised label hint passed to GIS. Defaults to "signin_with". */
   text?: "signin_with" | "signup_with" | "continue_with" | "signin";
 }
@@ -101,7 +102,7 @@ interface WindowWithGoogle extends Window {
   google?: { accounts?: { id?: GoogleAccountsId } };
 }
 
-export function GoogleSignInButton({ onSuccess, onError, text = "continue_with" }: Props) {
+export function GoogleSignInButton({ onSuccess, onError, accountType = "personal", text = "continue_with" }: Props) {
   const { loginWithGoogle } = useAuth();
   const [clientId, setClientId] = useState<string | null>(null);
   const [configChecked, setConfigChecked] = useState(false);
@@ -154,7 +155,7 @@ export function GoogleSignInButton({ onSuccess, onError, text = "continue_with" 
             }
             setBusy(true);
             try {
-              const result = await loginWithGoogle(resp.credential);
+              const result = await loginWithGoogle(resp.credential, accountType);
               if (result.ok) {
                 onSuccess();
               } else {
@@ -196,7 +197,7 @@ export function GoogleSignInButton({ onSuccess, onError, text = "continue_with" 
     return () => {
       cancelled = true;
     };
-  }, [clientId, loginWithGoogle, onError, onSuccess, text]);
+  }, [accountType, clientId, loginWithGoogle, onError, onSuccess, text]);
 
   // Render NOTHING while config check is in flight, or if Google isn't
   // configured. This means the email/password form stays uncluttered for

@@ -124,7 +124,15 @@ export default function Profile() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-2xl font-bold text-foreground">{user.displayName}</h1>
                       <Badge variant={user.role === "admin" ? "default" : "secondary"} className="text-xs">
-                        {user.role === "admin" ? "Admin" : user.role === "moderator" ? "Moderator" : "Member"}
+                        {user.accountType === "hospital"
+                          ? "Hospital Account"
+                          : user.role === "admin"
+                            ? "Admin"
+                            : user.role === "moderator"
+                              ? "Moderator"
+                              : user.role === "medical_professional"
+                                ? "Medical Professional"
+                                : "Member"}
                       </Badge>
                     </div>
                     <p className="text-muted-foreground text-sm">{user.email}</p>

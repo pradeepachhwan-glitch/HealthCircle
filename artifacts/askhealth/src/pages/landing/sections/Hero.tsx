@@ -250,7 +250,7 @@ export function Hero() {
             <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
           </a>
           <Link
-            href="/sign-in"
+            href="/account-type"
             className="text-sm font-medium text-slate-600 hover:text-slate-900 underline-offset-4 hover:underline"
           >
             or create an account

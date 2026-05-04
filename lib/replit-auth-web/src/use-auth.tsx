@@ -9,6 +9,7 @@ import {
 } from "react";
 
 export type UserRole = "admin" | "moderator" | "medical_professional" | "member";
+export type AccountType = "personal" | "hospital";
 
 export interface AuthUser {
   id: number;
@@ -17,6 +18,7 @@ export interface AuthUser {
   displayName: string;
   avatarUrl: string | null;
   role: UserRole;
+  accountType: AccountType;
   isBanned: boolean;
   username?: string | null;
   mobileNumber?: string | null;
@@ -43,7 +45,7 @@ export interface AuthState {
   isAuthenticated: boolean;
 
   // Password-based flows
-  signup: (email: string, password: string, displayName?: string) => Promise<ApiResult>;
+  signup: (email: string, password: string, displayName?: string, accountType?: AccountType) => Promise<ApiResult>;
   verifyEmail: (email: string, code: string) => Promise<ApiUserResult>;
   resendVerification: (email: string) => Promise<ApiResult>;
   login: (email: string, password: string) => Promise<ApiUserResult>;
@@ -56,7 +58,7 @@ export interface AuthState {
 
   // Google Sign-In: pass the JWT credential string returned by Google
   // Identity Services to the backend for verification + session creation.
-  loginWithGoogle: (credential: string) => Promise<ApiUserResult>;
+  loginWithGoogle: (credential: string, accountType?: AccountType) => Promise<ApiUserResult>;
 
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -140,10 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ---- Password flow -----------------------------------------------------
 
-  const signup = useCallback(async (email: string, password: string, displayName?: string) => {
+  const signup = useCallback(async (email: string, password: string, displayName?: string, accountType: AccountType = "personal") => {
     const trimmed = email.trim();
     if (!trimmed) return { ok: false, error: "Please enter your email address." } as ApiResult;
-    const { status, json } = await postJson("/api/auth/signup", { email: trimmed, password, displayName });
+    const { status, json } = await postJson("/api/auth/signup", { email: trimmed, password, displayName, accountType });
     return toResult(status, json, "Could not create your account right now.");
   }, []);
 
@@ -202,8 +204,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // The credential is a Google-issued JWT (id_token). We forward it as-is
   // to the backend, which verifies the signature server-side. We never trust
   // anything in this token client-side — the server is the source of truth.
-  const loginWithGoogle = useCallback(async (credential: string) => {
-    const { status, json } = await postJson("/api/auth/google", { credential });
+  const loginWithGoogle = useCallback(async (credential: string, accountType: AccountType = "personal") => {
+    const { status, json } = await postJson("/api/auth/google", { credential, accountType });
     const result = toUserResult(status, json, "Could not sign you in with Google.");
     if (result.ok && result.user) setUser(result.user);
     return result;
