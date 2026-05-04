@@ -273,6 +273,50 @@ You should see:
 
 Then open the root URL and confirm the PWA loads.
 
+### If Google Console says `gcr.io repo does not exist`
+
+The Docker build itself is healthy if you see both of these complete:
+
+```text
+pnpm --filter @workspace/askhealth run build
+pnpm --filter @workspace/api-server run build
+```
+
+If the build fails later with this message:
+
+```text
+denied: gcr.io repo does not exist. Creating on push requires the artifactregistry.repositories.createOnPush permission
+```
+
+you are using Google Console's default Docker build trigger, not the
+`cloudbuild.yaml` deployment command above. That console trigger pushes to a
+legacy `gcr.io/...` image path. Create the `gcr.io` compatibility repository
+and give Cloud Build permission to push there:
+
+```bash
+export PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+
+gcloud artifacts repositories create gcr.io \
+  --repository-format=docker \
+  --location=us \
+  --description="gcr.io compatibility repository"
+
+gcloud artifacts repositories add-iam-policy-binding gcr.io \
+  --location=us \
+  --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+```
+
+If Google says the repository already exists, only run the permission command.
+After that, rerun the failed build.
+
+For the cleaner long-term setup, configure the trigger to use
+`cloudbuild.yaml`; that file pushes to:
+
+```text
+${REGION}-docker.pkg.dev/$PROJECT_ID/healthcircle/healthcircle
+```
+
 ## Apply the database schema
 
 The app needs PostgreSQL tables before real sign-in and content flows work.
