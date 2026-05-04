@@ -43,7 +43,11 @@ export function isValidPassword(value: unknown): value is string {
   return typeof value === "string" && value.length >= PASSWORD_MIN_LEN && value.length <= PASSWORD_MAX_LEN;
 }
 
-export const SESSION_COOKIE = "sid";
+// Firebase Hosting only forwards the specially named __session cookie to
+// Cloud Run rewrites. Keep reading the legacy sid cookie for older direct
+// Cloud Run sessions, but issue __session so Firebase-hosted auth persists.
+export const SESSION_COOKIE = "__session";
+export const LEGACY_SESSION_COOKIE = "sid";
 export const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 export const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 export const OTP_MAX_ATTEMPTS = 5;
@@ -111,12 +115,13 @@ export function setSessionCookie(res: Response, sid: string): void {
 export async function clearSession(res: Response, sid?: string): Promise<void> {
   if (sid) await deleteSession(sid);
   res.clearCookie(SESSION_COOKIE, COOKIE_OPTS);
+  res.clearCookie(LEGACY_SESSION_COOKIE, COOKIE_OPTS);
 }
 
 export function getSessionId(req: Request): string | undefined {
   const auth = req.headers["authorization"];
   if (typeof auth === "string" && auth.startsWith("Bearer ")) return auth.slice(7);
-  return req.cookies?.[SESSION_COOKIE];
+  return req.cookies?.[SESSION_COOKIE] ?? req.cookies?.[LEGACY_SESSION_COOKIE];
 }
 
 // ---- Compatibility shim for code that imported getAuth from @clerk/express ----

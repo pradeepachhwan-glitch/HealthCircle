@@ -22,7 +22,7 @@ should not remove existing Replit-era workflows.
 | Area | Existing code | Google dependency | Current status |
 |---|---|---|---|
 | PWA shell | `artifacts/askhealth`, `public/manifest.json`, `public/sw.js` | Cloud Run static serving | Built by Docker image |
-| Auth/session | `/api/auth/*`, `sid` cookie, `sessions` table | `SESSION_SECRET`, HTTPS | Code present |
+| Auth/session | `/api/auth/*`, `__session` cookie, `sessions` table | `SESSION_SECRET`, HTTPS | Code present |
 | Email OTP | Resend email helper | `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_AUTH_ENABLED=true` | Preserved but hidden in production until sender verification is complete |
 | Google login | `/api/auth/google` | `GOOGLE_CLIENT_ID` | Primary production login |
 | Communities/posts | `routes/communities.ts`, `routes/posts.ts` | DB schema + data | Code present; data must be restored/seeded |
@@ -76,6 +76,10 @@ EMAIL_FROM
 Google login still creates a durable `users` row in PostgreSQL, so admin role
 promotion, MedPro access, doctor applications, community memberships, and audit
 history continue to work from the same database model.
+
+Firebase Hosting rewrites only forward the `__session` cookie to Cloud Run.
+HealthCircle therefore issues `__session` for production auth while still
+reading the old `sid` cookie for direct Cloud Run / legacy sessions.
 
 ## Phase 3 - Database and seed verification
 

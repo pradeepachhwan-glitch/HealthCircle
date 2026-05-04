@@ -344,12 +344,7 @@ export default function SignInPage() {
                   <span>or continue with email</span>
                   <div className="flex-1 h-px bg-slate-200" />
                 </div>
-              ) : (
-                <p className="mt-4 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs leading-5 text-slate-500">
-                  We use Google Sign-In right now so you can enter securely without waiting for an email OTP.
-                  Email/password access will return after sender verification is complete.
-                </p>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -432,12 +427,6 @@ export default function SignInPage() {
                 </form>
               )}
             </>
-          )}
-
-          {!emailAuthEnabled && stage === "form" && authConfigLoaded && (
-            <div className="mt-5 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs leading-5 text-amber-800">
-              Need a different login method? Contact HealthCircle support. Existing Replit email/OTP code is preserved but temporarily hidden in production.
-            </div>
           )}
 
           {/* ---- Stage: code (signup or forgot) ---- */}

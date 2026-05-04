@@ -18,7 +18,9 @@ The repository already contains the main product code:
   - WebSocket signaling for teleconsult: `/api/tc/ws/session/:id`
 - PostgreSQL schema and Drizzle commands: `lib/db`
 - Same-origin API calls: the browser calls `/api/...` on the same domain.
-- Session auth uses a secure `sid` cookie, so production must use HTTPS.
+- Session auth uses a secure `__session` cookie on Firebase Hosting rewrites
+  and still reads legacy `sid` cookies for direct Cloud Run sessions, so
+  production must use HTTPS.
 
 The Google deployment added here keeps the frontend and API on the same Cloud
 Run HTTPS origin. That is the simplest first move because it preserves cookies,
@@ -414,7 +416,7 @@ gcloud builds submit \
 - `/api/healthz` returns `{"status":"ok"}`.
 - The landing page loads over HTTPS.
 - Browser DevTools > Application shows the manifest and service worker.
-- Sign-up/sign-in creates a secure `sid` cookie.
+- Sign-in creates a secure `__session` cookie on the Firebase-hosted domain.
 - `/communities`, `/chat`, `/providers`, and `/teleconsult` load after sign-in.
 - Teleconsult WebSocket flow works in two browser windows.
 - Admin bootstrap works once, then refuses after an admin exists.
