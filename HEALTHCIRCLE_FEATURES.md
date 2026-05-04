@@ -117,7 +117,7 @@ Every entry below is a real `<Route>` registered in `artifacts/askhealth/src/App
 | Google sign-in | 🔵 | `routes/auth.ts` (`/auth/google`) | Verifies Google ID token. Needs `GOOGLE_CLIENT_ID` (set). |
 | Password reset by email | ✅ | `routes/auth.ts` | Token-based, time-limited |
 | Email verification flow | 🔵 | `routes/auth.ts` | Sends real email when `RESEND_API_KEY` present (set), otherwise logs to console |
-| Server sessions (`sid` cookie) | ✅ | `lib/auth.ts` | httpOnly, server-side session row |
+| Server sessions (`__session` cookie on Firebase Hosting; legacy `sid` still accepted) | ✅ | `lib/auth.ts` | httpOnly, server-side session row |
 | Role guards (`user`, `moderator`, `medical_professional`, `admin`) | ✅ | `lib/auth.ts` (`requireAdmin`, `requireMedPro`, `requireModeratorOrAdmin`) | Enforced on every protected route |
 | Admin token bypass for ops (`x-admin-token`) | ✅ | `lib/auth.ts` | Uses `ADMIN_TOKEN` env (set). Used for scripts and CI. |
 | Push notifications | ❌ | — | No FCM / web-push code exists. Could be added; not implemented today. |

@@ -3,7 +3,7 @@ import type { Socket } from "net";
 import { WebSocketServer, WebSocket } from "ws";
 import { db, usersTable, tcConsultations, doctorsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { getSessionRow, SESSION_COOKIE } from "./auth";
+import { getSessionRow, LEGACY_SESSION_COOKIE, SESSION_COOKIE } from "./auth";
 import { logger } from "./logger";
 
 function parseCookies(header: string | undefined): Record<string, string> {
@@ -75,7 +75,7 @@ function leaveRoom(roomId: number, peer: RoomPeer) {
 async function authenticateUpgrade(req: IncomingMessage): Promise<{ userId: number } | null> {
   const cookieHeader = req.headers["cookie"];
   const cookies = parseCookies(cookieHeader);
-  const sid = cookies[SESSION_COOKIE];
+  const sid = cookies[SESSION_COOKIE] ?? cookies[LEGACY_SESSION_COOKIE];
   if (!sid) return null;
   const session = await getSessionRow(sid);
   if (!session?.userId) return null;

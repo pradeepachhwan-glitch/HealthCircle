@@ -538,7 +538,7 @@ router.post("/auth/verify-otp", async (req: Request, res: Response) => {
 //      site can't be replayed against us), and check `email_verified`.
 //   5. Find-or-create the user (linking by googleId first, then email so an
 //      existing email/password user can later add Google without losing data).
-//   6. Issue our normal session cookie — same `sid` cookie the rest of the
+//   6. Issue our normal session cookie — same DB-backed cookie the rest of the
 //      auth system uses, so the user is indistinguishable from a password
 //      sign-in for downstream code.
 
