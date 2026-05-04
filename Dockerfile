@@ -22,6 +22,7 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
+ENV CI=true
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV BASE_PATH=/
