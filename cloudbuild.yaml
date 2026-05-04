@@ -1,0 +1,67 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --port
+      - "8080"
+      - --set-env-vars
+      - NODE_ENV=production
+      - --set-env-vars
+      - STATIC_DIR=/app/artifacts/askhealth/dist/public
+      - --min-instances
+      - "0"
+      - --timeout
+      - "300"
+      - --add-cloudsql-instances
+      - ${_CLOUD_SQL_INSTANCE}
+      - --service-account
+      - ${_SERVICE_ACCOUNT}
+      - --update-secrets
+      - DATABASE_URL=DATABASE_URL:latest
+      - --update-secrets
+      - SESSION_SECRET=SESSION_SECRET:latest
+      - --update-secrets
+      - ADMIN_TOKEN=ADMIN_TOKEN:latest
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest
+
+substitutions:
+  _REGION: asia-south1
+  _REPOSITORY: healthcircle
+  _SERVICE: healthcircle
+  _CLOUD_SQL_INSTANCE: ""
+  _SERVICE_ACCOUNT: ""
+
+options:
+  logging: CLOUD_LOGGING_ONLY

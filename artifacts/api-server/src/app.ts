@@ -1,4 +1,6 @@
 import express, { type Express, type ErrorRequestHandler } from "express";
+import path from "node:path";
+import { existsSync } from "node:fs";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -8,6 +10,10 @@ import { logger } from "./lib/logger";
 import { generalRateLimiter, aiRateLimiter, adminRateLimiter, authRateLimiter, publicAiRateLimiter } from "./middleware/rateLimiter";
 
 const app: Express = express();
+
+// Cloud Run sits behind Google's proxy. Trust one proxy hop so req.ip and
+// secure-cookie related Express behavior use the original client request.
+app.set("trust proxy", 1);
 
 app.use(
   pinoHttp({
@@ -32,12 +38,12 @@ app.use(
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
 
-// IMPORTANT: authMiddleware MUST run BEFORE the body parser. authMiddleware
+// IMPORTANT: authMiddleware MUST run BEFORE the API body parser. authMiddleware
 // only reads cookies (no body access), so the order swap is safe — and it
 // lets the parser below pick a per-request size limit based on whether the
 // caller is a real authenticated user. This protects against an unauth client
 // forcing a multi-megabyte parse just to be rejected with 401 afterwards.
-app.use(authMiddleware);
+app.use("/api", authMiddleware);
 
 // /api/uploads/inline owns its own express.json({ limit: "8mb" }) middleware
 // (declared inside the route after requireAuth). Skip the global parser there
@@ -58,7 +64,7 @@ const ANON_JSON_LIMIT = "100kb";
 const authedJson = express.json({ limit: AUTHED_JSON_LIMIT });
 const anonJson = express.json({ limit: ANON_JSON_LIMIT });
 
-app.use((req, res, next) => {
+app.use("/api", (req, res, next) => {
   const normalised = req.path.replace(/\/+$/, "").toLowerCase();
   if (UPLOAD_INLINE_PATHS.has(normalised)) return next();
   // req.user is populated by authMiddleware above for valid sessions only.
@@ -67,7 +73,7 @@ app.use((req, res, next) => {
   const parser = req.user ? authedJson : anonJson;
   return parser(req, res, next);
 });
-app.use(express.urlencoded({ extended: true }));
+app.use("/api", express.urlencoded({ extended: true }));
 
 // Rate limiting — additive guards, not changing route logic. Order matters:
 // the most specific limiters (AI, admin, auth) MUST be registered before the
@@ -85,6 +91,25 @@ app.use("/api/auth", authRateLimiter);
 app.use("/api", generalRateLimiter);
 
 app.use("/api", router);
+
+if (process.env.NODE_ENV === "production") {
+  const staticDir = process.env.STATIC_DIR ?? path.resolve(process.cwd(), "artifacts/askhealth/dist/public");
+  const indexHtml = path.join(staticDir, "index.html");
+
+  if (existsSync(indexHtml)) {
+    app.use(express.static(staticDir, { index: false, maxAge: "1h" }));
+
+    app.use((req, res, next) => {
+      if ((req.method !== "GET" && req.method !== "HEAD") || req.path.startsWith("/api")) {
+        return next();
+      }
+
+      res.sendFile(indexHtml);
+    });
+  } else {
+    logger.warn({ staticDir }, "Production static frontend directory was not found");
+  }
+}
 
 // Convert body-parser errors (PayloadTooLargeError, malformed JSON) into
 // consistent JSON responses instead of Express's default HTML error page.
