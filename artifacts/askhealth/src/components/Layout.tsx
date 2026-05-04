@@ -7,7 +7,7 @@ import {
   getGetMyCreditsSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { useClerk, useAuth } from "@workspace/replit-auth-web";
-import { MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info, Video, BadgeCheck } from "lucide-react";
+import { Building2, MessageCircle, Users, Search, User, Shield, LogOut, Menu, CalendarDays, Stethoscope, HelpCircle, Info, Video, BadgeCheck } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -38,7 +38,13 @@ function SidebarContent() {
   });
   const { signOut } = useClerk();
 
-  const navItems = [
+  const navItems = user?.accountType === "hospital" ? [
+    { href: "/hospital", icon: Building2, label: "Hospital Workspace" },
+    { href: "/communities", icon: Users, label: "Communities" },
+    { href: "/chat", icon: MessageCircle, label: "Ask Yukti AI" },
+    { href: "/providers", icon: Stethoscope, label: "Find Doctors" },
+    { href: "/profile", icon: User, label: "Profile" },
+  ] : [
     { href: "/communities", icon: Users, label: "Communities" },
     { href: "/chat", icon: MessageCircle, label: "Ask Yukti AI" },
     { href: "/teleconsult", icon: Video, label: "Tele-Consult" },
@@ -79,7 +85,9 @@ function SidebarContent() {
               <UserAvatar name={user.displayName} url={user.avatarUrl} className="w-8 h-8 text-xs" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{user.displayName}</div>
-                <div className="text-xs text-sidebar-accent-foreground/70 capitalize">{user.role}</div>
+                <div className="text-xs text-sidebar-accent-foreground/70 capitalize">
+                  {user.accountType === "hospital" ? "Hospital account" : user.role}
+                </div>
               </div>
             </div>
             {credits && (

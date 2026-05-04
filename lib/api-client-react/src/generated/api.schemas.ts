@@ -155,6 +155,14 @@ export const UserProfileRole = {
   member: "member",
 } as const;
 
+export type UserProfileAccountType =
+  (typeof UserProfileAccountType)[keyof typeof UserProfileAccountType];
+
+export const UserProfileAccountType = {
+  personal: "personal",
+  hospital: "hospital",
+} as const;
+
 export interface UserProfile {
   id: string;
   clerkId: string;
@@ -167,6 +175,7 @@ export interface UserProfile {
   /** @nullable */
   avatarUrl?: string | null;
   role: UserProfileRole;
+  accountType: UserProfileAccountType;
   isBanned: boolean;
   healthCredits: number;
   level: number;
@@ -184,6 +193,7 @@ export interface UpdateUserBody {
   displayName?: string | null;
   /** @nullable */
   avatarUrl?: string | null;
+  accountType?: UserProfileAccountType;
 }
 
 export type UpdateUserRoleBodyRole =

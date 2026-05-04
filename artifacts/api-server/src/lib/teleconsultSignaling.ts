@@ -1,7 +1,7 @@
 import type { IncomingMessage, Server as HttpServer } from "http";
 import type { Socket } from "net";
 import { WebSocketServer, WebSocket } from "ws";
-import { db, usersTable, tcConsultations } from "@workspace/db";
+import { db, usersTable, tcConsultations, doctorsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getSessionRow, SESSION_COOKIE } from "./auth";
 import { logger } from "./logger";
@@ -84,14 +84,20 @@ async function authenticateUpgrade(req: IncomingMessage): Promise<{ userId: numb
   return { userId: user.id };
 }
 
-async function authorizeConsultation(consultationId: number, userId: number): Promise<boolean> {
-  const [row] = await db.select({ userId: tcConsultations.userId }).from(tcConsultations).where(eq(tcConsultations.id, consultationId)).limit(1);
-  if (!row) return false;
-  // Owner is always allowed. Doctor-user mapping isn't modelled yet, so for
-  // the MVP only the consultation owner can join the room. Multi-tab from
-  // the same authenticated user still works — that's how the demo proves
-  // WebRTC works end-to-end without leaking access to other users.
-  return row.userId === userId;
+async function authorizeConsultation(consultationId: number, userId: number): Promise<RoomPeer["role"] | null> {
+  const [row] = await db
+    .select({
+      patientUserId: tcConsultations.userId,
+      doctorUserId: doctorsTable.userId,
+    })
+    .from(tcConsultations)
+    .leftJoin(doctorsTable, eq(tcConsultations.doctorId, doctorsTable.id))
+    .where(eq(tcConsultations.id, consultationId))
+    .limit(1);
+  if (!row) return null;
+  if (row.patientUserId === userId) return "patient";
+  if (row.doctorUserId === userId) return "doctor";
+  return null;
 }
 
 const PATH_RE = /^\/api\/tc\/ws\/session\/(\d+)$/;
@@ -99,13 +105,13 @@ const PATH_RE = /^\/api\/tc\/ws\/session\/(\d+)$/;
 export function attachTeleconsultSignaling(server: HttpServer): void {
   const wss = new WebSocketServer({ noServer: true });
 
-  wss.on("connection", (ws: WebSocket, _req: IncomingMessage, ctx: { roomId: number; userId: number }) => {
+  wss.on("connection", (ws: WebSocket, _req: IncomingMessage, ctx: { roomId: number; userId: number; role: RoomPeer["role"] }) => {
     const peerId = `p_${Math.random().toString(36).slice(2, 10)}`;
     const peer: RoomPeer = {
       ws,
       userId: ctx.userId,
       peerId,
-      role: "patient",
+      role: ctx.role,
     };
 
     let room = rooms.get(ctx.roomId);
@@ -123,11 +129,11 @@ export function attachTeleconsultSignaling(server: HttpServer): void {
     room.add(peer);
 
     // Send current peer list to the joining peer.
-    const others = Array.from(room).filter((p) => p !== peer).map((p) => ({ peerId: p.peerId }));
-    sendTo(peer, { type: "welcome", peerId, peers: others });
+    const others = Array.from(room).filter((p) => p !== peer).map((p) => ({ peerId: p.peerId, role: p.role }));
+    sendTo(peer, { type: "welcome", peerId, role: peer.role, peers: others });
 
     // Notify other peers a new peer joined.
-    broadcast(ctx.roomId, peer, { type: "peer-joined", peerId });
+    broadcast(ctx.roomId, peer, { type: "peer-joined", peerId, role: peer.role });
 
     ws.on("message", (raw: WebSocket.RawData) => {
       if (raw.toString().length > MAX_MSG_BYTES) {
@@ -145,7 +151,7 @@ export function attachTeleconsultSignaling(server: HttpServer): void {
       if (parsed.type === "signal" && typeof parsed.to === "string") {
         const target = Array.from(room!).find((p) => p.peerId === parsed.to);
         if (!target) return;
-        sendTo(target, { type: "signal", from: peerId, payload: parsed.payload });
+        sendTo(target, { type: "signal", from: peerId, role: peer.role, payload: parsed.payload });
         return;
       }
 
@@ -154,6 +160,7 @@ export function attachTeleconsultSignaling(server: HttpServer): void {
         broadcast(ctx.roomId, peer, {
           type: "chat",
           from: peerId,
+          role: peer.role,
           text: parsed.text,
           ts: Date.now(),
         });
@@ -196,14 +203,14 @@ export function attachTeleconsultSignaling(server: HttpServer): void {
           socket.destroy();
           return;
         }
-        const allowed = await authorizeConsultation(consultationId, auth.userId);
-        if (!allowed) {
+        const role = await authorizeConsultation(consultationId, auth.userId);
+        if (!role) {
           socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
           socket.destroy();
           return;
         }
         wss.handleUpgrade(req, socket, head, (ws) => {
-          wss.emit("connection", ws, req, { roomId: consultationId, userId: auth.userId });
+          wss.emit("connection", ws, req, { roomId: consultationId, userId: auth.userId, role });
         });
       } catch (err) {
         logger.warn({ err }, "tc-ws upgrade failed");

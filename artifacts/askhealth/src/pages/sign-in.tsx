@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
-import { useAuth } from "@workspace/replit-auth-web";
+import { type AccountType, useAuth } from "@workspace/replit-auth-web";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import HealthCircleLogo from "@/components/HealthCircleLogo";
 
@@ -9,6 +9,25 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Mode = "login" | "signup" | "forgot";
 type Stage = "form" | "code" | "newPassword";
+
+function readAccountType(): AccountType {
+  if (typeof window === "undefined") return "personal";
+  const raw = new URLSearchParams(window.location.search).get("accountType");
+  return raw === "hospital" ? "hospital" : "personal";
+}
+
+const accountCopy: Record<AccountType, { badge: string; login: string; signup: string }> = {
+  personal: {
+    badge: "Personal account",
+    login: "Sign in to continue caring for your health.",
+    signup: "Quick sign-up — we'll verify your email with a 6-digit code.",
+  },
+  hospital: {
+    badge: "Hospital account",
+    login: "Sign in to your hospital workspace.",
+    signup: "Create a hospital workspace account. Content tools will open after verification.",
+  },
+};
 
 export default function SignInPage() {
   const {
@@ -22,14 +41,15 @@ export default function SignInPage() {
     resetPassword,
   } = useAuth();
   const [, setLocation] = useLocation();
+  const accountType = readAccountType();
 
   // Capture an optional ?next=... so users sent to /sign-in from a
   // protected route (e.g. /admin) are returned to where they came from.
   // Only relative same-origin paths are honoured.
   const nextHref = (() => {
-    if (typeof window === "undefined") return `${basePath}/`;
+    if (typeof window === "undefined") return accountType === "hospital" ? "/hospital" : `${basePath}/`;
     const raw = new URLSearchParams(window.location.search).get("next");
-    if (!raw) return `${basePath}/`;
+    if (!raw) return accountType === "hospital" ? "/hospital" : `${basePath}/`;
     try {
       const decoded = decodeURIComponent(raw);
       // Reject anything that isn't a same-origin relative path.
@@ -126,7 +146,7 @@ export default function SignInPage() {
       return;
     }
     setBusy(true);
-    const res = await signup(email, password, displayName.trim() || undefined);
+    const res = await signup(email, password, displayName.trim() || undefined, accountType);
     setBusy(false);
     if (res.ok) {
       setStage("code");
@@ -226,8 +246,8 @@ export default function SignInPage() {
     forgot: "Reset your password",
   };
   const subtitleByMode: Record<Mode, string> = {
-    login: "Sign in to continue caring for your health.",
-    signup: "Quick sign-up — we'll verify your email with a 6-digit code.",
+    login: accountCopy[accountType].login,
+    signup: accountCopy[accountType].signup,
     forgot: "We'll email you a 6-digit code to set a new password.",
   };
 
@@ -280,6 +300,9 @@ export default function SignInPage() {
           )}
 
           <h1 className="text-xl font-semibold text-slate-900">{titleByMode[mode]}</h1>
+          <div className="mt-2 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            {accountCopy[accountType].badge}
+          </div>
           <p className="mt-1 text-sm text-slate-500">{subtitleByMode[mode]}</p>
 
           {/* Google Sign-In: shown ONLY on the email/password form stage so
@@ -291,6 +314,7 @@ export default function SignInPage() {
           {stage === "form" && mode !== "forgot" && (
             <div className="mt-6">
               <GoogleSignInButton
+                accountType={accountType}
                 onError={(msg) => setError(msg)}
                 onSuccess={() => goNext()}
               />
@@ -439,6 +463,10 @@ export default function SignInPage() {
           <Link href="/terms" className="text-primary hover:underline">Terms</Link>
           {" "}&amp;{" "}
           <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+        </p>
+        <p className="text-center text-xs text-slate-400 mt-3">
+          Wrong account type?{" "}
+          <Link href="/account-type" className="text-primary hover:underline">Choose again</Link>.
         </p>
       </div>
     </div>

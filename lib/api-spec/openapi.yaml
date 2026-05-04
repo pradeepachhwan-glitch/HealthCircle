@@ -1067,6 +1067,9 @@ components:
         role:
           type: string
           enum: [admin, moderator, medical_professional, member]
+        accountType:
+          type: string
+          enum: [personal, hospital]
         isBanned:
           type: boolean
         healthCredits:
@@ -1090,6 +1093,7 @@ components:
         - displayName
         - email
         - role
+        - accountType
         - isBanned
         - healthCredits
         - level
@@ -1104,6 +1108,9 @@ components:
           type: ["string", "null"]
         avatarUrl:
           type: ["string", "null"]
+        accountType:
+          type: string
+          enum: [personal, hospital]
 
     UpdateUserRoleBody:
       type: object

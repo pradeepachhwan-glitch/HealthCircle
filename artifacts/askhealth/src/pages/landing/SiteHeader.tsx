@@ -103,7 +103,7 @@ export function SiteHeader() {
             Admin
           </Link>
           <Link
-            href="/sign-in"
+            href="/account-type"
             className="text-sm font-medium px-3 xl:px-3.5 py-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap"
           >
             Sign in
@@ -144,7 +144,7 @@ export function SiteHeader() {
             ))}
             <div className="pt-3 mt-2 border-t border-slate-100 grid grid-cols-2 gap-2">
               <Link
-                href="/sign-in"
+                href="/account-type"
                 className="text-center text-sm font-medium px-4 py-2.5 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50"
               >
                 Sign in

@@ -272,7 +272,7 @@ export function LandingYuktiDemo() {
               <p className="text-base font-bold mb-1">Want to ask more?</p>
               <p className="text-sm text-white/95 mb-4">Create a free account to chat unlimited with Yukti, save your history, and join health communities.</p>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Link href="/sign-in" className="flex-1 text-center px-5 py-2.5 bg-white text-primary rounded-xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2" data-testid="button-yukti-demo-signup">
+                <Link href="/account-type" className="flex-1 text-center px-5 py-2.5 bg-white text-primary rounded-xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2" data-testid="button-yukti-demo-signup">
                   Create free account <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link href="/sign-in" className="flex-1 text-center px-5 py-2.5 bg-white/10 backdrop-blur text-white border border-white/40 rounded-xl font-semibold text-sm hover:bg-white/20 transition-all" data-testid="button-yukti-demo-signin">

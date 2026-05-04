@@ -7,7 +7,7 @@ import {
   tcMessages,
   doctorsTable as doctors,
 } from "@workspace/db";
-import { eq, desc, and, ilike } from "drizzle-orm";
+import { eq, desc, and, ilike, or } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { aiChatJson } from "../lib/aiClient";
 
@@ -20,21 +20,26 @@ function parseId(raw: unknown): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-/**
- * Verifies the given consultation exists AND belongs to the current user.
- * Returns the consultation row, or null if not found / not owned.
- */
-async function getOwnedConsultation(consultationId: number, userId: number) {
+async function getAccessibleConsultation(consultationId: number, userId: number) {
   const [row] = await db
     .select()
     .from(tcConsultations)
-    .where(
-      and(
-        eq(tcConsultations.id, consultationId),
-        eq(tcConsultations.userId, userId),
-      ),
-    );
-  return row ?? null;
+    .where(eq(tcConsultations.id, consultationId));
+  if (!row) return null;
+  if (row.userId === userId) return { consultation: row, role: "patient" as const };
+
+  if (row.doctorId) {
+    const [doctor] = await db
+      .select({ userId: doctors.userId })
+      .from(doctors)
+      .where(eq(doctors.id, row.doctorId))
+      .limit(1);
+    if (doctor?.userId === userId) {
+      return { consultation: row, role: "doctor" as const };
+    }
+  }
+
+  return null;
 }
 
 // ─── TRIAGE ────────────────────────────────────────────────────────────────
@@ -231,17 +236,19 @@ router.get("/tc/consultations", requireAuth, async (req: any, res) => {
   const rows = await db
     .select()
     .from(tcConsultations)
-    .where(eq(tcConsultations.userId, userId))
+    .leftJoin(doctors, eq(doctors.id, tcConsultations.doctorId))
+    .where(or(eq(tcConsultations.userId, userId), eq(doctors.userId, userId)))
     .orderBy(desc(tcConsultations.createdAt));
-  return res.json({ consultations: rows });
+  return res.json({ consultations: rows.map((row) => row.tc_consultations) });
 });
 
 router.get("/tc/consultation/:id", requireAuth, async (req: any, res) => {
   const userId: number = req.user.id;
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: "Invalid id" });
-  const consultation = await getOwnedConsultation(id, userId);
-  if (!consultation) return res.status(404).json({ error: "Not found" });
+  const access = await getAccessibleConsultation(id, userId);
+  if (!access) return res.status(404).json({ error: "Not found" });
+  const consultation = access.consultation;
 
   const [triageSession] = consultation.triageSessionId
     ? await db
@@ -267,6 +274,7 @@ router.get("/tc/consultation/:id", requireAuth, async (req: any, res) => {
 
   return res.json({
     consultation,
+    viewerRole: access.role,
     triageSession: triageSession ?? null,
     doctor: doctorRow ?? null,
     messages,
@@ -277,8 +285,8 @@ router.get("/tc/consultation/:id", requireAuth, async (req: any, res) => {
 router.post("/tc/consultation/:id/start", requireAuth, async (req: any, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: "Invalid id" });
-  const owned = await getOwnedConsultation(id, req.user.id);
-  if (!owned) return res.status(404).json({ error: "Not found" });
+  const access = await getAccessibleConsultation(id, req.user.id);
+  if (!access) return res.status(404).json({ error: "Not found" });
 
   const [updated] = await db
     .update(tcConsultations)
@@ -291,8 +299,8 @@ router.post("/tc/consultation/:id/start", requireAuth, async (req: any, res) => 
 router.post("/tc/consultation/:id/close", requireAuth, async (req: any, res) => {
   const id = parseId(req.params.id);
   if (!id) return res.status(400).json({ error: "Invalid id" });
-  const owned = await getOwnedConsultation(id, req.user.id);
-  if (!owned) return res.status(404).json({ error: "Not found" });
+  const access = await getAccessibleConsultation(id, req.user.id);
+  if (!access) return res.status(404).json({ error: "Not found" });
 
   const { diagnosis, notes, followUpInstructions } = req.body;
   const [updated] = await db
@@ -314,24 +322,21 @@ router.post("/tc/consultation/:id/close", requireAuth, async (req: any, res) => 
 
 router.post("/tc/message", requireAuth, async (req: any, res) => {
   const userId: number = req.user.id;
-  const { consultationId, message, senderRole } = req.body;
+  const { consultationId, message } = req.body;
   const cId = parseId(consultationId);
   if (!cId || typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "consultationId and message required" });
   }
 
-  // Ownership check: only patient who owns the consultation may post here.
-  // (Doctor-side messaging would require its own role check, not yet wired.)
-  const owned = await getOwnedConsultation(cId, userId);
-  if (!owned) return res.status(404).json({ error: "Consultation not found" });
+  const access = await getAccessibleConsultation(cId, userId);
+  if (!access) return res.status(404).json({ error: "Consultation not found" });
 
   const [msg] = await db
     .insert(tcMessages)
     .values({
       consultationId: cId,
       senderId: userId,
-      // senderRole is ignored from input — patient route always logs as patient.
-      senderRole: "patient",
+      senderRole: access.role,
       message: message.trim(),
     })
     .returning();
@@ -349,8 +354,8 @@ router.post("/tc/prescription/generate", requireAuth, async (req: any, res) => {
     return res.status(400).json({ error: "consultationId required" });
   }
 
-  const owned = await getOwnedConsultation(cId, userId);
-  if (!owned) return res.status(404).json({ error: "Consultation not found" });
+  const access = await getAccessibleConsultation(cId, userId);
+  if (!access) return res.status(404).json({ error: "Consultation not found" });
 
   // Sanitize: medications and redFlags must be arrays (frontend .map() expects array)
   const medsArr = Array.isArray(medications) ? medications : null;
@@ -394,8 +399,8 @@ router.get("/tc/prescription/:consultationId", requireAuth, async (req: any, res
   const cId = parseId(req.params.consultationId);
   if (!cId) return res.status(400).json({ error: "Invalid consultationId" });
 
-  const owned = await getOwnedConsultation(cId, req.user.id);
-  if (!owned) return res.status(404).json({ error: "Not found" });
+  const access = await getAccessibleConsultation(cId, req.user.id);
+  if (!access) return res.status(404).json({ error: "Not found" });
 
   const [prescription] = await db
     .select()

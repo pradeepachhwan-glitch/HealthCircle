@@ -53,7 +53,7 @@ export default function Support() {
             title="Doctor onboarding"
             desc="Join as a verified medical professional and help thousands of patients across India."
             cta="Create an account"
-            href="/sign-in"
+            href="/account-type"
             secondary={{
               label: "Or WhatsApp us to get verified",
               onClick: () => openContact("whatsapp", "Doctor Onboarding"),
