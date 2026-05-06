@@ -73,30 +73,26 @@ async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
 
   const body = {
     contents: [
-      // We put the system instruction as a 'user' message at the very beginning
-      // because some versions of the API handle it better this way
       { role: "user", parts: [{ text: `System Instructions: ${systemInstruction}` }] },
       ...history,
       { role: "user", parts: [{ text: opts.userPrompt }] },
     ],
-    generationConfig: { 
-      maxOutputTokens: maxTokens,
-      temperature: 0.7 
-    },
+    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
   };
 
-  try {const response = await fetch(https://www.google.com/search?q=https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey},
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
-      }
-    );
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
       return { ok: false, error: `Gemini ${response.status}: ${errText.slice(0, 200)}` };
     }
+
     const data = (await response.json()) as GeminiResponse;
     const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
     if (!text) return { ok: false, error: "Gemini: empty response" };
@@ -105,14 +101,6 @@ async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
     return { ok: false, error: err instanceof Error ? err.message : "Gemini fetch failed" };
   }
 }
-
-function hasAnthropic(): boolean {
-  return Boolean(process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL && process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY);
-}
-function hasOpenAI(): boolean {
-  return Boolean(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL && process.env.AI_INTEGRATIONS_OPENAI_API_KEY);
-}
-
 interface AnthropicTextBlock { type: "text"; text: string }
 interface AnthropicResponse {
   content?: AnthropicTextBlock[];
