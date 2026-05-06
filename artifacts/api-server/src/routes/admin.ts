@@ -401,12 +401,7 @@ router.patch("/admin/users/:clerkId/role", requireAdmin, async (req, res) => {
       }).catch(() => {});
     }
   }
-      subject: "HealthCircle — New Doctor Verified ✅",
-      text: `A new medical professional has been approved on HealthCircle.\n\nName: ${updated.displayName}\nEmail: ${updated.email}\nRole: ${role}\n\nLogin to Admin GODMODE to review.\nhttps://telehealthcircle.com/admin`,
-      html: `<p>A new medical professional has been approved on HealthCircle.</p><p><strong>Name:</strong> ${updated.displayName}<br/><strong>Email:</strong> ${updated.email}<br/><strong>Role:</strong> ${role}</p><p><a href="https://telehealthcircle.com/admin">Open Admin GODMODE</a></p>`,
-    }).catch(() => {});
-  }
-
+  
   res.json({ success: true, user: updated });
 
 router.get("/admin/consultations/stats", requireAdmin, async (req, res) => {
