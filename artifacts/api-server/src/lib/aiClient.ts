@@ -30,7 +30,7 @@ export interface AIChatOptions {
 export interface AIChatResult {
   /** Raw text content from the model. */
   text: string;
-  provider: "anthropic" | "openai";
+  provider: "anthropic" | "openai" | "gemini";
   /** True if the call succeeded. */
   ok: true;
 }
@@ -89,10 +89,11 @@ async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
     const data = await response.json() as any;
     const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
     if (!text) return { ok: false, error: "Gemini: empty response" };
-    return { ok: true, text, provider: "anthropic" };
+    return { ok: true, text, provider: "gemini" };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Gemini fetch failed" };
   }
+}
 
 function hasAnthropic(): boolean {
   return Boolean(process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL && process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY);
@@ -215,6 +216,29 @@ async function callOpenAI(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
  * Call the AI with automatic provider selection and fallback. Returns the raw
  * text content. Caller is responsible for parsing JSON if jsonMode=true.
  */
+export async function aiChat(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
+  // Try providers in order: Gemini → Anthropic → OpenAI
+  if (hasGemini()) {
+    const result = await callGemini(opts);
+    if (result.ok) return result;
+    logger.warn("Gemini failed, trying Anthropic", result.error);
+  }
+
+  if (hasAnthropic()) {
+    const result = await callAnthropic(opts);
+    if (result.ok) return result;
+    logger.warn("Anthropic failed, trying OpenAI", result.error);
+  }
+
+  if (hasOpenAI()) {
+    const result = await callOpenAI(opts);
+    if (result.ok) return result;
+    logger.warn("OpenAI failed", result.error);
+  }
+
+  return { ok: false, error: "No AI provider configured or all providers failed" };
+}
+
 /** Convenience: aiChat + safe JSON parse. Returns null on any failure. */
 export async function aiChatJson<T>(opts: AIChatOptions): Promise<T | null> {
   const result = await aiChat({ ...opts, jsonMode: true });
