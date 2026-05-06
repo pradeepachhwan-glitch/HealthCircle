@@ -42,6 +42,57 @@ export interface AIChatFailure {
 
 const ANTHROPIC_DEFAULT = "claude-haiku-4-5";
 const OPENAI_DEFAULT = "gpt-4o-mini";
+const GEMINI_DEFAULT = "gemini-2.0-flash";
+
+function hasGemini(): boolean {
+  return Boolean(process.env.GEMINI_API_KEY);
+}
+
+async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
+  const apiKey = process.env.GEMINI_API_KEY!;
+  const model = GEMINI_DEFAULT;
+  const maxTokens = opts.maxTokens ?? 800;
+  const timeoutMs = opts.timeoutMs ?? 8000;
+
+  const systemInstruction = opts.jsonMode
+    ? `${opts.systemPrompt}\n\nIMPORTANT: Respond with ONLY valid JSON, no markdown fences, no prose.`
+    : opts.systemPrompt;
+
+  const history = (opts.history ?? []).slice(-10).map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const body = {
+    system_instruction: { parts: [{ text: systemInstruction }] },
+    contents: [
+      ...history,
+      { role: "user", parts: [{ text: opts.userPrompt }] },
+    ],
+    generationConfig: { maxOutputTokens: maxTokens },
+  };
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      }
+    );
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      return { ok: false, error: `Gemini ${response.status}: ${errText.slice(0, 200)}` };
+    }
+    const data = await response.json() as any;
+    const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
+    if (!text) return { ok: false, error: "Gemini: empty response" };
+    return { ok: true, text, provider: "anthropic" };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Gemini fetch failed" };
+  }
 
 function hasAnthropic(): boolean {
   return Boolean(process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL && process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY);
@@ -165,6 +216,11 @@ async function callOpenAI(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
  * text content. Caller is responsible for parsing JSON if jsonMode=true.
  */
 export async function aiChat(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
+  if (hasGemini()) {
+    const g = await callGemini(opts);
+    if (g.ok) return g;
+    logger.warn({ err: g.error }, "Gemini failed, falling back to Anthropic");
+  }
   if (hasAnthropic()) {
     const a = await callAnthropic(opts);
     if (a.ok) return a;
@@ -180,9 +236,8 @@ export async function aiChat(opts: AIChatOptions): Promise<AIChatResult | AIChat
   if (hasOpenAI()) {
     return callOpenAI(opts);
   }
-  return { ok: false, error: "No AI provider configured (Anthropic or OpenAI)" };
+  return { ok: false, error: "No AI provider configured (Gemini, Anthropic or OpenAI)" };
 }
-
 /** Convenience: aiChat + safe JSON parse. Returns null on any failure. */
 export async function aiChatJson<T>(opts: AIChatOptions): Promise<T | null> {
   const result = await aiChat({ ...opts, jsonMode: true });
