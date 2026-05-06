@@ -140,6 +140,8 @@ The first admin is self-elected via `POST /api/admin/bootstrap` (one-shot, only 
 The app ships as an installable PWA: `manifest.json`, a service worker with network-first navigation + asset caching, an offline fallback page, and an install button that adapts to the browser context (one-tap Chrome prompt, manual instructions for Safari/iOS, warning for in-app webviews where install is impossible).
 
 ---
+## Force rebuild - trigger latest commits
+
 
 ## Known gaps (honest)
 
