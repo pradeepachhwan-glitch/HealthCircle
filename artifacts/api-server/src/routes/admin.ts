@@ -403,7 +403,7 @@ router.patch("/admin/users/:clerkId/role", requireAdmin, async (req, res) => {
   }
   
   res.json({ success: true, user: updated });
-  });
+});
 
 router.get("/admin/consultations/stats", requireAdmin, async (req, res) => {
   const { count: countFn } = await import("drizzle-orm");
