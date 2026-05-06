@@ -505,4 +505,4 @@ router.get("/admin/audit-log", requireAdmin, async (req, res) => {
   res.json({ entries: rows });
 });
 
-module.exports = default router;
+module.exports = router;
