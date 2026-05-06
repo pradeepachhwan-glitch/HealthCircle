@@ -48,6 +48,14 @@ function hasGemini(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
+    };
+  }>;
+}
+
 async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
   const apiKey = process.env.GEMINI_API_KEY!;
   const model = GEMINI_DEFAULT;
@@ -86,7 +94,7 @@ async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
       const errText = await response.text().catch(() => "");
       return { ok: false, error: `Gemini ${response.status}: ${errText.slice(0, 200)}` };
     }
-    const data = await response.json() as any;
+    const data = (await response.json()) as GeminiResponse;
     const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
     if (!text) return { ok: false, error: "Gemini: empty response" };
     return { ok: true, text, provider: "gemini" };
@@ -183,9 +191,12 @@ async function callOpenAI(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
     ];
   }
 
-  const messages: { role: string; content: OpenAIContent }[] = [
+  const messages: Array<{ role: string; content: OpenAIContent }> = [
     { role: "system", content: opts.systemPrompt },
-    ...(opts.history ?? []).slice(-10).map(m => ({ role: m.role, content: m.content as OpenAIContent })),
+    ...(opts.history ?? []).slice(-10).map(m => ({ 
+      role: m.role, 
+      content: m.content as OpenAIContent 
+    })),
     { role: "user", content: userContent },
   ];
 
