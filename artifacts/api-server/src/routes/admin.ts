@@ -6,7 +6,9 @@ import { normaliseContentFields } from "../lib/contentMeta";
 import { aiChat } from "../lib/aiClient";
 import { logger } from "../lib/logger";
 import { recordAudit } from "../lib/audit";
+import { sendEmail } from "../lib/email";
 
+const ADMIN_EMAIL = process.env.ADMIN_NOTIFY_EMAIL ?? "yukticare.support@gmail.com";
 const router = Router();
 
 router.post("/admin/broadcast", requireAdmin, async (req, res) => {
@@ -381,8 +383,17 @@ router.patch("/admin/users/:clerkId/role", requireAdmin, async (req, res) => {
     .returning();
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
   await recordAudit(req, "user.role_change", { type: "user", id: updated.id }, { newRole: role });
+
+  if (role === "medical_professional") {
+    sendEmail({
+      to: ADMIN_EMAIL,
+      subject: "HealthCircle — New Doctor Verified ✅",
+      text: `A new medical professional has been approved on HealthCircle.\n\nName: ${updated.displayName}\nEmail: ${updated.email}\nRole: ${role}\n\nLogin to Admin GODMODE to review.\nhttps://telehealthcircle.com/admin`,
+      html: `<p>A new medical professional has been approved on HealthCircle.</p><p><strong>Name:</strong> ${updated.displayName}<br/><strong>Email:</strong> ${updated.email}<br/><strong>Role:</strong> ${role}</p><p><a href="https://telehealthcircle.com/admin">Open Admin GODMODE</a></p>`,
+    }).catch(() => {});
+  }
+
   res.json({ success: true, user: updated });
-});
 
 router.get("/admin/consultations/stats", requireAdmin, async (req, res) => {
   const { count: countFn } = await import("drizzle-orm");
