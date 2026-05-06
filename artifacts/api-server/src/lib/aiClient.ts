@@ -72,12 +72,17 @@ async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
   }));
 
   const body = {
-    system_instruction: { parts: [{ text: systemInstruction }] },
     contents: [
+      // We put the system instruction as a 'user' message at the very beginning
+      // because some versions of the API handle it better this way
+      { role: "user", parts: [{ text: `System Instructions: ${systemInstruction}` }] },
       ...history,
       { role: "user", parts: [{ text: opts.userPrompt }] },
     ],
-    generationConfig: { maxOutputTokens: maxTokens },
+    generationConfig: { 
+      maxOutputTokens: maxTokens,
+      temperature: 0.7 
+    },
   };
 
   try {
