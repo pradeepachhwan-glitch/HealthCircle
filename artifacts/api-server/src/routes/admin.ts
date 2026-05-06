@@ -391,6 +391,20 @@ router.patch("/admin/users/:clerkId/role", requireAdmin, async (req, res) => {
       text: `A new medical professional has been approved on HealthCircle.\n\nName: ${updated.displayName}\nEmail: ${updated.email}\nRole: ${role}\n\nLogin to Admin GODMODE to review.\nhttps://telehealthcircle.com/admin`,
       html: `<p>A new medical professional has been approved on HealthCircle.</p><p><strong>Name:</strong> ${updated.displayName}<br/><strong>Email:</strong> ${updated.email}<br/><strong>Role:</strong> ${role}</p><p><a href="https://telehealthcircle.com/admin">Open Admin GODMODE</a></p>`,
     }).catch(() => {});
+
+    if (updated.email) {
+      sendEmail({
+        to: updated.email,
+        subject: "Welcome to HealthCircle — You're now a Verified Medical Professional 🎉",
+        text: `Dear ${updated.displayName},\n\nCongratulations! Your profile has been verified on HealthCircle.\n\nYou can now:\n• Post in your specialty community\n• Review AI responses in the Medical Professional portal\n• Support patients with accurate, trusted guidance\n\nGet started here: https://telehealthcircle.com/medpro\n\nThank you for joining us in building India's health continuity layer.\n\nWarm regards,\nDr. Pradeep Achhwan\nFounder, HealthCircle`,
+        html: `<p>Dear ${updated.displayName},</p><p>Congratulations! Your profile has been <strong>verified on HealthCircle</strong>.</p><p>You can now:</p><ul><li>Post in your specialty community</li><li>Review AI responses in the Medical Professional portal</li><li>Support patients with accurate, trusted guidance</li></ul><p><a href="https://telehealthcircle.com/medpro" style="background:#4f46e5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;">Get Started →</a></p><p>Thank you for joining us in building India's health continuity layer.</p><p>Warm regards,<br/><strong>Dr. Pradeep Achhwan</strong><br/>Founder, HealthCircle</p>`,
+      }).catch(() => {});
+    }
+  }
+      subject: "HealthCircle — New Doctor Verified ✅",
+      text: `A new medical professional has been approved on HealthCircle.\n\nName: ${updated.displayName}\nEmail: ${updated.email}\nRole: ${role}\n\nLogin to Admin GODMODE to review.\nhttps://telehealthcircle.com/admin`,
+      html: `<p>A new medical professional has been approved on HealthCircle.</p><p><strong>Name:</strong> ${updated.displayName}<br/><strong>Email:</strong> ${updated.email}<br/><strong>Role:</strong> ${role}</p><p><a href="https://telehealthcircle.com/admin">Open Admin GODMODE</a></p>`,
+    }).catch(() => {});
   }
 
   res.json({ success: true, user: updated });
