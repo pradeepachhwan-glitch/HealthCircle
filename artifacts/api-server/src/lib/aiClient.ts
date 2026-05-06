@@ -85,9 +85,7 @@ async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
     },
   };
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+  try {const response = await fetch(https://www.google.com/search?q=https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey},
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
