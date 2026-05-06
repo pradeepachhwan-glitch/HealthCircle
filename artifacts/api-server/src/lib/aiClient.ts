@@ -215,29 +215,6 @@ async function callOpenAI(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
  * Call the AI with automatic provider selection and fallback. Returns the raw
  * text content. Caller is responsible for parsing JSON if jsonMode=true.
  */
-export async function aiChat(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
-  if (hasGemini()) {
-    const g = await callGemini(opts);
-    if (g.ok) return g;
-    logger.warn({ err: g.error }, "Gemini failed, falling back to Anthropic");
-  }
-  if (hasAnthropic()) {
-    const a = await callAnthropic(opts);
-    if (a.ok) return a;
-    logger.warn({ err: a.error }, "Anthropic failed, falling back to OpenAI");
-    if (hasOpenAI()) {
-      const o = await callOpenAI(opts);
-      if (o.ok) return o;
-      logger.error({ anthropic: a.error, openai: o.error }, "Both AI providers failed");
-      return o;
-    }
-    return a;
-  }
-  if (hasOpenAI()) {
-    return callOpenAI(opts);
-  }
-  return { ok: false, error: "No AI provider configured (Gemini, Anthropic or OpenAI)" };
-}
 /** Convenience: aiChat + safe JSON parse. Returns null on any failure. */
 export async function aiChatJson<T>(opts: AIChatOptions): Promise<T | null> {
   const result = await aiChat({ ...opts, jsonMode: true });
