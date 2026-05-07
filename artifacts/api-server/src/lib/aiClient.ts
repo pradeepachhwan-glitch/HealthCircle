@@ -85,19 +85,23 @@ async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
   }));
 
   const body = {
-    systemInstruction: {
-      parts: [{ text: systemInstruction }],
-    },
-    contents: [
-      ...history,
-      { role: "user", parts: [{ text: opts.userPrompt }] },
-    ],
-    generationConfig: {
-      maxOutputTokens: maxTokens,
-      temperature: 0.7,
-    },
-  };
-
+  contents: [
+    {
+      role: "user",
+      parts: [
+        {
+          text:
+            `${systemInstruction}\n\nUser:\n${opts.userPrompt}`
+        }
+      ]
+    }
+  ],
+  generationConfig: {
+    maxOutputTokens: maxTokens,
+    temperature: 0.4,
+  },
+};
+  
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
