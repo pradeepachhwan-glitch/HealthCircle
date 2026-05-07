@@ -1,8 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://telehealthcircle.com/</loc>
-    <lastmod>2026-05-07</lastmod>
-    <priority>1.0</priority>
-  </url>
+  <url><loc>https://telehealthcircle.com/</loc><priority>1.0</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/alternative-medicine</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/bone-joint-health</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/cancer-support</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/child-health</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/diabetes-care</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/digital-health</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/elder-care</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/fertility-ivf</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/heart-health</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/infectious-diseases</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/mental-wellness</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/neurology-brain</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/nutrition-diet</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/pcos-womens-health</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/pregnancy-motherhood</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/respiratory-health</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/sleep-recovery</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/thyroid-hormonal</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/weight-loss-fitness</loc><priority>0.8</priority></url>
+  <url><loc>https://telehealthcircle.com/communities/work-stress-burnout</loc><priority>0.8</priority></url>
 </urlset>
