@@ -1,13 +1,12 @@
 /**
  * Unified AI client for HealthCircle.
  *
- * Strategy: try Anthropic (claude-haiku-4-5 — very fast) first, fall back to
- * OpenAI (gpt-4o-mini) if Anthropic isn't configured or fails. Both calls have
- * tight timeouts so the user never waits more than ~10s in the worst case.
+ * Strategy: try Gemini first, fall back to OpenAI, then Anthropic.
  *
  * All callers pass a JSON-shaped prompt. The client guarantees JSON parsing
- * (or null if both providers fail), so the rest of the codebase stays simple.
+ * (or null if all providers fail), so the rest of the codebase stays simple.
  */
+
 import { logger } from "./logger";
 
 export interface AIChatOptions {
@@ -48,6 +47,20 @@ function hasGemini(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
+function hasAnthropic(): boolean {
+  return Boolean(
+    process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL &&
+    process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY
+  );
+}
+
+function hasOpenAI(): boolean {
+  return Boolean(
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL &&
+    process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  );
+}
+
 interface GeminiResponse {
   candidates?: Array<{
     content?: {
@@ -72,36 +85,61 @@ async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
   }));
 
   const body = {
+    systemInstruction: {
+      parts: [{ text: systemInstruction }],
+    },
     contents: [
-      { role: "user", parts: [{ text: `System Instructions: ${systemInstruction}` }] },
       ...history,
       { role: "user", parts: [{ text: opts.userPrompt }] },
     ],
-    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
+    generationConfig: {
+      maxOutputTokens: maxTokens,
+      temperature: 0.7,
+    },
   };
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      }
+    );
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      return { ok: false, error: `Gemini ${response.status}: ${errText.slice(0, 200)}` };
+      return {
+        ok: false,
+        error: `Gemini ${response.status}: ${errText.slice(0, 200)}`,
+      };
     }
 
     const data = (await response.json()) as GeminiResponse;
-    const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
-    if (!text) return { ok: false, error: "Gemini: empty response" };
+    const text = (
+      data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
+    ).trim();
+
+    if (!text) {
+      return { ok: false, error: "Gemini: empty response" };
+    }
+
     return { ok: true, text, provider: "gemini" };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Gemini fetch failed" };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Gemini fetch failed",
+    };
   }
 }
-interface AnthropicTextBlock { type: "text"; text: string }
+
+interface AnthropicTextBlock {
+  type: "text";
+  text: string;
+}
+
 interface AnthropicResponse {
   content?: AnthropicTextBlock[];
   stop_reason?: string;
@@ -114,27 +152,35 @@ async function callAnthropic(opts: AIChatOptions): Promise<AIChatResult | AIChat
   const maxTokens = opts.maxTokens ?? 800;
   const timeoutMs = opts.timeoutMs ?? 8000;
 
-  // Anthropic messages format: history + final user turn.
-  // NOTE: Anthropic vision requires base64-encoded images (not URLs). For
-  // simplicity we route any image-attachment call to OpenAI by returning a
-  // failure here — aiChat will fall through to OpenAI which DOES accept URLs.
+  // Anthropic vision requires base64-encoded images.
   if (opts.attachment?.url && opts.attachment.type.startsWith("image/")) {
-    return { ok: false, error: "Anthropic vision requires base64; deferring to OpenAI for image attachments" };
+    return {
+      ok: false,
+      error: "Anthropic vision requires base64; deferring to OpenAI for image attachments",
+    };
   }
 
   type Block = { type: "text"; text: string };
+
   const history = (opts.history ?? []).slice(-10).map(m => ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: [{ type: "text" as const, text: m.content }],
   }));
 
-  const userBlocks: Block[] = [{ type: "text", text: opts.userPrompt }];
+  const userBlocks: Block[] = [
+    { type: "text", text: opts.userPrompt },
+  ];
 
   const body = {
     model,
     max_tokens: maxTokens,
-    system: opts.jsonMode ? `${opts.systemPrompt}\n\nIMPORTANT: Respond with ONLY valid JSON, no markdown fences, no prose.` : opts.systemPrompt,
-    messages: [...history, { role: "user", content: userBlocks }],
+    system: opts.jsonMode
+      ? `${opts.systemPrompt}\n\nIMPORTANT: Respond with ONLY valid JSON, no markdown fences, no prose.`
+      : opts.systemPrompt,
+    messages: [
+      ...history,
+      { role: "user", content: userBlocks },
+    ],
   };
 
   try {
@@ -148,16 +194,33 @@ async function callAnthropic(opts: AIChatOptions): Promise<AIChatResult | AIChat
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
+
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      return { ok: false, error: `Anthropic ${response.status}: ${errText.slice(0, 200)}` };
+      return {
+        ok: false,
+        error: `Anthropic ${response.status}: ${errText.slice(0, 200)}`,
+      };
     }
+
     const data = (await response.json()) as AnthropicResponse;
-    const text = (data.content ?? []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
-    if (!text) return { ok: false, error: "Anthropic: empty response" };
+
+    const text = (data.content ?? [])
+      .filter(b => b.type === "text")
+      .map(b => b.text)
+      .join("\n")
+      .trim();
+
+    if (!text) {
+      return { ok: false, error: "Anthropic: empty response" };
+    }
+
     return { ok: true, text, provider: "anthropic" };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Anthropic fetch failed" };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Anthropic fetch failed",
+    };
   }
 }
 
@@ -172,9 +235,15 @@ async function callOpenAI(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
   const maxTokens = opts.maxTokens ?? 800;
   const timeoutMs = opts.timeoutMs ?? 8000;
 
-  // OpenAI accepts a vision content array on the user turn.
-  type OpenAIContent = string | ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[];
+  type OpenAIContent =
+    | string
+    | (
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+      )[];
+
   let userContent: OpenAIContent = opts.userPrompt;
+
   if (opts.attachment?.url && opts.attachment.type.startsWith("image/")) {
     userContent = [
       { type: "text", text: opts.userPrompt },
@@ -184,71 +253,134 @@ async function callOpenAI(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
 
   const messages: Array<{ role: string; content: OpenAIContent }> = [
     { role: "system", content: opts.systemPrompt },
-    ...(opts.history ?? []).slice(-10).map(m => ({ 
-      role: m.role, 
-      content: m.content as OpenAIContent 
+    ...(opts.history ?? []).slice(-10).map(m => ({
+      role: m.role,
+      content: m.content as OpenAIContent,
     })),
     { role: "user", content: userContent },
   ];
 
-  const body: Record<string, unknown> = { model, messages, max_tokens: maxTokens };
-  if (opts.jsonMode) body.response_format = { type: "json_object" };
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    max_tokens: maxTokens,
+  };
+
+  if (opts.jsonMode) {
+    body.response_format = { type: "json_object" };
+  }
 
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
+
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      return { ok: false, error: `OpenAI ${response.status}: ${errText.slice(0, 200)}` };
+      return {
+        ok: false,
+        error: `OpenAI ${response.status}: ${errText.slice(0, 200)}`,
+      };
     }
+
     const data = (await response.json()) as OpenAIResponse;
-    const text = (data.choices?.[0]?.message?.content ?? "").trim();
-    if (!text) return { ok: false, error: "OpenAI: empty response" };
+
+    const text = (
+      data.choices?.[0]?.message?.content ?? ""
+    ).trim();
+
+    if (!text) {
+      return { ok: false, error: "OpenAI: empty response" };
+    }
+
     return { ok: true, text, provider: "openai" };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "OpenAI fetch failed" };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "OpenAI fetch failed",
+    };
   }
 }
 
 /**
- * Call the AI with automatic provider selection and fallback. Returns the raw
- * text content. Caller is responsible for parsing JSON if jsonMode=true.
+ * Call the AI with automatic provider selection and fallback.
+ * Order: Gemini → OpenAI → Anthropic
  */
-export async function aiChat(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
-  // Try providers in order: Gemini → Anthropic → OpenAI
+export async function aiChat(
+  opts: AIChatOptions
+): Promise<AIChatResult | AIChatFailure> {
+
+  // 1. Gemini
   if (hasGemini()) {
     const result = await callGemini(opts);
-    if (result.ok) return result;
-    logger.warn("Gemini failed, trying Anthropic", result.error);
+
+    if (result.ok) {
+      return result;
+    }
+
+    logger.warn("Gemini failed, trying OpenAI", result.error);
   }
 
-  if (hasAnthropic()) {
-    const result = await callAnthropic(opts);
-    if (result.ok) return result;
-    logger.warn("Anthropic failed, trying OpenAI", result.error);
-  }
-
+  // 2. OpenAI
   if (hasOpenAI()) {
     const result = await callOpenAI(opts);
-    if (result.ok) return result;
-    logger.warn("OpenAI failed", result.error);
+
+    if (result.ok) {
+      return result;
+    }
+
+    logger.warn("OpenAI failed, trying Anthropic", result.error);
   }
 
-  return { ok: false, error: "No AI provider configured or all providers failed" };
+  // 3. Anthropic
+  if (hasAnthropic()) {
+    const result = await callAnthropic(opts);
+
+    if (result.ok) {
+      return result;
+    }
+
+    logger.warn("Anthropic failed", result.error);
+  }
+
+  return {
+    ok: false,
+    error: "No AI provider configured or all providers failed",
+  };
 }
 
-/** Convenience: aiChat + safe JSON parse. Returns null on any failure. */
-export async function aiChatJson<T>(opts: AIChatOptions): Promise<T | null> {
-  const result = await aiChat({ ...opts, jsonMode: true });
-  if (!result.ok) return null;
+/**
+ * Convenience: aiChat + safe JSON parse.
+ * Returns null on any failure.
+ */
+export async function aiChatJson<T>(
+  opts: AIChatOptions
+): Promise<T | null> {
+
+  const result = await aiChat({
+    ...opts,
+    jsonMode: true,
+  });
+
+  if (!result.ok) {
+    return null;
+  }
+
   try {
-    // Strip ```json ... ``` fences if a model wrapped them despite instructions.
-    const cleaned = result.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    // Strip ```json ... ``` fences if model wraps them.
+    const cleaned = result.text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "")
+      .trim();
+
     return JSON.parse(cleaned) as T;
+
   } catch {
     return null;
   }
