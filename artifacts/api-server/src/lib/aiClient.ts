@@ -1,10 +1,8 @@
 /**
  * Unified AI client for HealthCircle.
  *
- * Strategy: try Gemini first, fall back to OpenAI, then Anthropic.
- *
- * All callers pass a JSON-shaped prompt. The client guarantees JSON parsing
- * (or null if all providers fail), so the rest of the codebase stays simple.
+ * OpenAI-only implementation for Yukti Engine.
+ * Clean, stable, and minimal.
  */
 
 import { logger } from "./logger";
@@ -12,25 +10,17 @@ import { logger } from "./logger";
 export interface AIChatOptions {
   systemPrompt: string;
   userPrompt: string;
-  /** Conversation history as plain {role, content} pairs. Optional. */
   history?: { role: string; content: string }[];
-  /** Optional vision (image/PDF) attachment passed through as a Claude image_url. */
   attachment?: { url: string; type: string } | null;
-  /** Hard timeout per provider attempt. Default 8000 ms. */
   timeoutMs?: number;
-  /** Response cap in tokens. Default 800. */
   maxTokens?: number;
-  /** If true, request strict JSON object response (where supported). */
   jsonMode?: boolean;
-  /** Any provider-specific override. */
-  modelOverride?: { anthropic?: string; openai?: string };
+  modelOverride?: { openai?: string };
 }
 
 export interface AIChatResult {
-  /** Raw text content from the model. */
   text: string;
-  provider: "anthropic" | "openai" | "gemini";
-  /** True if the call succeeded. */
+  provider: "openai";
   ok: true;
 }
 
@@ -39,20 +29,7 @@ export interface AIChatFailure {
   error: string;
 }
 
-const ANTHROPIC_DEFAULT = "claude-haiku-4-5";
 const OPENAI_DEFAULT = "gpt-4o-mini";
-const GEMINI_DEFAULT = "gemini-1.5-flash-latest";
-
-function hasGemini(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY);
-}
-
-function hasAnthropic(): boolean {
-  return Boolean(
-    process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL &&
-    process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY
-  );
-}
 
 function hasOpenAI(): boolean {
   return Boolean(
@@ -61,183 +38,27 @@ function hasOpenAI(): boolean {
   );
 }
 
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{ text?: string }>;
-    };
-  }>;
-}
-
-async function callGemini(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
-  const apiKey = process.env.GEMINI_API_KEY!;
-  const model = GEMINI_DEFAULT;
-  const maxTokens = opts.maxTokens ?? 800;
-  const timeoutMs = opts.timeoutMs ?? 8000;
-
-  const systemInstruction = opts.jsonMode
-    ? `${opts.systemPrompt}\n\nIMPORTANT: Respond with ONLY valid JSON, no markdown fences, no prose.`
-    : opts.systemPrompt;
-
-  const history = (opts.history ?? []).slice(-10).map(m => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
-
-  const body = {
-  contents: [
-    {
-      role: "user",
-      parts: [
-        {
-          text:
-            `${systemInstruction}\n\nUser:\n${opts.userPrompt}`
-        }
-      ]
-    }
-  ],
-  generationConfig: {
-    maxOutputTokens: maxTokens,
-    temperature: 0.4,
-  },
-};
-  
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      return {
-        ok: false,
-        error: `Gemini ${response.status}: ${errText.slice(0, 200)}`,
-      };
-    }
-
-    const data = (await response.json()) as GeminiResponse;
-    const text = (
-      data.candidates?.[0]?.content?.parts?.[0]?.text ?? ""
-    ).trim();
-
-    if (!text) {
-      return { ok: false, error: "Gemini: empty response" };
-    }
-
-    return { ok: true, text, provider: "gemini" };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Gemini fetch failed",
-    };
-  }
-}
-
-interface AnthropicTextBlock {
-  type: "text";
-  text: string;
-}
-
-interface AnthropicResponse {
-  content?: AnthropicTextBlock[];
-  stop_reason?: string;
-}
-
-async function callAnthropic(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
-  const baseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL!;
-  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY!;
-  const model = opts.modelOverride?.anthropic ?? ANTHROPIC_DEFAULT;
-  const maxTokens = opts.maxTokens ?? 800;
-  const timeoutMs = opts.timeoutMs ?? 8000;
-
-  // Anthropic vision requires base64-encoded images.
-  if (opts.attachment?.url && opts.attachment.type.startsWith("image/")) {
-    return {
-      ok: false,
-      error: "Anthropic vision requires base64; deferring to OpenAI for image attachments",
-    };
-  }
-
-  type Block = { type: "text"; text: string };
-
-  const history = (opts.history ?? []).slice(-10).map(m => ({
-    role: m.role === "assistant" ? "assistant" : "user",
-    content: [{ type: "text" as const, text: m.content }],
-  }));
-
-  const userBlocks: Block[] = [
-    { type: "text", text: opts.userPrompt },
-  ];
-
-  const body = {
-    model,
-    max_tokens: maxTokens,
-    system: opts.jsonMode
-      ? `${opts.systemPrompt}\n\nIMPORTANT: Respond with ONLY valid JSON, no markdown fences, no prose.`
-      : opts.systemPrompt,
-    messages: [
-      ...history,
-      { role: "user", content: userBlocks },
-    ],
-  };
-
-  try {
-    const response = await fetch(`${baseUrl}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      return {
-        ok: false,
-        error: `Anthropic ${response.status}: ${errText.slice(0, 200)}`,
-      };
-    }
-
-    const data = (await response.json()) as AnthropicResponse;
-
-    const text = (data.content ?? [])
-      .filter(b => b.type === "text")
-      .map(b => b.text)
-      .join("\n")
-      .trim();
-
-    if (!text) {
-      return { ok: false, error: "Anthropic: empty response" };
-    }
-
-    return { ok: true, text, provider: "anthropic" };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Anthropic fetch failed",
-    };
-  }
-}
-
 interface OpenAIResponse {
-  choices?: { message?: { content?: string } }[];
+  choices?: {
+    message?: {
+      content?: string;
+    };
+  }[];
 }
 
-async function callOpenAI(opts: AIChatOptions): Promise<AIChatResult | AIChatFailure> {
+async function callOpenAI(
+  opts: AIChatOptions
+): Promise<AIChatResult | AIChatFailure> {
+
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL!;
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY!;
-  const model = opts.modelOverride?.openai ?? OPENAI_DEFAULT;
+
+  const model =
+    opts.modelOverride?.openai ??
+    OPENAI_DEFAULT;
+
   const maxTokens = opts.maxTokens ?? 800;
-  const timeoutMs = opts.timeoutMs ?? 8000;
+  const timeoutMs = opts.timeoutMs ?? 12000;
 
   type OpenAIContent =
     | string
@@ -248,120 +69,165 @@ async function callOpenAI(opts: AIChatOptions): Promise<AIChatResult | AIChatFai
 
   let userContent: OpenAIContent = opts.userPrompt;
 
-  if (opts.attachment?.url && opts.attachment.type.startsWith("image/")) {
+  // Vision support
+  if (
+    opts.attachment?.url &&
+    opts.attachment.type.startsWith("image/")
+  ) {
     userContent = [
-      { type: "text", text: opts.userPrompt },
-      { type: "image_url", image_url: { url: opts.attachment.url } },
+      {
+        type: "text",
+        text: opts.userPrompt,
+      },
+      {
+        type: "image_url",
+        image_url: {
+          url: opts.attachment.url,
+        },
+      },
     ];
   }
 
-  const messages: Array<{ role: string; content: OpenAIContent }> = [
-    { role: "system", content: opts.systemPrompt },
-    ...(opts.history ?? []).slice(-10).map(m => ({
-      role: m.role,
-      content: m.content as OpenAIContent,
-    })),
-    { role: "user", content: userContent },
+  const messages: Array<{
+    role: string;
+    content: OpenAIContent;
+  }> = [
+    {
+      role: "system",
+      content: opts.jsonMode
+        ? `${opts.systemPrompt}
+
+IMPORTANT:
+- Return ONLY valid JSON
+- No markdown
+- No explanation
+- No code fences`
+        : opts.systemPrompt,
+    },
+
+    ...(opts.history ?? [])
+      .slice(-10)
+      .map(m => ({
+        role: m.role,
+        content: m.content as OpenAIContent,
+      })),
+
+    {
+      role: "user",
+      content: userContent,
+    },
   ];
 
   const body: Record<string, unknown> = {
     model,
     messages,
     max_tokens: maxTokens,
+    temperature: 0.4,
   };
 
   if (opts.jsonMode) {
-    body.response_format = { type: "json_object" };
+    body.response_format = {
+      type: "json_object",
+    };
   }
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+
+    const response = await fetch(
+      `${baseUrl}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      }
+    );
 
     if (!response.ok) {
-      const errText = await response.text().catch(() => "");
+
+      const errText = await response
+        .text()
+        .catch(() => "");
+
+      logger.error({
+        provider: "openai",
+        status: response.status,
+        error: errText,
+      });
+
       return {
         ok: false,
-        error: `OpenAI ${response.status}: ${errText.slice(0, 200)}`,
+        error: `OpenAI ${response.status}: ${errText.slice(0, 500)}`,
       };
     }
 
-    const data = (await response.json()) as OpenAIResponse;
+    const data =
+      (await response.json()) as OpenAIResponse;
 
-    const text = (
-      data.choices?.[0]?.message?.content ?? ""
-    ).trim();
+    const text =
+      data.choices?.[0]?.message?.content?.trim() ?? "";
 
     if (!text) {
-      return { ok: false, error: "OpenAI: empty response" };
+
+      logger.error({
+        provider: "openai",
+        error: "Empty response",
+      });
+
+      return {
+        ok: false,
+        error: "OpenAI returned empty response",
+      };
     }
 
-    return { ok: true, text, provider: "openai" };
+    return {
+      ok: true,
+      text,
+      provider: "openai",
+    };
+
   } catch (err) {
+
+    logger.error({
+      provider: "openai",
+      error:
+        err instanceof Error
+          ? err.message
+          : "Unknown OpenAI error",
+    });
+
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "OpenAI fetch failed",
+      error:
+        err instanceof Error
+          ? err.message
+          : "OpenAI fetch failed",
     };
   }
 }
 
 /**
- * Call the AI with automatic provider selection and fallback.
- * Order: Gemini → OpenAI → Anthropic
+ * Main AI chat entrypoint
  */
 export async function aiChat(
   opts: AIChatOptions
 ): Promise<AIChatResult | AIChatFailure> {
 
-  // 1. Gemini
-  if (hasGemini()) {
-    const result = await callGemini(opts);
-
-    if (result.ok) {
-      return result;
-    }
-
-    logger.warn("Gemini failed, trying OpenAI", result.error);
+  if (!hasOpenAI()) {
+    return {
+      ok: false,
+      error: "OpenAI not configured",
+    };
   }
 
-  // 2. OpenAI
-  if (hasOpenAI()) {
-    const result = await callOpenAI(opts);
-
-    if (result.ok) {
-      return result;
-    }
-
-    logger.warn("OpenAI failed, trying Anthropic", result.error);
-  }
-
-  // 3. Anthropic
-  if (hasAnthropic()) {
-    const result = await callAnthropic(opts);
-
-    if (result.ok) {
-      return result;
-    }
-
-    logger.warn("Anthropic failed", result.error);
-  }
-
-  return {
-    ok: false,
-    error: "No AI provider configured or all providers failed",
-  };
+  return await callOpenAI(opts);
 }
 
 /**
- * Convenience: aiChat + safe JSON parse.
- * Returns null on any failure.
+ * AI chat + safe JSON parse
  */
 export async function aiChatJson<T>(
   opts: AIChatOptions
@@ -373,19 +239,49 @@ export async function aiChatJson<T>(
   });
 
   if (!result.ok) {
+
+    logger.error({
+      provider: "openai",
+      error: result.error,
+    });
+
     return null;
   }
 
   try {
-    // Strip ```json ... ``` fences if model wraps them.
+
     const cleaned = result.text
       .replace(/^```(?:json)?\s*/i, "")
       .replace(/\s*```$/, "")
       .trim();
 
-    return JSON.parse(cleaned) as T;
+    const jsonMatch =
+      cleaned.match(/\{[\s\S]*\}/);
 
-  } catch {
+    if (!jsonMatch) {
+
+      logger.error({
+        provider: "openai",
+        error: "No JSON found",
+        raw: cleaned,
+      });
+
+      return null;
+    }
+
+    return JSON.parse(jsonMatch[0]) as T;
+
+  } catch (err) {
+
+    logger.error({
+      provider: "openai",
+      error:
+        err instanceof Error
+          ? err.message
+          : "JSON parse failed",
+      raw: result.text,
+    });
+
     return null;
   }
 }
