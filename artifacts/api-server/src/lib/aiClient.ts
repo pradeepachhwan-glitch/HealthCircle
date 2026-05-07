@@ -41,7 +41,7 @@ export interface AIChatFailure {
 
 const ANTHROPIC_DEFAULT = "claude-haiku-4-5";
 const OPENAI_DEFAULT = "gpt-4o-mini";
-const GEMINI_DEFAULT = "gemini-1.5-flash";
+const GEMINI_DEFAULT = "gemini-1.5-flash-latest";
 
 function hasGemini(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
