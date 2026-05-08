@@ -8,6 +8,7 @@ import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useGetPost, useListComments, useCreateComment, useUpvotePost, getGetPostQueryKey, getListCommentsQueryKey } from "@workspace/api-client-react";
 import { Link, useRoute, useLocation } from "wouter";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Layout, UserAvatar } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,15 +48,11 @@ export default function PostDetail() {
   const communityId = parseInt(params?.communityId || "0", 10);
   const postId = parseInt(params?.postId || "0", 10);
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
 
   const { data: post, isLoading: postLoading } = useGetPost(postId, {
     query: { queryKey: getGetPostQueryKey(postId), enabled: !!postId },
   });
-
-  const currentUser: any =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("user") || "null")
-      : null;
 
   const canManagePost =
     currentUser &&
@@ -63,7 +60,8 @@ export default function PostDetail() {
     (
       currentUser.id === post.authorId ||
       currentUser.role === "admin" ||
-      currentUser.role === "doctor"
+      currentUser.role === "doctor" ||
+      currentUser.role === "medical_professional"
     );
 
   async function deletePost() {
