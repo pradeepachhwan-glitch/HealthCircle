@@ -1,3 +1,10 @@
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useGetPost, useListComments, useCreateComment, useUpvotePost, getGetPostQueryKey, getListCommentsQueryKey } from "@workspace/api-client-react";
 import { Link, useRoute, useLocation } from "wouter";
@@ -44,6 +51,40 @@ export default function PostDetail() {
   const { data: post, isLoading: postLoading } = useGetPost(postId, {
     query: { queryKey: getGetPostQueryKey(postId), enabled: !!postId },
   });
+
+  const currentUser: any =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("user") || "null")
+      : null;
+
+  const canManagePost =
+    currentUser &&
+    post &&
+    (
+      currentUser.id === post.authorId ||
+      currentUser.role === "admin" ||
+      currentUser.role === "doctor"
+    );
+
+  async function deletePost() {
+    if (!confirm("Delete this post?")) return;
+
+    const endpoint =
+      currentUser?.role === "admin" || currentUser?.role === "doctor"
+        ? `${API_BASE}/admin/posts/${postId}`
+        : `${API_BASE}/posts/${postId}`;
+
+    const res = await fetch(endpoint, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (res.ok) {
+      window.location.href = `/communities/${communityId}`;
+    } else {
+      alert("Failed to delete post");
+    }
+  }
   const { data: comments, isLoading: commentsLoading } = useListComments(postId, {
     query: { queryKey: getListCommentsQueryKey(postId), enabled: !!postId },
   });
@@ -290,9 +331,36 @@ export default function PostDetail() {
             </div>
 
             {/* Title */}
-            <h1 className="font-extrabold text-xl md:text-2xl text-foreground mb-3 leading-tight tracking-tight">
-              {post.title}
-            </h1>
+            <div className="flex items-start justify-between gap-3 mb-3">
+  <h1 className="font-extrabold text-xl md:text-2xl text-foreground leading-tight tracking-tight">
+    {post.title}
+  </h1>
+
+  {canManagePost && (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="p-2 rounded hover:bg-muted">
+          <MoreVertical className="w-4 h-4" />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => alert("Edit flow next")}>
+          <Pencil className="w-4 h-4 mr-2" />
+          Edit Post
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={deletePost}
+          className="text-red-600"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          Delete Post
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )}
+</div>
 
             {/* Content */}
             <p className="text-sm md:text-base text-foreground/85 whitespace-pre-wrap leading-relaxed mb-5">
