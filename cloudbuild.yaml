@@ -51,6 +51,20 @@ steps:
       - SESSION_SECRET=SESSION_SECRET:latest
       - --update-secrets
       - ADMIN_TOKEN=ADMIN_TOKEN:latest
+      - --update-secrets
+      - GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
+      - --update-secrets
+      - GEMINI_API_KEY=GEMINI_API_KEY:latest
+      - --update-secrets
+      - AI_INTEGRATIONS_OPENAI_API_KEY=AI_INTEGRATIONS_OPENAI_API_KEY:latest
+      - --update-secrets
+      - AI_INTEGRATIONS_OPENAI_BASE_URL=AI_INTEGRATIONS_OPENAI_BASE_URL:latest
+      - --update-secrets
+      - AI_INTEGRATIONS_OPENAI_BASE_URL=AI_INTEGRATIONS_OPENAI_BASE_URL:latest
+      - --update-secrets
+      - RESEND_API_KEY=RESEND_API_KEY:latest
+      - --update-secrets
+      - EMAIL_FROM=EMAIL_FROM:latest
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
