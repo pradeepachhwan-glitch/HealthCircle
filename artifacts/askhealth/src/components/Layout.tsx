@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
 import HealthCircleLogo from "@/components/HealthCircleLogo";
+import { NotificationManager } from "@/components/NotificationManager";
 
 export function UserAvatar({ name, url, className = "" }: { name: string, url?: string | null, className?: string }) {
   if (url) {
@@ -186,6 +187,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Mobile Bottom Tab Navigation */}
       <BottomNav />
+      <NotificationManager />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { getAuth } from "../lib/auth";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { runHealthSearch } from "../lib/searchEngine";
 import { logger } from "../lib/logger";
+import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
 
 const router = Router();
 
@@ -29,6 +30,9 @@ router.get("/health-search", async (req, res) => {
       city: typeof city === "string" ? city : undefined,
       coords: validCoords,
     });
+    if (user) {
+      await awardCredits(user.id, CREDIT_EVENTS.SEARCH_PROFESSIONAL);
+    }
     res.json(result);
   } catch (err) {
     logger.error({ err }, "Health search error");

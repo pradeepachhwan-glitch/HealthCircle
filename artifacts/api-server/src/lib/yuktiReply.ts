@@ -2,6 +2,7 @@ import { db, commentsTable, postsTable, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { YUKTI_BOT_CLERK_ID } from "./startupSeed";
+import { sendPushToUser } from "./pushNotifications";
 
 export const ASKyukti_PATTERN = /@askYukti/i;
 
@@ -72,6 +73,16 @@ Always end with a reminder that this is AI guidance, not a professional diagnosi
       .update(postsTable)
       .set({ commentCount: sql`${postsTable.commentCount} + 1` })
       .where(eq(postsTable.id, postId));
+
+    // Notify post author about Yukti's reply
+    const [post] = await db.select({ authorId: postsTable.authorId }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+    if (post) {
+      sendPushToUser(post.authorId, {
+        title: "Yukti AI replied to you",
+        body: reply.slice(0, 100) + (reply.length > 100 ? "..." : ""),
+        url: `/post/${postId}`,
+      }).catch(() => {});
+    }
 
     logger.info({ postId }, "Yukti bot replied to @askYukti post mention");
   } catch (err) {

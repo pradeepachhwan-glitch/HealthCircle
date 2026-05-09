@@ -11,6 +11,9 @@ import { detectEmergency, buildEmergencyResponse } from "../lib/emergencyDetect"
 import { checkQuota, consumeQuota } from "../lib/quota";
 import { logger } from "../lib/logger";
 import { getCommunityAIConfig } from "../lib/communityPrompts";
+import { fetchGoogleProviders, geocodeLocation } from "../lib/googlePlaces";
+
+import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
 
 const router = Router();
 
@@ -179,6 +182,26 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
   const history = historyRows.slice(-12).map(m => ({ role: m.role, content: m.content }));
 
   try {
+    // --- Context fetching for Yukti (Nearby Providers) ---
+    let nearbyContext: any[] = [];
+    if (user.location || session.communityName) {
+      try {
+        const city = user.location || "Delhi"; // Fallback for context
+        const coords = await geocodeLocation(city);
+        if (coords) {
+          const providers = await fetchGoogleProviders({
+            lat: coords.lat,
+            lng: coords.lng,
+            type: "doctor",
+            q: session.communityName || trimmedMessage,
+          });
+          nearbyContext = providers.slice(0, 3).map(p => ({ name: p.name, location: p.location, specialty: p.specialty }));
+        }
+      } catch (err) {
+        logger.warn({ err }, "Nearby provider context fetch failed for chat");
+      }
+    }
+
     const structured = await getHealthAssistantResponse(
       trimmedMessage || "Please review this image.",
       history.slice(0, -1),
@@ -187,6 +210,7 @@ router.post("/chat/sessions/:sessionId/messages", requireAuth, async (req, res) 
       {
         communitySlug: session.communitySlug,
         communityName: session.communityName,
+        nearbyProviders: nearbyContext,
       },
     );
     // Only count successful AI calls toward quota.
@@ -245,6 +269,8 @@ router.post("/chat/sessions/:sessionId/request-consultation", requireAuth, async
     status: "pending",
     source: "user_request",
   }).returning();
+
+  await awardCredits(user.id, CREDIT_EVENTS.REQUEST_CONSULTATION);
 
   res.status(201).json({ success: true, consultation });
 });
@@ -316,6 +342,8 @@ router.post("/chat/yukti/request-consultation", requireAuth, async (req, res) =>
     status: "pending",
     source: "user_request",
   }).returning();
+
+  await awardCredits(user.id, CREDIT_EVENTS.REQUEST_CONSULTATION);
 
   res.status(201).json({ success: true, consultation });
 });

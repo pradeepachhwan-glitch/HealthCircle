@@ -21,6 +21,7 @@ import publicAiRouter from "./publicAi";
 import teleconsultRouter from "./teleconsult";
 import doctorApplicationsRouter from "./doctorApplications";
 import publicCommunitiesRouter from "./publicCommunities";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(publicAiRouter);
 router.use(teleconsultRouter);
 router.use(doctorApplicationsRouter);
 router.use(publicCommunitiesRouter);
+router.use(notificationsRouter);
 
 export default router;

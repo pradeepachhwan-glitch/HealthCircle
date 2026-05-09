@@ -5,6 +5,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
 import { generateYuktiCommentReply, mentionsYukti } from "../lib/yuktiReply";
+import { sendPushToUser } from "../lib/pushNotifications";
 
 const router = Router();
 
@@ -41,6 +42,16 @@ router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
     const [post] = await db.select({ title: postsTable.title, content: postsTable.content }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
     if (post) {
       generateYuktiCommentReply(postId, content, post.title, post.content).catch(() => {});
+    }
+  } else {
+    // Notify the post author about the new comment
+    const [post] = await db.select({ authorId: postsTable.authorId, title: postsTable.title }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+    if (post && post.authorId !== user.id) {
+      sendPushToUser(post.authorId, {
+        title: "New reply on your post",
+        body: `${user.displayName}: ${content.slice(0, 80)}${content.length > 80 ? "..." : ""}`,
+        url: `/post/${postId}`,
+      }).catch(() => {});
     }
   }
 
