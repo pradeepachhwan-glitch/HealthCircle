@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -67,6 +68,7 @@ export default function Community() {
   const [hasConsented, setHasConsented] = useState(false);
   const [postTitle, setPostTitle] = useState("");
   const [postContent, setPostContent] = useState("");
+  const [postAnonymous, setPostAnonymous] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const isMember = (community as any)?.isMember ?? false;
@@ -181,12 +183,13 @@ export default function Community() {
     }
     createPost.mutate({
       communityId,
-      data: { title: postTitle, content: postContent }
+      data: { title: postTitle, content: postContent, isAnonymous: postAnonymous } as any
     }, {
       onSuccess: () => {
         setIsPostOpen(false);
         setPostTitle("");
         setPostContent("");
+        setPostAnonymous(false);
         queryClient.invalidateQueries({ queryKey: getListPostsQueryKey(communityId) });
         toast.success("Your question has been posted. Yukti AI is generating a summary...");
       },
@@ -492,6 +495,18 @@ export default function Community() {
               onChange={e => setPostContent(e.target.value)}
               className="min-h-[140px]"
             />
+            
+            <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+              <div className="space-y-0.5">
+                <div className="text-sm font-semibold text-slate-900">Post Anonymously</div>
+                <div className="text-[11px] text-slate-500">Hide your identity from others in this community</div>
+              </div>
+              <Switch 
+                checked={postAnonymous} 
+                onCheckedChange={setPostAnonymous} 
+              />
+            </div>
+
             <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-start gap-2">
               <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -701,6 +716,9 @@ function PostCard({ post, communityId, communitySlug, communityName }: { post: a
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5 flex-wrap">
               <UserAvatar name={post.authorName} url={post.authorAvatar} className="w-4 h-4" />
               <span className="font-medium text-foreground/80">{post.authorName}</span>
+              {post.isAnonymous && (
+                <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-slate-200 bg-slate-50 text-slate-500">ANONYMOUS</Badge>
+              )}
               {post.isBroadcast && (
                 <Badge className="text-[9px] h-4 px-1.5 bg-blue-600">ANNOUNCEMENT</Badge>
               )}

@@ -11,6 +11,7 @@ const router = Router();
 
 router.get("/posts/:postId/comments", requireAuth, async (req, res) => {
   const postId = parseInt(pstr(req.params.postId), 10);
+  const { userId: clerkId } = getAuth(req);
   const rows = await db
     .select({ comment: commentsTable, author: usersTable })
     .from(commentsTable)
@@ -19,8 +20,10 @@ router.get("/posts/:postId/comments", requireAuth, async (req, res) => {
     .orderBy(desc(commentsTable.createdAt));
 
   res.json(rows.map(({ comment, author }) => ({
-    ...comment, authorId: author.clerkId, authorName: author.displayName,
-    authorAvatar: author.avatarUrl, authorLevel: author.level,
+    ...comment, authorId: author.clerkId, 
+    authorName: comment.isAnonymous && author.clerkId !== clerkId ? "Anonymous Member" : author.displayName,
+    authorAvatar: comment.isAnonymous && author.clerkId !== clerkId ? null : author.avatarUrl,
+    authorLevel: author.level,
   })));
 });
 
@@ -30,9 +33,12 @@ router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const user = await getOrCreateUser(clerkId);
-  const { content } = req.body;
+  const { content, isAnonymous } = req.body;
 
-  const [comment] = await db.insert(commentsTable).values({ postId, authorId: user.id, content }).returning();
+  const [comment] = await db.insert(commentsTable).values({ 
+    postId, authorId: user.id, content,
+    isAnonymous: !!isAnonymous,
+  }).returning();
 
   await db.update(postsTable).set({ commentCount: sql`${postsTable.commentCount} + 1` }).where(eq(postsTable.id, postId));
   await awardCredits(user.id, CREDIT_EVENTS.COMMENT);

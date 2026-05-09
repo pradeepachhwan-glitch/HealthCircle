@@ -36,8 +36,10 @@ router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
       hasUpvoted = upvote.length > 0;
     }
     return {
-      ...post, authorId: author.clerkId, authorName: author.displayName,
-      authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+      ...post, authorId: author.clerkId, 
+      authorName: post.isAnonymous && author.clerkId !== clerkId ? "Anonymous Member" : author.displayName,
+      authorAvatar: post.isAnonymous && author.clerkId !== clerkId ? null : author.avatarUrl,
+      authorLevel: author.level, hasUpvoted,
       hasBookmarked: bookmarkedSet.has(post.id),
       reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
     };
@@ -52,11 +54,12 @@ router.post("/communities/:communityId/posts", requireAuth, async (req, res) => 
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const user = await getOrCreateUser(clerkId);
-  const { title, content, imageUrl } = req.body;
+  const { title, content, imageUrl, isAnonymous } = req.body;
 
   const [post] = await db.insert(postsTable).values({
     communityId, authorId: user.id, title, content, imageUrl: imageUrl ?? null,
     isPinned: false, isBroadcast: false, upvoteCount: 0, commentCount: 0, viewCount: 0,
+    isAnonymous: !!isAnonymous,
   }).returning();
 
   await db.insert(communityMembersTable).values({ communityId, userId: user.id }).onConflictDoNothing();
@@ -101,8 +104,10 @@ router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, re
       hasUpvoted = upvote.length > 0;
     }
     return {
-      ...post, authorId: author.clerkId, authorName: author.displayName,
-      authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+      ...post, authorId: author.clerkId, 
+      authorName: post.isAnonymous && author.clerkId !== clerkId ? "Anonymous Member" : author.displayName,
+      authorAvatar: post.isAnonymous && author.clerkId !== clerkId ? null : author.avatarUrl,
+      authorLevel: author.level, hasUpvoted,
       hasBookmarked: bookmarkedSet.has(post.id),
       reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
     };
@@ -141,8 +146,10 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
   const bookmarkedSet = await bookmarkSetForUser([post.id], currentUserId);
 
   res.json({
-    ...post, authorId: author.clerkId, authorName: author.displayName,
-    authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted,
+    ...post, authorId: author.clerkId, 
+    authorName: post.isAnonymous && author.clerkId !== clerkId ? "Anonymous Member" : author.displayName,
+    authorAvatar: post.isAnonymous && author.clerkId !== clerkId ? null : author.avatarUrl,
+    authorLevel: author.level, hasUpvoted,
     hasBookmarked: bookmarkedSet.has(post.id),
     reactions: reactionSummary[post.id] ?? { counts: {}, total: 0, mine: null },
   });

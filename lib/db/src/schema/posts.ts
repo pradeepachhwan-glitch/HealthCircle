@@ -15,6 +15,7 @@ export const postsTable = pgTable("posts", {
   isBroadcast: boolean("is_broadcast").notNull().default(false),
   isModerated: boolean("is_moderated").notNull().default(false),
   isExpertAnswered: boolean("is_expert_answered").notNull().default(false),
+  isAnonymous: boolean("is_anonymous").notNull().default(false),
   upvoteCount: integer("upvote_count").notNull().default(0),
   commentCount: integer("comment_count").notNull().default(0),
   viewCount: integer("view_count").notNull().default(0),

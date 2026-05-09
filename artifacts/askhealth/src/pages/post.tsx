@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   ArrowUp, ArrowLeft, MessageSquare, Eye, Bot, Stethoscope,
   BookOpen, Heart, AlertTriangle, CheckCircle2, Clock,
@@ -91,6 +92,7 @@ export default function PostDetail() {
   const upvotePost = useUpvotePost();
 
   const [commentContent, setCommentContent] = useState("");
+  const [commentAnonymous, setCommentAnonymous] = useState(false);
   // True for ~12s after the user posts a comment that mentions @askYukti.
   // Yukti's bot reply is generated asynchronously on the server (typically
   // 1-3s), so we poll/refresh comments for a short window and show a
@@ -245,9 +247,10 @@ export default function PostDetail() {
     if (!commentContent.trim()) return;
     const submitted = commentContent;
     const tagsYukti = /@askYukti/i.test(submitted);
-    createComment.mutate({ postId, data: { content: submitted } }, {
+    createComment.mutate({ postId, data: { content: submitted, isAnonymous: commentAnonymous } as any }, {
       onSuccess: () => {
         setCommentContent("");
+        setCommentAnonymous(false);
         queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(postId) });
         queryClient.invalidateQueries({ queryKey: getGetPostQueryKey(postId) });
         toast.success("Reply posted");
@@ -557,6 +560,15 @@ export default function PostDetail() {
                 onChange={e => setCommentContent(e.target.value)}
                 className="min-h-[90px] resize-y bg-background text-sm"
               />
+              <div className="flex items-center justify-between gap-4 p-2 bg-slate-50/50 rounded-lg border border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Switch checked={commentAnonymous} onCheckedChange={setCommentAnonymous} />
+                  <span className="text-[11px] font-medium text-slate-600 uppercase tracking-tight">Post Anonymously</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground hidden sm:block">
+                  Your name will be hidden from others
+                </p>
+              </div>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[11px] text-muted-foreground">
                   Tip: mention <span className="font-semibold text-primary">@askYukti</span> for an AI-guided response in this thread
@@ -647,6 +659,9 @@ function CommentCard({ comment }: { comment: any }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-1.5">
           <span className="text-sm font-semibold text-foreground">{comment.authorName}</span>
+          {comment.isAnonymous && (
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-slate-200 bg-slate-50 text-slate-500">ANONYMOUS</Badge>
+          )}
           {isDoctor && (
             <Badge className="text-[9px] h-4 px-1.5 bg-blue-600 text-white">Doctor</Badge>
           )}
