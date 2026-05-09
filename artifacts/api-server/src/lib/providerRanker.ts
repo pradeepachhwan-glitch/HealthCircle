@@ -21,8 +21,8 @@ import type { LiveDoctor, LiveHospital } from "./osmProviders";
 
 // ---- unified shapes --------------------------------------------------------
 
-export type DoctorSource = "db" | "openstreetmap";
-export type HospitalSource = "db" | "openstreetmap";
+export type DoctorSource = "db" | "openstreetmap" | "google";
+export type HospitalSource = "db" | "openstreetmap" | "google";
 
 export interface RankedDoctor {
   id: string | number;

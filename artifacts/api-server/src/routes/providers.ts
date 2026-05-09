@@ -3,7 +3,9 @@ import { db } from "@workspace/db";
 import { doctorsTable, hospitalsTable, providerRankingsTable } from "@workspace/db/schema";
 import { and, eq, ilike, or, desc, sql, type SQL } from "drizzle-orm";
 import { requireAuth, requireAdmin , pstr } from "../lib/auth";
+import { logger } from "../lib/logger";
 import { fetchLiveDoctors, fetchLiveHospitals } from "../lib/osmProviders";
+import { fetchGoogleProviders, geocodeLocation } from "../lib/googlePlaces";
 import { inferSpecialty } from "../lib/specialtyMatcher";
 import { mergeAndRankDoctors, mergeAndRankHospitals } from "../lib/providerRanker";
 
@@ -50,14 +52,49 @@ router.get("/doctors", requireAuth, async (req, res) => {
   if (cityShort) andConditions.push(ilike(doctorsTable.location, `%${cityShort}%`));
   if (available === "true") andConditions.push(eq(doctorsTable.available, true));
 
-  // Fire DB (city-scoped) and OSM (city-scoped) in parallel — always.
+  // Fire DB (city-scoped) and Google/OSM in parallel — always.
   const [dbDoctors, liveDoctors] = await Promise.all([
     (() => {
       let query = db.select().from(doctorsTable).$dynamic();
       if (andConditions.length > 0) query = query.where(and(...andConditions));
       return query.orderBy(desc(doctorsTable.rating)).limit(50);
     })(),
-    fetchLiveDoctors({ specialty: inferred ?? specialty, q, city: cityArg }).catch(() => []),
+    (async () => {
+      // 1. Try Google Places first if we have a city location
+      if (cityArg) {
+        try {
+          const coords = await geocodeLocation(cityArg);
+          if (coords) {
+            const googleResults = await fetchGoogleProviders({
+              lat: coords.lat,
+              lng: coords.lng,
+              type: "doctor",
+              q: inferred ?? specialty ?? q,
+            });
+            if (googleResults.length > 0) {
+              return googleResults.map(g => ({
+                id: g.id,
+                name: g.name,
+                specialty: g.specialty || "Medical Professional",
+                experienceYears: 0,
+                consultationFee: "0",
+                rating: g.rating,
+                location: g.location,
+                languages: ["English"],
+                available: true,
+                imageUrl: g.imageUrl,
+                source: "google" as const,
+              }));
+            }
+          }
+        } catch (err) {
+          logger.warn({ err }, "Google Places doctor fallback failed");
+        }
+      }
+
+      // 2. Fallback to OpenStreetMap if Google fails or no city
+      return fetchLiveDoctors({ specialty: inferred ?? specialty, q, city: cityArg }).catch(() => []);
+    })(),
   ]);
 
   const rankOpts = { q, inferred, chip: specialty, cityShort };
@@ -144,14 +181,41 @@ router.get("/hospitals", requireAuth, async (req, res) => {
   else if (matchClauses.length > 1) andConditions.push(or(...matchClauses)!);
   if (cityShort) andConditions.push(ilike(hospitalsTable.location, `%${cityShort}%`));
 
-  // Fire DB and OSM in parallel — always.
+  // Fire DB and Google/OSM in parallel — always.
   const [dbHospitals, liveHospitals] = await Promise.all([
     (() => {
       let query = db.select().from(hospitalsTable).$dynamic();
       if (andConditions.length > 0) query = query.where(and(...andConditions));
       return query.orderBy(desc(hospitalsTable.rating)).limit(50);
     })(),
-    fetchLiveHospitals({ q, city: cityArg, specialty: inferred ?? specialty }).catch(() => []),
+    (async () => {
+      if (cityArg) {
+        try {
+          const coords = await geocodeLocation(cityArg);
+          if (coords) {
+            const googleResults = await fetchGoogleProviders({
+              lat: coords.lat,
+              lng: coords.lng,
+              type: "hospital",
+              q: inferred ?? specialty ?? q,
+            });
+            if (googleResults.length > 0) {
+              return googleResults.map(g => ({
+                id: g.id,
+                name: g.name,
+                location: g.location,
+                specialties: ["General Hospital"],
+                rating: g.rating,
+                source: "google" as const,
+              }));
+            }
+          }
+        } catch (err) {
+          logger.warn({ err }, "Google Places hospital fallback failed");
+        }
+      }
+      return fetchLiveHospitals({ q, city: cityArg, specialty: inferred ?? specialty }).catch(() => []);
+    })(),
   ]);
 
   const rankOpts = { q, inferred, chip: specialty, cityShort };

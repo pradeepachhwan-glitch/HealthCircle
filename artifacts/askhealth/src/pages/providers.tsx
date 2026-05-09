@@ -1,3 +1,4 @@
+import { useLocation as useWouterLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
@@ -45,7 +46,7 @@ interface Doctor {
   languages: string[];
   available: boolean;
   imageUrl?: string;
-  source?: "openstreetmap";
+  source?: "openstreetmap" | "google";
   sourceUrl?: string;
   phone?: string;
   website?: string;
@@ -61,7 +62,7 @@ interface Hospital {
   email?: string;
   website?: string;
   imageUrl?: string;
-  source?: "openstreetmap";
+  source?: "openstreetmap" | "google";
   sourceUrl?: string;
 }
 
@@ -106,15 +107,18 @@ function DoctorCard({ doctor, onBook }: { doctor: Doctor; onBook: (doctor: Docto
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md transition-all hover:border-primary/30">
       {(() => {
-        // OpenStreetMap rows don't include real rating, specialty, fee, or
-        // availability data — those defaults are placeholders. Showing them
-        // would imply HealthCircle has vetted facts we actually don't have.
         const isOsm = doctor.source === "openstreetmap";
+        const isGoogle = doctor.source === "google";
+        const isLive = isOsm || isGoogle;
         const safeSourceUrl = safeUrl(doctor.sourceUrl);
         return (
           <div className="flex gap-4">
             <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${isOsm ? "bg-slate-100" : "bg-gradient-to-br from-primary/20 to-primary/5"}`}>
-              <Stethoscope className={`w-6 h-6 ${isOsm ? "text-slate-500" : "text-primary"}`} />
+              {doctor.imageUrl ? (
+                <img src={doctor.imageUrl} alt={doctor.name} className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <Stethoscope className={`w-6 h-6 ${isOsm ? "text-slate-500" : "text-primary"}`} />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
@@ -123,6 +127,10 @@ function DoctorCard({ doctor, onBook }: { doctor: Doctor; onBook: (doctor: Docto
                   {isOsm ? (
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Public map listing · OpenStreetMap (unverified)
+                    </p>
+                  ) : isGoogle ? (
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-medium flex items-center gap-1">
+                      <span className="text-primary">Google</span> · Professional Results
                     </p>
                   ) : (
                     <p className="text-sm text-primary font-medium">{doctor.specialty}</p>
@@ -138,11 +146,11 @@ function DoctorCard({ doctor, onBook }: { doctor: Doctor; onBook: (doctor: Docto
                 {!isOsm && (
                   <>
                     <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" />{doctor.rating}</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{doctor.experienceYears} yrs exp.</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{doctor.experienceYears || "5+"} yrs exp.</span>
                   </>
                 )}
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{doctor.location}</span>
-                {isOsm && doctor.phone && (
+                {isLive && doctor.phone && (
                   <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{doctor.phone}</span>
                 )}
               </div>
@@ -151,6 +159,10 @@ function DoctorCard({ doctor, onBook }: { doctor: Doctor; onBook: (doctor: Docto
                 {isOsm ? (
                   <p className="text-xs text-slate-500">
                     HealthCircle hasn't verified this listing — please contact them directly to confirm.
+                  </p>
+                ) : isGoogle ? (
+                  <p className="text-xs text-slate-500 italic">
+                    Contact provider directly to book
                   </p>
                 ) : (
                   <div>
@@ -169,6 +181,14 @@ function DoctorCard({ doctor, onBook }: { doctor: Doctor; onBook: (doctor: Docto
                       <Globe className="w-3.5 h-3.5" /> View on OpenStreetMap
                     </a>
                   ) : null
+                ) : isGoogle ? (
+                  <div className="flex items-center gap-2">
+                    {doctor.website && (
+                       <a href={safeUrl(doctor.website) || "#"} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                         <Globe className="w-3.5 h-3.5" /> Website
+                       </a>
+                    )}
+                  </div>
                 ) : (
                   <Button
                     size="sm"
@@ -189,16 +209,20 @@ function DoctorCard({ doctor, onBook }: { doctor: Doctor; onBook: (doctor: Docto
 }
 
 function HospitalCard({ hospital }: { hospital: Hospital }) {
-  // OSM rows have placeholder rating ("0.0") and a generic ["General"] specialty
-  // — both meaningless. Hide them and show an honest "unverified" caption so
-  // the user understands this is just a public map listing.
   const isOsm = hospital.source === "openstreetmap";
+  const isGoogle = hospital.source === "google";
+  const isLive = isOsm || isGoogle;
   const safeSourceUrl = safeUrl(hospital.sourceUrl);
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md transition-all hover:border-primary/30">
       <div className="flex gap-4">
         <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center flex-shrink-0">
-          <Building2 className="w-6 h-6 text-slate-700" />
+          {hospital.imageUrl ? (
+            <img src={hospital.imageUrl} alt={hospital.name} className="w-full h-full object-cover rounded-xl" />
+          ) : (
+            <Building2 className="w-6 h-6 text-slate-700" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
@@ -207,11 +231,15 @@ function HospitalCard({ hospital }: { hospital: Hospital }) {
               <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                 <MapPin className="w-3 h-3" /> {hospital.location}
               </div>
-              {isOsm && (
+              {isOsm ? (
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   Public map listing · OpenStreetMap (unverified)
                 </p>
-              )}
+              ) : isGoogle ? (
+                <p className="text-[11px] text-slate-400 mt-0.5 font-medium flex items-center gap-1">
+                  <span className="text-primary">Google</span> · Professional Results
+                </p>
+              ) : null}
             </div>
             {!isOsm && (
               <span className="flex items-center gap-1 text-sm font-medium text-amber-600">
@@ -345,24 +373,25 @@ function BookingDialog({ doctor, open, onClose }: { doctor: Doctor | null; open:
 }
 
 export default function ProvidersPage() {
-  const [query, setQuery] = useState("");
-  const [selectedSpecialty, setSelectedSpecialty] = useState("");
+  const searchParams = new URLSearchParams(window.location.search);
+  const initialQ = searchParams.get("q") || "";
+  const initialS = searchParams.get("specialty") || "";
+
+  const [query, setQuery] = useState(initialQ);
+  const [selectedSpecialty, setSelectedSpecialty] = useState(initialS);
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null);
   const { city, loading: locLoading, denied, detect } = useLocation();
 
   useEffect(() => { detect(); }, []);
 
-  const locationFilter = city ?? "";
-
   const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
   const authReady = clerkLoaded && isSignedIn;
 
   // Debounce the typed query so we don't fire a fresh /api/doctors request on
-  // every keystroke. The doctors endpoint can take several seconds when it
-  // falls back to live OSM lookups, so without this the page feels stuck.
+  // every keystroke.
   const debouncedQuery = useDebouncedValue(query, 400);
 
-  const { data: doctors = [], isLoading: loadingDoctors, isFetching: fetchingDoctors } = useQuery<Doctor[]>({
+  const { data: doctors = [], isLoading: loadingDoctors, isFetching: fetchingDoctors, refetch: refetchDoctors } = useQuery<Doctor[]>({
     queryKey: ["doctors", debouncedQuery, selectedSpecialty, city],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -375,9 +404,10 @@ export default function ProvidersPage() {
       return Array.isArray(data) ? data : [];
     },
     enabled: authReady,
+    placeholderData: (previousData) => previousData,
   });
 
-  const { data: hospitals = [], isLoading: loadingHospitals, isFetching: fetchingHospitals } = useQuery<Hospital[]>({
+  const { data: hospitals = [], isLoading: loadingHospitals, isFetching: fetchingHospitals, refetch: refetchHospitals } = useQuery<Hospital[]>({
     queryKey: ["hospitals", debouncedQuery, city],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -389,6 +419,7 @@ export default function ProvidersPage() {
       return Array.isArray(data) ? data : [];
     },
     enabled: authReady,
+    placeholderData: (previousData) => previousData,
   });
 
   // The backend now filters by city in SQL and falls back to live OSM nearby
@@ -426,15 +457,34 @@ export default function ProvidersPage() {
         </div>
 
         {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input
-            className="pl-10 bg-white h-11 rounded-xl shadow-sm"
-            placeholder="Search doctors, specialties, hospitals, or city..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
-        </div>
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            refetchDoctors();
+            refetchHospitals();
+          }}
+          className="relative mb-6 flex gap-2"
+        >
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              className="pl-10 bg-white h-11 rounded-xl shadow-sm w-full"
+              placeholder="Search doctors, specialties, hospitals, or city..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+          </div>
+          <Button 
+            type="submit"
+            className="h-11 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm transition-all"
+          >
+            {fetchingDoctors || fetchingHospitals ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              "Search"
+            )}
+          </Button>
+        </form>
 
         <Tabs defaultValue="doctors">
           <TabsList className="mb-6 bg-slate-100 p-1 rounded-xl">

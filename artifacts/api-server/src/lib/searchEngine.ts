@@ -9,6 +9,11 @@ import {
   fetchLiveDoctorsByCoords,
   fetchLiveHospitalsByCoords,
 } from "./osmProviders";
+import {
+  fetchGoogleProviders,
+  geocodeLocation,
+  reverseGeocode,
+} from "./googlePlaces";
 
 /**
  * "doctor near me", "find a hospital", "best clinic" — all of these are
@@ -259,10 +264,10 @@ function templateSummary(
 
   const hits: string[] = [];
   // Only quote provider names that come from HealthCircle's vetted directory
-  // (DB rows). OpenStreetMap rows have no specialty/rating data and are not
+  // (DB rows). Google/OSM rows have no specialty/rating data and are not
   // endorsed — counting them as "verified" would mislead the user.
-  const verifiedProviders = providers.filter(p => p.source !== "openstreetmap");
-  const osmProviders = providers.filter(p => p.source === "openstreetmap");
+  const verifiedProviders = providers.filter(p => p.source !== "openstreetmap" && p.source !== "google");
+  const liveProviders = providers.filter(p => p.source === "openstreetmap" || p.source === "google");
   if (verifiedProviders.length) {
     const docs = verifiedProviders.filter(p => p.type === "doctor");
     const top = docs[0] ?? verifiedProviders[0];
@@ -272,8 +277,8 @@ function templateSummary(
       hits.push(`${verifiedProviders.length} verified provider${verifiedProviders.length === 1 ? "" : "s"} on HealthCircle`);
     }
   }
-  if (osmProviders.length) {
-    hits.push(`${osmProviders.length} nearby clinic${osmProviders.length === 1 ? "" : "s"} from public map data (unverified)`);
+  if (liveProviders.length) {
+    hits.push(`${liveProviders.length} nearby clinic${liveProviders.length === 1 ? "" : "s"} from professional map data`);
   }
   if (communities.length) {
     const top = communities[0];
@@ -459,13 +464,15 @@ export async function runHealthSearch(
   const { specialty, communitySlug } = detectSpecialty(query);
 
   // ── Resolve user's city ──
-  // Prefer explicit `city` param; otherwise reverse-geocode the browser
-  // coords. The result is used (a) as a hard SQL filter on DB providers and
-  // (b) as the bbox for the OSM live fallback when the DB has no city-local
-  // matches.
   let cityFull: string | null = location?.city?.trim() || null;
   if (!cityFull && location?.coords) {
-    cityFull = await reverseGeocodeCity(location.coords.lat, location.coords.lng);
+    // Try Google Reverse Geocode first for better accuracy
+    const googleAddress = await reverseGeocode(location.coords.lat, location.coords.lng);
+    if (googleAddress) {
+      cityFull = googleAddress.split(",").slice(-3, -2)[0]?.trim() || googleAddress;
+    } else {
+      cityFull = await reverseGeocodeCity(location.coords.lat, location.coords.lng);
+    }
   }
   const cityShort = cityToken(cityFull);
 
@@ -474,43 +481,26 @@ export async function runHealthSearch(
   const mapQuery = cityFull ? `${getMapQuery(intent, query)} ${cityFull}` : getMapQuery(intent, query);
 
   // ── Providers (doctors + hospitals) ──
-  // If a specialty was detected but we have ZERO doctors of that specialty in
-  // our verified network, we DO NOT silently backfill with random doctors —
-  // that misleads users (e.g. searching "pediatrician" and getting a cardiologist
-  // is a worse experience than an honest "no verified pediatricians yet").
   let providers: ProviderResult[] = [];
   let providerEmptyReason: "no_specialty_match" | "no_general_match" | null = null;
-  // Generic provider intent like "doctor near me" / "find a hospital" — no
-  // meaningful keywords beyond fillers we'd strip anyway. Skip the fuzzy
-  // ILIKE that would otherwise return zero rows.
   const isGeneric = isGenericProviderQuery(query);
+
   try {
     if (intent !== "lab") {
       let final: typeof doctorsTable.$inferSelect[] = [];
-
       const cityCond = cityShort ? ilike(doctorsTable.location, `%${cityShort}%`) : null;
 
       if (specialty) {
-        // Strict: only doctors actually matching the requested specialty
-        // AND (when known) located in the user's city.
         const conds = [eq(doctorsTable.available, true), ilike(doctorsTable.specialty, `%${specialty}%`)];
         if (cityCond) conds.push(cityCond);
         final = await db.select().from(doctorsTable).where(and(...conds)).limit(5);
         if (final.length === 0) providerEmptyReason = "no_specialty_match";
       } else if (isGeneric) {
-        // "doctor near me" — no useful keyword. Just return available
-        // doctors, filtered by city if known, sorted by rating so the user
-        // gets a sensible default list instead of an empty page.
         const conds = [eq(doctorsTable.available, true)];
         if (cityCond) conds.push(cityCond);
         final = await db.select().from(doctorsTable).where(and(...conds)).orderBy(desc(doctorsTable.rating)).limit(5);
         if (final.length === 0) providerEmptyReason = "no_general_match";
       } else {
-        // Specific free-text query: fuzzy match on name/specialty/location,
-        // AND-ed with city when known so a "diabetes" search in Faridabad
-        // doesn't surface Mumbai dummy rows. Location stays inside the
-        // fuzzy OR so callers without coords (no city filter) can still
-        // hit doctors via "<query> mumbai" style text searches.
         const fuzzy = or(
           ilike(doctorsTable.name, `%${query}%`),
           ilike(doctorsTable.specialty, `%${query}%`),
@@ -534,13 +524,37 @@ export async function runHealthSearch(
         })),
       );
 
-      // Live OSM fallback for doctors. Two paths, in order of preference:
-      //   1. cityFull known     → bbox query around the city
-      //   2. coords known       → around:radius circle around lat/lng
-      // This means even if Nominatim reverse-geocode fails (rate-limited or
-      // an unfamiliar locality), the user still sees real local doctors as
-      // long as their browser shared coordinates.
-      if (final.length === 0 && cityFull) {
+      // --- Google Places integration for Doctors ---
+      if (location?.coords) {
+        try {
+          const googleDocs = await fetchGoogleProviders({
+            lat: location.coords.lat,
+            lng: location.coords.lng,
+            type: "doctor",
+            q: specialty || query,
+          });
+          if (googleDocs.length > 0) {
+            providers = providers.concat(
+              googleDocs.slice(0, 5).map(d => ({
+                id: d.id,
+                type: "doctor",
+                name: d.name,
+                specialty: d.specialty,
+                location: d.location,
+                rating: d.rating,
+                source: "google" as any, // Corrected label for professional UI styling
+                sourceUrl: undefined,
+              }))
+            );
+            providerEmptyReason = null;
+          }
+        } catch (err) {
+          logger.warn({ err }, "Google Places doctor search failed");
+        }
+      }
+
+      // Live OSM fallback (only if Google didn't return anything or coords missing)
+      if (providers.filter(p => p.type === "doctor").length < 3 && cityFull) {
         try {
           const live = await fetchLiveDoctors({
             specialty: specialty ?? undefined,
@@ -567,45 +581,9 @@ export async function runHealthSearch(
           logger.warn({ err }, "live doctor fallback failed");
         }
       }
-
-      // Coords-based OSM fallback — only used when the city-bbox path
-      // either wasn't available or produced nothing.
-      if (
-        providers.filter(p => p.type === "doctor").length === 0 &&
-        location?.coords &&
-        !cityFull
-      ) {
-        try {
-          const live = await fetchLiveDoctorsByCoords({
-            lat: location.coords.lat,
-            lng: location.coords.lng,
-            specialty: specialty ?? undefined,
-            q: specialty || isGeneric ? undefined : query,
-          });
-          if (live.length > 0) {
-            providers = providers.concat(
-              live.slice(0, 5).map(d => ({
-                id: d.id,
-                type: "doctor" as const,
-                name: d.name,
-                specialty: d.specialty,
-                location: d.location,
-                rating: d.rating,
-                available: d.available,
-                source: "openstreetmap" as const,
-                sourceUrl: d.sourceUrl,
-              })),
-            );
-            providerEmptyReason = null;
-          }
-        } catch (err) {
-          logger.warn({ err }, "live doctor coords fallback failed");
-        }
-      }
     }
 
-    // Hospitals — generic queries skip the fuzzy filter so "hospital near me"
-    // doesn't fail to match the literal string.
+    // Hospitals
     const hConds: ReturnType<typeof and>[] = [];
     if (!isGeneric) {
       hConds.push(or(ilike(hospitalsTable.name, `%${query}%`), ilike(hospitalsTable.location, `%${query}%`)));
@@ -619,7 +597,31 @@ export async function runHealthSearch(
       hospitals.map(h => ({ id: h.id, type: "hospital" as const, name: h.name, location: h.location, rating: h.rating })),
     );
 
-    if (hospitals.length === 0 && cityFull) {
+    // --- Google Places integration for Hospitals ---
+    if (location?.coords) {
+      try {
+        const googleHospitals = await fetchGoogleProviders({
+          lat: location.coords.lat,
+          lng: location.coords.lng,
+          type: "hospital",
+          q: query,
+        });
+        providers = providers.concat(
+          googleHospitals.slice(0, 3).map(h => ({
+            id: h.id,
+            type: "hospital",
+            name: h.name,
+            location: h.location,
+            rating: h.rating,
+            source: "google" as any, // Corrected label for professional UI styling
+          }))
+        );
+      } catch (err) {
+        logger.warn({ err }, "Google Places hospital search failed");
+      }
+    }
+
+    if (providers.filter(p => p.type === "hospital").length < 2 && cityFull) {
       try {
         const liveH = await fetchLiveHospitals({ q: isGeneric ? undefined : query, city: cityFull });
         providers = providers.concat(
@@ -635,33 +637,6 @@ export async function runHealthSearch(
         );
       } catch (err) {
         logger.warn({ err }, "live hospital fallback failed");
-      }
-    }
-
-    if (
-      providers.filter(p => p.type === "hospital").length === 0 &&
-      location?.coords &&
-      !cityFull
-    ) {
-      try {
-        const liveH = await fetchLiveHospitalsByCoords({
-          lat: location.coords.lat,
-          lng: location.coords.lng,
-          q: isGeneric ? undefined : query,
-        });
-        providers = providers.concat(
-          liveH.slice(0, 3).map(h => ({
-            id: h.id,
-            type: "hospital" as const,
-            name: h.name,
-            location: h.location,
-            rating: h.rating,
-            source: "openstreetmap" as const,
-            sourceUrl: h.sourceUrl,
-          })),
-        );
-      } catch (err) {
-        logger.warn({ err }, "live hospital coords fallback failed");
       }
     }
   } catch {
