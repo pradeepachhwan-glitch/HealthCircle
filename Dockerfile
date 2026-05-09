@@ -25,7 +25,8 @@ COPY . .
 ENV CI=true
 ENV NODE_ENV=production
 ENV PORT=8080
-ENV BASE_PATH=/
+ARG BASE_PATH=/
+ENV BASE_PATH=$BASE_PATH
 RUN pnpm --filter @workspace/askhealth run build
 RUN pnpm --filter @workspace/api-server run build
 RUN pnpm prune --prod

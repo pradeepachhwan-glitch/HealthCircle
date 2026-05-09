@@ -2,6 +2,8 @@ steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
+      - --build-arg
+      - BASE_PATH=${_BASE_PATH}
       - --tag
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
       - --tag
@@ -37,6 +39,10 @@ steps:
       - NODE_ENV=production
       - --set-env-vars
       - STATIC_DIR=/app/artifacts/askhealth/dist/public
+      - --set-env-vars
+      - EMAIL_AUTH_ENABLED=true
+      - --set-env-vars
+      - BASE_PATH=${_BASE_PATH}
       - --min-instances
       - "0"
       - --timeout
@@ -60,11 +66,19 @@ steps:
       - --update-secrets
       - AI_INTEGRATIONS_OPENAI_BASE_URL=AI_INTEGRATIONS_OPENAI_BASE_URL:latest
       - --update-secrets
-      - AI_INTEGRATIONS_OPENAI_BASE_URL=AI_INTEGRATIONS_OPENAI_BASE_URL:latest
-      - --update-secrets
       - RESEND_API_KEY=RESEND_API_KEY:latest
       - --update-secrets
       - EMAIL_FROM=EMAIL_FROM:latest
+      - --update-secrets
+      - GOOGLE_MAPS_API_KEY=GOOGLE_MAPS_API_KEY:latest
+      - --update-secrets
+      - VAPID_PUBLIC_KEY=VAPID_PUBLIC_KEY:latest
+      - --update-secrets
+      - VAPID_PRIVATE_KEY=VAPID_PRIVATE_KEY:latest
+      - --update-secrets
+      - CLERK_SECRET_KEY=CLERK_SECRET_KEY:latest
+      - --update-secrets
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:latest
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
@@ -74,8 +88,9 @@ substitutions:
   _REGION: asia-south1
   _REPOSITORY: healthcircle
   _SERVICE: healthcircle
-  _CLOUD_SQL_INSTANCE: ""
-  _SERVICE_ACCOUNT: ""
+  _BASE_PATH: /askhealth
+  _CLOUD_SQL_INSTANCE: "healthcircleai-495306:asia-south2:healthcircle-db"
+  _SERVICE_ACCOUNT: "857143676433-compute@developer.gserviceaccount.com"
 
 options:
   logging: CLOUD_LOGGING_ONLY
