@@ -63,7 +63,7 @@ export interface LiveDoctor {
   languages: string[];
   available: boolean;
   imageUrl?: string;
-  source: "openstreetmap";
+  source: "openstreetmap" | "google";
   sourceUrl?: string;
   phone?: string;
   website?: string;
@@ -79,7 +79,7 @@ export interface LiveHospital {
   email?: string;
   website?: string;
   imageUrl?: string;
-  source: "openstreetmap";
+  source: "openstreetmap" | "google";
   sourceUrl?: string;
 }
 

@@ -52,6 +52,7 @@ interface SummaryData {
     followUpDate: string | null;
     redFlags: string | null;
   } | null;
+  googleMeetUrl?: string;
 }
 
 const RECOMMENDED_CIRCLES: Record<string, { slug: string; name: string; emoji: string }> = {

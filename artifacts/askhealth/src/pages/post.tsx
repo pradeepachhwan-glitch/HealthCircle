@@ -59,9 +59,8 @@ export default function PostDetail() {
     currentUser &&
     post &&
     (
-      currentUser.id === post.authorId ||
+      currentUser.id === Number(post.authorId) ||
       currentUser.role === "admin" ||
-      currentUser.role === "doctor" ||
       currentUser.role === "medical_professional"
     );
 
@@ -69,7 +68,7 @@ export default function PostDetail() {
     if (!confirm("Delete this post?")) return;
 
     const endpoint =
-      currentUser?.role === "admin" || currentUser?.role === "doctor"
+      currentUser?.role === "admin" || currentUser?.role === "medical_professional"
         ? `${API_BASE}/admin/posts/${postId}`
         : `${API_BASE}/posts/${postId}`;
 

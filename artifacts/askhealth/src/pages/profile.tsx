@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   useGetCurrentUser,
@@ -10,15 +10,17 @@ import {
 } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Layout, UserAvatar } from "@/components/Layout";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import {
   Award, Star, Activity, Trophy, MessageSquare, Users,
-  ArrowUp, Eye, FileText, ChevronRight,
+  ArrowUp, Eye, FileText, ChevronRight, Video, Calendar,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -52,6 +54,16 @@ interface MyCommunity {
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google") === "connected") {
+      toast.success("Google Calendar connected successfully!");
+      // Clean up the URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
 
   const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
   const authReady = clerkLoaded && isSignedIn;
@@ -88,6 +100,18 @@ export default function Profile() {
     enabled: !!user && activeTab === "communities",
     retry: 1,
   });
+
+  const handleConnectGoogle = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/tc/doctors/google-auth-url`, { credentials: "include" });
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch (err) {
+      console.error("Failed to get Google Auth URL", err);
+    }
+  };
+
+  const isDoctor = user?.role === "medical_professional" || user?.role === "admin";
 
   const isLoading = userLoading || creditsLoading || achievementsLoading;
 
@@ -276,6 +300,17 @@ export default function Profile() {
                     <CardContent className="p-4">
                       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick Actions</div>
                       <div className="space-y-2">
+                        {isDoctor && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between font-normal text-slate-700 border-slate-200 h-9"
+                            onClick={handleConnectGoogle}
+                          >
+                            <span className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-primary" /> Connect Calendar</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                          </Button>
+                        )}
                         <button onClick={() => setActiveTab("posts")} className="w-full text-left text-sm flex items-center justify-between text-foreground/80 hover:text-primary transition-colors">
                           <span className="flex items-center gap-2"><FileText className="w-3.5 h-3.5" /> View my posts</span>
                           <ChevronRight className="w-3.5 h-3.5" />

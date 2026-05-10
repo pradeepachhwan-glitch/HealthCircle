@@ -21,6 +21,7 @@ export const usersTable = pgTable("users", {
   healthCredits: integer("health_credits").notNull().default(0),
   weeklyCredits: integer("weekly_credits").notNull().default(0),
   level: integer("level").notNull().default(1),
+  location: text("location"),
   specialty: text("specialty"),
   registrationNumber: text("registration_number"),
   isVerifiedPro: boolean("is_verified_pro").notNull().default(false),

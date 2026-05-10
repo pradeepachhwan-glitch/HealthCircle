@@ -3,7 +3,6 @@ import { useParams, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useTeleconsultCall, type CallMode } from "@/hooks/useTeleconsultCall";
 import {
   Video,
   VideoOff,
@@ -72,6 +71,7 @@ interface ConsultationData {
     followUpDate: string | null;
     redFlags: string | null;
   } | null;
+  googleMeetUrl?: string;
 }
 
 type TabType = "triage" | "chat" | "prescription";
@@ -87,46 +87,6 @@ const RISK_CONFIG = {
   MEDIUM: { color: "text-amber-700", bg: "bg-amber-50", badge: "bg-amber-100 text-amber-700" },
   HIGH: { color: "text-red-700", bg: "bg-red-50", badge: "bg-red-100 text-red-700" },
 };
-
-function VideoTile({ stream, label, muted, isSelf, hidden }: { stream: MediaStream | null; label: string; muted?: boolean; isSelf?: boolean; hidden?: boolean }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    if (stream) {
-      el.srcObject = stream;
-    } else {
-      el.srcObject = null;
-    }
-  }, [stream]);
-
-  const hasVideo = !!stream && stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live");
-  const hasAudio = !!stream && stream.getAudioTracks().some((t) => t.enabled);
-
-  return (
-    <div className={`relative rounded-2xl overflow-hidden bg-slate-900 ${hidden ? "hidden" : ""}`}>
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted={muted}
-        className={`w-full h-full object-cover ${isSelf ? "scale-x-[-1]" : ""}`}
-      />
-      {!hasVideo && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-800 to-slate-900">
-          <div className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center">
-            {hasAudio ? <Mic className="w-6 h-6 text-emerald-400" /> : <VideoOff className="w-6 h-6 text-white/60" />}
-          </div>
-          <p className="text-xs text-white/70">{hasAudio ? "Audio only" : "Camera off"}</p>
-        </div>
-      )}
-      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/50 text-white text-[11px] font-medium backdrop-blur-sm flex items-center gap-1.5">
-        {label}
-        {!hasAudio && <MicOff className="w-3 h-3 text-red-400" />}
-      </div>
-    </div>
-  );
-}
 
 export default function TeleconsultSession() {
   const { id } = useParams<{ id: string }>();
@@ -159,46 +119,14 @@ export default function TeleconsultSession() {
 
   useEffect(() => { fetchData(); }, [id]);
 
-  // Decide call mode + whether to enable the WebRTC hook.
-  const callMode: CallMode = useMemo(() => {
-    if (!data) return "chat";
-    if (data.consultation.type === "video") return "video";
-    if (data.consultation.type === "audio") return "audio";
-    return "chat";
-  }, [data]);
-  const callEnabled = !!data && data.consultation.status === "in_progress";
-
-  const call = useTeleconsultCall(consultationId, callMode, callEnabled);
-
-  // Combine REST messages with realtime WS chat lines for the chat tab.
-  // Dedupe: when the user sends a chat over WS, it's also persisted via
-  // REST. The next fetchData() pulls it back as a REST message — we must
-  // suppress the local-echo WS line if a matching REST message exists,
-  // otherwise the sender sees their own message twice.
   const combinedMessages = useMemo(() => {
-    const rest = (data?.messages ?? []).map((m) => ({
+    return (data?.messages ?? []).map((m) => ({
       key: `r-${m.id}`,
       from: m.senderRole === "patient" ? "self" : "remote",
       text: m.message,
       ts: new Date(m.createdAt).getTime(),
-    }));
-    const live = call.chatLines
-      .filter((l) => {
-        // Drop a WS line if a REST message with same text and from-side
-        // exists within ±15s — almost certainly the same message echoed
-        // back via the persistence layer.
-        return !rest.some(
-          (r) => r.from === l.from && r.text === l.text && Math.abs(r.ts - l.ts) < 15_000,
-        );
-      })
-      .map((l, i) => ({
-        key: `l-${l.ts}-${i}`,
-        from: l.from,
-        text: l.text,
-        ts: l.ts,
-      }));
-    return [...rest, ...live].sort((a, b) => a.ts - b.ts);
-  }, [data?.messages, call.chatLines]);
+    })).sort((a, b) => a.ts - b.ts);
+  }, [data]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -216,7 +144,6 @@ export default function TeleconsultSession() {
 
   const handleClose = async () => {
     if (!confirm("Mark this consultation as completed?")) return;
-    call.endCall();
     await fetch(`/api/tc/consultation/${id}/close`, {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -230,13 +157,10 @@ export default function TeleconsultSession() {
     if (!text) return;
     setSending(true);
     try {
-      // 1) Live broadcast over WS so the other peer sees it instantly.
-      if (callEnabled) call.sendChat(text);
-      // 2) Persist to DB so it survives reload.
       await fetch("/api/tc/message", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consultationId: consultationId, message: text, senderRole: "patient" }),
+        body: JSON.stringify({ consultationId: consultationId, message: text }),
       });
       setMessage("");
       await fetchData();
@@ -274,27 +198,6 @@ export default function TeleconsultSession() {
     : [];
 
   const isMediaCall = consultation.type === "video" || consultation.type === "audio";
-  const callStatusLabel = (() => {
-    switch (call.status) {
-      case "requesting-media": return "Requesting camera & microphone…";
-      case "media-error": return call.errorMessage ?? "Media access denied";
-      case "connecting": return "Connecting to signaling…";
-      case "waiting-peer": return "Waiting for the other party to join…";
-      case "in-call": return "Live";
-      case "ended": return "Call ended";
-      case "error": return call.errorMessage ?? "Connection error";
-      default: return "";
-    }
-  })();
-  const callStatusColor = (() => {
-    switch (call.status) {
-      case "in-call": return "text-green-400";
-      case "media-error":
-      case "error": return "text-red-400";
-      case "waiting-peer": return "text-amber-400";
-      default: return "text-white/70";
-    }
-  })();
 
   return (
     <Layout>
@@ -396,29 +299,6 @@ export default function TeleconsultSession() {
                     </ul>
                   </div>
                 )}
-                {triageParsed.redFlags?.length > 0 && (
-                  <div className="mt-3 rounded-lg bg-red-100/60 p-2">
-                    <p className="text-xs font-semibold text-red-700 flex items-center gap-1 mb-1">
-                      <AlertTriangle className="w-3 h-3" /> Red Flags
-                    </p>
-                    {triageParsed.redFlags.map((f: string, i: number) => (
-                      <p key={i} className="text-xs text-red-600">• {f}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Share-link card during a live call so a 2nd browser tab can join as the doctor (demo). */}
-            {isMediaCall && consultation.status === "in_progress" && (
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-1.5">Connect another device</p>
-                <p className="text-xs text-emerald-700/80 leading-relaxed mb-3">
-                  Open this same URL in a second browser tab or device (signed in as you) — the two will connect over a real peer-to-peer call so you can verify video & audio end-to-end.
-                </p>
-                <Button size="sm" variant="outline" onClick={handleCopyLink} className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-100">
-                  {linkCopied ? <><Check className="w-3.5 h-3.5 mr-1.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5 mr-1.5" /> Copy session link</>}
-                </Button>
               </div>
             )}
           </div>
@@ -447,119 +327,74 @@ export default function TeleconsultSession() {
               ))}
             </div>
 
-            {/* Live call area — only when type is video/audio AND triage tab is open */}
+            {/* Live call area — focusing on Google Meet */}
             {isMediaCall && activeTab === "triage" && (
-              <div className="rounded-2xl bg-slate-900 mb-4 overflow-hidden">
+              <div className="rounded-2xl bg-slate-900 mb-4 overflow-hidden border border-slate-800 shadow-2xl shadow-black/40">
                 {consultation.status === "booked" && (
-                  <div className="aspect-video flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-800 to-slate-900 px-6 text-center">
-                    {consultation.type === "video" ? <Video className="w-10 h-10 text-white/40" /> : <Headphones className="w-10 h-10 text-white/40" />}
+                  <div className="aspect-video flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-slate-800 to-slate-900 px-6 text-center">
+                    <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mb-2">
+                      <Video className="w-8 h-8 text-white/30" />
+                    </div>
                     <div>
-                      <p className="text-white/80 font-medium text-sm">Session not started</p>
-                      <p className="text-white/40 text-xs mt-1">Click "Start Session" above to request camera & microphone</p>
+                      <p className="text-white/80 font-semibold text-lg">Consultation Not Started</p>
+                      <p className="text-white/40 text-sm mt-2 max-w-xs mx-auto">
+                        Once the doctor starts the session, you will be able to join via Google Meet.
+                      </p>
                     </div>
                   </div>
                 )}
 
                 {consultation.status === "completed" && (
                   <div className="aspect-video flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-800 to-slate-900 px-6 text-center">
-                    <Video className="w-10 h-10 text-white/40" />
-                    <p className="text-white/80 font-medium text-sm">Session ended</p>
+                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-2 border border-emerald-500/20">
+                      <ClipboardList className="w-8 h-8 text-emerald-400" />
+                    </div>
+                    <p className="text-white/80 font-bold text-xl">Consultation Completed</p>
+                    <p className="text-white/40 text-sm max-w-xs">
+                      This session has ended. Review the diagnosis and summary in the sidebar.
+                    </p>
                   </div>
                 )}
 
                 {consultation.status === "in_progress" && (
-                  <>
-                    {/* Video grid: large remote tile + small self-view */}
-                    <div className="relative aspect-video bg-black">
-                      {call.remotePeers.length === 0 ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                          {call.status === "media-error" ? (
-                            <>
-                              <AlertTriangle className="w-10 h-10 text-red-400" />
-                              <p className="text-red-300 font-medium text-sm">Cannot access camera or microphone</p>
-                              <p className="text-white/50 text-xs max-w-md">{call.errorMessage}</p>
-                              <p className="text-white/40 text-[11px]">
-                                Grant permission in your browser's address bar, then reload this page.
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              {call.status === "in-call" || call.status === "waiting-peer" ? (
-                                <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                                  <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-                                </div>
-                              ) : (
-                                <Loader2 className="w-10 h-10 text-white/40 animate-spin" />
-                              )}
-                              <p className={`font-medium text-sm ${callStatusColor}`}>{callStatusLabel}</p>
-                              {call.status === "waiting-peer" && (
-                                <p className="text-white/40 text-xs max-w-sm">
-                                  Once the other party joins, their video and audio will appear here.
-                                </p>
-                              )}
-                            </>
-                          )}
+                  <div className="aspect-video flex flex-col items-center justify-center gap-6 bg-gradient-to-br from-slate-800 to-slate-950 px-8 text-center relative overflow-hidden">
+                    {data.googleMeetUrl ? (
+                      <>
+                        <div className="w-24 h-24 rounded-3xl bg-primary/20 flex items-center justify-center relative z-10">
+                          <Video className="w-12 h-12 text-primary" />
+                          <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-slate-900 flex items-center justify-center">
+                             <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                          </div>
                         </div>
-                      ) : (
-                        <VideoTile
-                          stream={call.remotePeers[0]?.stream ?? null}
-                          label={doctor?.name ?? "Other party"}
-                          muted={false}
-                        />
-                      )}
-
-                      {/* Picture-in-picture self view */}
-                      {consultation.type === "video" && call.localStream && (
-                        <div className="absolute bottom-3 right-3 w-32 h-24 sm:w-40 sm:h-28 rounded-xl overflow-hidden border-2 border-white/30 shadow-xl">
-                          <VideoTile stream={call.localStream} label="You" muted isSelf />
+                        <div className="relative z-10">
+                          <h3 className="text-white font-bold text-2xl mb-2">Google Meet Ready</h3>
+                          <p className="text-white/50 text-sm max-w-sm mx-auto mb-8">
+                            Your secure consultation is being hosted on Google Meet. Click below to launch the video call.
+                          </p>
+                          <Button
+                            size="lg"
+                            onClick={() => window.open(data.googleMeetUrl, "_blank")}
+                            className="bg-primary hover:bg-primary/90 text-white px-10 py-7 text-xl font-bold shadow-2xl shadow-primary/30 rounded-2xl hover:scale-[1.02] transition-all"
+                          >
+                            <Video className="w-7 h-7 mr-3" /> Join Now
+                          </Button>
                         </div>
-                      )}
-
-                      {/* Live badge */}
-                      {call.status === "in-call" && (
-                        <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2 py-1 bg-red-600 rounded-md">
-                          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                          <span className="text-white text-[11px] font-bold uppercase tracking-wide">Live</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-20 h-20 rounded-3xl bg-amber-500/10 flex items-center justify-center relative z-10 border border-amber-500/20">
+                          <AlertTriangle className="w-10 h-10 text-amber-400" />
                         </div>
-                      )}
-                    </div>
-
-                    {/* Call controls */}
-                    <div className="flex items-center justify-center gap-3 py-3 bg-slate-950">
-                      <button
-                        onClick={call.toggleMic}
-                        disabled={!call.localStream}
-                        className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                          call.micEnabled ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-red-600 hover:bg-red-500 text-white"
-                        } disabled:opacity-40 disabled:cursor-not-allowed`}
-                        aria-label={call.micEnabled ? "Mute microphone" : "Unmute microphone"}
-                        title={call.micEnabled ? "Mute microphone" : "Unmute microphone"}
-                      >
-                        {call.micEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-                      </button>
-                      {consultation.type === "video" && (
-                        <button
-                          onClick={call.toggleCam}
-                          disabled={!call.localStream}
-                          className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-                            call.camEnabled ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-red-600 hover:bg-red-500 text-white"
-                          } disabled:opacity-40 disabled:cursor-not-allowed`}
-                          aria-label={call.camEnabled ? "Turn camera off" : "Turn camera on"}
-                          title={call.camEnabled ? "Turn camera off" : "Turn camera on"}
-                        >
-                          {call.camEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-                        </button>
-                      )}
-                      <button
-                        onClick={handleClose}
-                        className="w-11 h-11 rounded-full flex items-center justify-center bg-red-600 hover:bg-red-500 text-white transition-colors"
-                        aria-label="End call"
-                        title="End call"
-                      >
-                        <PhoneOff className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </>
+                        <div className="relative z-10">
+                          <h3 className="text-white font-bold text-xl mb-2">Connecting...</h3>
+                          <p className="text-white/50 text-sm max-w-sm mx-auto mb-4">
+                            Waiting for the doctor to generate the meeting link. This usually takes a few seconds.
+                          </p>
+                          <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -571,20 +406,6 @@ export default function TeleconsultSession() {
                 <p className="text-sm text-slate-600 mb-4">
                   {consultation.chiefComplaint ?? triageSession?.chiefComplaint ?? "Not specified"}
                 </p>
-                {!triageSession && (
-                  <div className="rounded-xl bg-violet-50 border border-violet-100 p-4 flex gap-3">
-                    <Brain className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-violet-700 mb-1">No AI Triage on file</p>
-                      <p className="text-xs text-violet-600">
-                        Running Yukti triage before your consultation helps your doctor prepare better.
-                      </p>
-                      <Button size="sm" variant="link" className="text-violet-700 p-0 h-auto mt-1 text-xs" onClick={() => navigate("/teleconsult/triage")}>
-                        Run triage now <ChevronRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -638,58 +459,6 @@ export default function TeleconsultSession() {
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </Button>
                 </div>
-              </div>
-            )}
-
-            {activeTab === "prescription" && (
-              <div className="rounded-2xl border border-slate-100 bg-white p-5">
-                {!prescription ? (
-                  <div className="text-center py-8">
-                    <ClipboardList className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                    <p className="text-slate-400 text-sm">No prescription yet</p>
-                    <p className="text-xs text-slate-300 mt-1">Your doctor will add a prescription during the session</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {prescription.icdCodes && (
-                      <div>
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">ICD-10 Codes</p>
-                        <p className="text-sm text-slate-700">{prescription.icdCodes}</p>
-                      </div>
-                    )}
-                    {medications.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Medications</p>
-                        <div className="space-y-2">
-                          {medications.map((m, i) => (
-                            <div key={i} className="rounded-xl bg-slate-50 border border-slate-100 p-3 flex items-center gap-3">
-                              <Pill className="w-4 h-4 text-primary flex-shrink-0" />
-                              <div>
-                                <p className="text-sm font-semibold text-slate-800">{m.name}</p>
-                                <p className="text-xs text-slate-500">{m.dose} · {m.freq}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {prescription.instructions && (
-                      <div>
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Instructions</p>
-                        <p className="text-sm text-slate-700 leading-relaxed">{prescription.instructions}</p>
-                      </div>
-                    )}
-                    {prescription.followUpDate && (
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <Clock className="w-4 h-4 text-slate-400" />
-                        Follow-up: <span className="font-medium">{prescription.followUpDate}</span>
-                      </div>
-                    )}
-                    <Button size="sm" onClick={() => navigate(`/teleconsult/summary/${id}`)} className="w-full">
-                      <FileText className="w-4 h-4 mr-2" /> View Full Summary
-                    </Button>
-                  </div>
-                )}
               </div>
             )}
           </div>

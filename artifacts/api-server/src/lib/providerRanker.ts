@@ -210,7 +210,7 @@ export function adaptLiveDoctor(d: LiveDoctor, opts: DoctorOpts): RankedDoctor {
     languages: d.languages,
     available: d.available,
     imageUrl: d.imageUrl ?? null,
-    source: "openstreetmap",
+    source: d.source,
     sourceUrl: d.sourceUrl ?? null,
     phone: d.phone ?? null,
     website: d.website ?? null,
@@ -262,7 +262,7 @@ export function adaptLiveHospital(h: LiveHospital, opts: HospitalOpts): RankedHo
     email: h.email ?? null,
     website: h.website ?? null,
     imageUrl: h.imageUrl ?? null,
-    source: "openstreetmap",
+    source: h.source,
     sourceUrl: h.sourceUrl ?? null,
     _score: 0,
   };

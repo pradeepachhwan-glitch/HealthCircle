@@ -26,6 +26,7 @@ interface Consultation {
   chiefComplaint: string | null;
   createdAt: string;
   consultationFee: string | null;
+  googleMeetUrl?: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {

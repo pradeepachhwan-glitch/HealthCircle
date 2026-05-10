@@ -88,7 +88,7 @@ substitutions:
   _REGION: asia-south1
   _REPOSITORY: healthcircle
   _SERVICE: healthcircle
-  _BASE_PATH: /askhealth
+  _BASE_PATH: /
   _CLOUD_SQL_INSTANCE: "healthcircleai-495306:asia-south2:healthcircle-db"
   _SERVICE_ACCOUNT: "857143676433-compute@developer.gserviceaccount.com"
 

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /communities
+Disallow: /admin
+Disallow: /medpro
+Disallow: /hospital
+
+Sitemap: https://telehealthcircle.com/sitemap.xml

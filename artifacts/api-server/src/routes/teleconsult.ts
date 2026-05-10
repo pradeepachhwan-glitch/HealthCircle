@@ -8,8 +8,9 @@ import {
   doctorsTable as doctors,
 } from "@workspace/db";
 import { eq, desc, and, ilike, or } from "drizzle-orm";
-import { requireAuth } from "../lib/auth";
+import { requireAuth, requireMedPro } from "../lib/auth";
 import { aiChatJson } from "../lib/aiClient";
+import { createMeetEvent, getAuthUrl } from "../lib/googleCalendar";
 
 const router = Router();
 
@@ -157,6 +158,11 @@ router.get("/tc/triage/:id", requireAuth, async (req: any, res) => {
 
 // ─── DOCTORS ───────────────────────────────────────────────────────────────
 
+router.get("/tc/doctors/google-auth-url", requireMedPro, async (req: any, res) => {
+  const url = await getAuthUrl(req.user.id);
+  res.json({ url });
+});
+
 router.get("/tc/doctors", requireAuth, async (req: any, res) => {
   const { specialty } = req.query as Record<string, string>;
   let list;
@@ -227,6 +233,33 @@ router.post("/tc/consultation/book", requireAuth, async (req: any, res) => {
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
     })
     .returning();
+
+  // Try to create Google Meet event if doctor is connected
+  if (consultation.scheduledAt && doctorRow.userId) {
+    try {
+      const meet = await createMeetEvent(doctorRow.userId, {
+        summary: `HealthCircle Consultation: ${req.user.displayName || "Patient"}`,
+        description: `Teleconsultation booked via HealthCircle.\nPatient Complaint: ${chiefComplaint || "Not specified"}`,
+        startTime: consultation.scheduledAt,
+        durationMinutes: 30, // Default duration
+      });
+
+      if (meet) {
+        await db
+          .update(tcConsultations)
+          .set({
+            googleEventId: meet.eventId ?? null,
+            googleMeetUrl: meet.meetUrl ?? null,
+          })
+          .where(eq(tcConsultations.id, consultation.id));
+        
+        consultation.googleMeetUrl = meet.meetUrl ?? null;
+        consultation.googleEventId = meet.eventId ?? null;
+      }
+    } catch (err) {
+      console.error("Failed to create Google Meet event:", err);
+    }
+  }
 
   return res.status(201).json({ consultation });
 });

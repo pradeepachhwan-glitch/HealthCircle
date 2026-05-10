@@ -161,6 +161,8 @@ export interface HealthAssistantOptions {
   /** Display name for the community persona. Required alongside slug for
    *  the persona swap to take effect. */
   communityName?: string | null;
+  /** List of nearby medical providers to include in the context. */
+  nearbyProviders?: Array<{ name: string; location: string; specialty: string }> | null;
 }
 
 export async function getHealthAssistantResponse(
@@ -180,7 +182,16 @@ export async function getHealthAssistantResponse(
   const persona = options.communitySlug && options.communityName
     ? buildCommunitySystemPrompt(options.communitySlug, options.communityName)
     : HEALTH_PERSONA_BASE;
-  const systemPrompt = `${persona}\n\n${HEALTH_RULES_AND_FORMAT}\n\n${langInstruction}`;
+
+  let providerContext = "";
+  if (options.nearbyProviders && options.nearbyProviders.length > 0) {
+    const list = options.nearbyProviders
+      .map(p => `- ${p.name} (${p.specialty}) at ${p.location}`)
+      .join("\n");
+    providerContext = `\n\nCONTEXT: The user has the following nearby verified providers from HealthCircle directory. If the user asks for a doctor or clinic, mention these specifically:\n${list}`;
+  }
+
+  const systemPrompt = `${persona}\n\n${HEALTH_RULES_AND_FORMAT}${providerContext}\n\n${langInstruction}`;
 
   const result = await aiChat({
     systemPrompt,

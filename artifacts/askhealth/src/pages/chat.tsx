@@ -22,6 +22,7 @@ interface ChatSession {
   language: string;
   createdAt: string;
   updatedAt: string;
+  googleMeetUrl?: string;
 }
 
 interface ChatMessage {

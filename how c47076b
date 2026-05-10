@@ -1,0 +1,171 @@
+[33mcommit c5cc9bb5d1da36c71783541f0bc7eb77218fe152[m
+Author: pradeepachhwan-glitch <pradeepachhwan@gmail.com>
+Date:   Thu May 7 22:31:02 2026 +0530
+
+    Secure post edit and delete permissions
+    
+    Added validation for post title and content length in patch request.
+
+[1mdiff --git a/artifacts/api-server/src/routes/posts.ts b/artifacts/api-server/src/routes/posts.ts[m
+[1mindex be6abb5..f639818 100644[m
+[1m--- a/artifacts/api-server/src/routes/posts.ts[m
+[1m+++ b/artifacts/api-server/src/routes/posts.ts[m
+[36m@@ -253,21 +253,151 @@[m [mexport async function bookmarkSetForUser(postIds: number[], userId?: number): Pr[m
+ [m
+ router.patch("/posts/:postId", requireAuth, async (req, res) => {[m
+   const postId = parseInt(pstr(req.params.postId), 10);[m
+[32m+[m
+[32m+[m[32m  if (!Number.isInteger(postId)) {[m
+[32m+[m[32m    res.status(400).json({ error: "Invalid post id" });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const { userId: clerkId } = getAuth(req);[m
+[32m+[m
+[32m+[m[32m  if (!clerkId) {[m
+[32m+[m[32m    res.status(401).json({ error: "Unauthorized" });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const user = await getOrCreateUser(clerkId);[m
+[32m+[m
+[32m+[m[32m  const [existingPost] = await db[m
+[32m+[m[32m    .select()[m
+[32m+[m[32m    .from(postsTable)[m
+[32m+[m[32m    .where(eq(postsTable.id, postId))[m
+[32m+[m[32m    .limit(1);[m
+[32m+[m
+[32m+[m[32m  if (!existingPost) {[m
+[32m+[m[32m    res.status(404).json({ error: "Post not found" });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const isOwner = existingPost.authorId === user.id;[m
+[32m+[m
+[32m+[m[32m  const canEditAnyPost =[m
+[32m+[m[32m    user.role === "admin" ||[m
+[32m+[m[32m    user.role === "medical_professional";[m
+[32m+[m
+[32m+[m[32m  if (!isOwner && !canEditAnyPost) {[m
+[32m+[m[32m    res.status(403).json({[m
+[32m+[m[32m      error: "Forbidden: You can only edit your own posts",[m
+[32m+[m[32m    });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+   const { title, content, imageUrl } = req.body;[m
+[32m+[m
+   const updates: Record<string, unknown> = {};[m
+[31m-  if (title !== undefined) updates.title = title;[m
+[31m-  if (content !== undefined) updates.content = content;[m
+[31m-  if (imageUrl !== undefined) updates.imageUrl = imageUrl;[m
+ [m
+[31m-  const [updated] = await db.update(postsTable).set(updates).where(eq(postsTable.id, postId)).returning();[m
+[31m-  if (!updated) { res.status(404).json({ error: "Not found" }); return; }[m
+[31m-  const [author] = await db.select().from(usersTable).where(eq(usersTable.id, updated.authorId)).limit(1);[m
+[31m-  res.json({ ...updated, authorId: author.clerkId, authorName: author.displayName, authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted: false });[m
+[32m+[m[32m  if (title !== undefined) {[m
+[32m+[m[32m    const cleanTitle = String(title).trim();[m
+[32m+[m
+[32m+[m[32m    if (cleanTitle.length < 3 || cleanTitle.length > 200) {[m
+[32m+[m[32m      res.status(400).json({[m
+[32m+[m[32m        error: "Title must be between 3 and 200 characters",[m
+[32m+[m[32m      });[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    updates.title = cleanTitle;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  if (content !== undefined) {[m
+[32m+[m[32m    const cleanContent = String(content).trim();[m
+[32m+[m
+[32m+[m[32m    if (cleanContent.length < 5 || cleanContent.length > 10000) {[m
+[32m+[m[32m      res.status(400).json({[m
+[32m+[m[32m        error: "Content must be between 5 and 10000 characters",[m
+[32m+[m[32m      });[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    updates.content = cleanContent;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  if (imageUrl !== undefined) {[m
+[32m+[m[32m    updates.imageUrl = imageUrl ? String(imageUrl) : null;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  if (Object.keys(updates).length === 0) {[m
+[32m+[m[32m    res.status(400).json({[m
+[32m+[m[32m      error: "No valid fields to update",[m
+[32m+[m[32m    });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const [updated] = await db[m
+[32m+[m[32m    .update(postsTable)[m
+[32m+[m[32m    .set(updates)[m
+[32m+[m[32m    .where(eq(postsTable.id, postId))[m
+[32m+[m[32m    .returning();[m
+[32m+[m
+[32m+[m[32m  const [author] = await db[m
+[32m+[m[32m    .select()[m
+[32m+[m[32m    .from(usersTable)[m
+[32m+[m[32m    .where(eq(usersTable.id, updated.authorId))[m
+[32m+[m[32m    .limit(1);[m
+[32m+[m
+[32m+[m[32m  res.json({[m
+[32m+[m[32m    ...updated,[m
+[32m+[m[32m    authorId: author.clerkId,[m
+[32m+[m[32m    authorName: author.displayName,[m
+[32m+[m[32m    authorAvatar: author.avatarUrl,[m
+[32m+[m[32m    authorLevel: author.level,[m
+[32m+[m[32m    hasUpvoted: false,[m
+[32m+[m[32m  });[m
+ });[m
+ [m
+ router.delete("/posts/:postId", requireAuth, async (req, res) => {[m
+   const postId = parseInt(pstr(req.params.postId), 10);[m
+[32m+[m
+[32m+[m[32m  if (!Number.isInteger(postId)) {[m
+[32m+[m[32m    res.status(400).json({ error: "Invalid post id" });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const { userId: clerkId } = getAuth(req);[m
+[32m+[m
+[32m+[m[32m  if (!clerkId) {[m
+[32m+[m[32m    res.status(401).json({ error: "Unauthorized" });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const user = await getOrCreateUser(clerkId);[m
+[32m+[m
+[32m+[m[32m  const [existingPost] = await db[m
+[32m+[m[32m    .select()[m
+[32m+[m[32m    .from(postsTable)[m
+[32m+[m[32m    .where(eq(postsTable.id, postId))[m
+[32m+[m[32m    .limit(1);[m
+[32m+[m
+[32m+[m[32m  if (!existingPost) {[m
+[32m+[m[32m    res.status(404).json({ error: "Post not found" });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const isOwner = existingPost.authorId === user.id;[m
+[32m+[m
+[32m+[m[32m  const canDeleteAnyPost =[m
+[32m+[m[32m    user.role === "admin" ||[m
+[32m+[m[32m    user.role === "medical_professional";[m
+[32m+[m
+[32m+[m[32m  if (!isOwner && !canDeleteAnyPost) {[m
+[32m+[m[32m    res.status(403).json({[m
+[32m+[m[32m      error: "Forbidden: You can only delete your own posts",[m
+[32m+[m[32m    });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+   await db.delete(postsTable).where(eq(postsTable.id, postId));[m
+[32m+[m
+   res.json({ success: true });[m
+ });[m
+ [m

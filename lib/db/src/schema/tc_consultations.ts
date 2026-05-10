@@ -17,6 +17,8 @@ export const tcConsultations = pgTable("tc_consultations", {
   notes: text("notes"),
   diagnosis: text("diagnosis"),
   followUpInstructions: text("follow_up_instructions"),
+  googleEventId: text("google_event_id"),
+  googleMeetUrl: text("google_meet_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

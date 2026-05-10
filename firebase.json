@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "artifacts/askhealth/dist/public",
+    "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -8,19 +8,11 @@
     ],
     "rewrites": [
       {
-        "source": "/sitemap.xml",
-        "destination": "/sitemap.xml"
-      },
-      {
-        "source": "/api/**",
+        "source": "**",
         "run": {
           "serviceId": "healthcircle",
           "region": "asia-south1"
         }
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
       }
     ]
   }

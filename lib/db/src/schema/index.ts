@@ -27,3 +27,4 @@ export * from "./tc_messages";
 export * from "./audit_log";
 export * from "./doctor_applications";
 export * from "./push_subscriptions";
+export * from "./google_tokens";
