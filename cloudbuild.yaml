@@ -3,54 +3,51 @@ steps:
     args:
       - build
       - --build-arg
-      - BASE_PATH=${_BASE_PATH}
+      - BASE_PATH=/
       - --tag
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
-      - --tag
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest
+      - gcr.io/healthcircleai-495306/api-server:latest
       - .
 
   - name: gcr.io/cloud-builders/docker
     args:
       - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
-
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest
+      - gcr.io/healthcircleai-495306/api-server:latest
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
       - run
       - deploy
-      - ${_SERVICE}
+      - healthcircle
       - --image
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+      - gcr.io/healthcircleai-495306/api-server:latest
       - --region
-      - ${_REGION}
+      - asia-south1
       - --platform
       - managed
       - --allow-unauthenticated
       - --port
       - "8080"
+      - --memory
+      - 1Gi
       - --set-env-vars
       - NODE_ENV=production
+      - --set-env-vars
+      - NODE_OPTIONS=--max-old-space-size=768
       - --set-env-vars
       - STATIC_DIR=/app/artifacts/askhealth/dist/public
       - --set-env-vars
       - EMAIL_AUTH_ENABLED=true
       - --set-env-vars
-      - BASE_PATH=${_BASE_PATH}
+      - BASE_PATH=/
       - --min-instances
       - "0"
       - --timeout
       - "300"
       - --add-cloudsql-instances
-      - ${_CLOUD_SQL_INSTANCE}
+      - healthcircleai-495306:asia-south2:healthcircle-db
       - --service-account
-      - ${_SERVICE_ACCOUNT}
+      - 857143676433-compute@developer.gserviceaccount.com
       - --update-secrets
       - DATABASE_URL=DATABASE_URL:latest
       - --update-secrets
@@ -83,17 +80,7 @@ steps:
       - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:latest
 
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest
-
-substitutions:
-  SHORT_SHA: latest
-  _REGION: asia-south1
-  _REPOSITORY: healthcircle
-  _SERVICE: healthcircle
-  _BASE_PATH: /
-  _CLOUD_SQL_INSTANCE: "healthcircleai-495306:asia-south2:healthcircle-db"
-  _SERVICE_ACCOUNT: "857143676433-compute@developer.gserviceaccount.com"
+  - gcr.io/healthcircleai-495306/api-server:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
