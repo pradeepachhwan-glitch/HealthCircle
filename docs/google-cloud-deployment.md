@@ -188,6 +188,7 @@ gcloud run services update "$SERVICE_NAME" \
   --update-secrets=EMAIL_FROM=EMAIL_FROM:latest \
   --update-secrets=RESEND_API_KEY=RESEND_API_KEY:latest \
   --update-secrets=GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest \
+  --update-secrets=GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest \
   --update-secrets=AI_INTEGRATIONS_OPENAI_BASE_URL=AI_INTEGRATIONS_OPENAI_BASE_URL:latest \
   --update-secrets=AI_INTEGRATIONS_OPENAI_API_KEY=AI_INTEGRATIONS_OPENAI_API_KEY:latest \
   --update-secrets=AI_INTEGRATIONS_ANTHROPIC_BASE_URL=AI_INTEGRATIONS_ANTHROPIC_BASE_URL:latest \

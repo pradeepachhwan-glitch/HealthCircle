@@ -60,6 +60,8 @@ steps:
       - --update-secrets
       - GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
       - --update-secrets
+      - GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest
+      - --update-secrets
       - GEMINI_API_KEY=GEMINI_API_KEY:latest
       - --update-secrets
       - AI_INTEGRATIONS_OPENAI_API_KEY=AI_INTEGRATIONS_OPENAI_API_KEY:latest
