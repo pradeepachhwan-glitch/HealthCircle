@@ -5,13 +5,13 @@ steps:
       - --build-arg
       - BASE_PATH=/
       - --tag
-      - gcr.io/healthcircleai-495306/api-server:latest
+      - gcr.io/$PROJECT_ID/api-server:latest
       - .
 
   - name: gcr.io/cloud-builders/docker
     args:
       - push
-      - gcr.io/healthcircleai-495306/api-server:latest
+      - gcr.io/$PROJECT_ID/api-server:latest
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
@@ -20,7 +20,7 @@ steps:
       - deploy
       - healthcircle
       - --image
-      - gcr.io/healthcircleai-495306/api-server:latest
+      - gcr.io/$PROJECT_ID/api-server:latest
       - --region
       - asia-south1
       - --platform
@@ -80,7 +80,7 @@ steps:
       - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:latest
 
 images:
-  - gcr.io/healthcircleai-495306/api-server:latest
+  - gcr.io/$PROJECT_ID/api-server:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
