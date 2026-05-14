@@ -1,3 +1,4 @@
+import schedulerRouter from "./routes/scheduler";
 import { createServer } from "http";
 import app from "./app";
 import { logger } from "./lib/logger";
