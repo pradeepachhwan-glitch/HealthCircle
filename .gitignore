@@ -62,3 +62,5 @@ service-account-key.json
 /HealthCircle/uploads
 *.backup.json
 
+.env
+.env
