@@ -8,7 +8,7 @@ import {
   doctorsTable as doctors,
 } from "@workspace/db";
 import { eq, desc, and, ilike, or } from "drizzle-orm";
-import { requireAuth, requireMedPro } from "../lib/auth";
+import { requireAuth, requirePartnerAccess } from "../lib/auth";
 import { aiChatJson } from "../lib/aiClient";
 import { createMeetEvent, getAuthUrl } from "../lib/googleCalendar";
 
@@ -42,6 +42,44 @@ async function getAccessibleConsultation(consultationId: number, userId: number)
 
   return null;
 }
+
+// ─── CONFIGURATION ─────────────────────────────────────────────────────────
+
+router.get("/tc/ice-servers", requireAuth, async (req, res) => {
+  const iceServers: any[] = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ];
+
+  const turnUser = process.env.TURN_SERVER_USERNAME;
+  const turnPass = process.env.TURN_SERVER_PASSWORD;
+
+  if (turnUser && turnPass) {
+    // Primary Global Node
+    if (process.env.TURN_SERVER_URL) {
+      iceServers.push({
+        urls: process.env.TURN_SERVER_URL,
+        username: turnUser,
+        credential: turnPass,
+      });
+    }
+
+    // Additional Regional Relays
+    const relays = process.env.TURN_RELAYS ? process.env.TURN_RELAYS.split(",") : [];
+    for (const relayUrl of relays) {
+      const trimmed = relayUrl.trim();
+      if (trimmed) {
+        iceServers.push({
+          urls: trimmed,
+          username: turnUser,
+          credential: turnPass,
+        });
+      }
+    }
+  }
+
+  res.json({ iceServers });
+});
 
 // ─── TRIAGE ────────────────────────────────────────────────────────────────
 
@@ -158,11 +196,6 @@ router.get("/tc/triage/:id", requireAuth, async (req: any, res) => {
 
 // ─── DOCTORS ───────────────────────────────────────────────────────────────
 
-router.get("/tc/doctors/google-auth-url", requireMedPro, async (req: any, res) => {
-  const url = await getAuthUrl(req.user.id);
-  res.json({ url });
-});
-
 router.get("/tc/doctors", requireAuth, async (req: any, res) => {
   const { specialty } = req.query as Record<string, string>;
   let list;
@@ -237,11 +270,15 @@ router.post("/tc/consultation/book", requireAuth, async (req: any, res) => {
   // Try to create Google Meet event if doctor is connected
   if (consultation.scheduledAt && doctorRow.userId) {
     try {
+      const attendees = [];
+      if (req.user.email) attendees.push(req.user.email);
+
       const meet = await createMeetEvent(doctorRow.userId, {
         summary: `HealthCircle Consultation: ${req.user.displayName || "Patient"}`,
         description: `Teleconsultation booked via HealthCircle.\nPatient Complaint: ${chiefComplaint || "Not specified"}`,
         startTime: consultation.scheduledAt,
         durationMinutes: 30, // Default duration
+        attendees,
       });
 
       if (meet) {

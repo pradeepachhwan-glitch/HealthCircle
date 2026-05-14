@@ -1,4 +1,4 @@
-import { pgTable, text, integer, boolean, timestamp, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, boolean, timestamp, serial, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -33,6 +33,7 @@ export const usersTable = pgTable("users", {
   // for other OIDC providers (e.g. `apple:<sub>`) without a new column. The
   // value is set on first Google sign-in and is unique per provider account.
   googleId: text("google_id").unique(),
+  personalHealthRecord: jsonb("personal_health_record"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

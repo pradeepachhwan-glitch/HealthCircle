@@ -38,6 +38,9 @@ app.use(
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
 
+// Professionalization: Serve persistent uploads
+app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+
 // IMPORTANT: authMiddleware MUST run BEFORE the API body parser. authMiddleware
 // only reads cookies (no body access), so the order swap is safe — and it
 // lets the parser below pick a per-request size limit based on whether the

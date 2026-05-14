@@ -451,3 +451,23 @@ export async function requireModeratorOrAdmin(req: Request, res: Response, next:
   }
   next();
 }
+
+/**
+ * requirePartnerAccess: allows doctors, admins, AND organization (hospital) accounts.
+ * Used for shared B2B/Partner integrations like Google Calendar/Meet.
+ */
+export async function requirePartnerAccess(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  
+  const isMedPro = req.user.role === "medical_professional" || req.user.role === "admin";
+  const isHospital = req.user.accountType === "hospital";
+  
+  if (!isMedPro && !isHospital) {
+    res.status(403).json({ error: "Forbidden: Partner access required" });
+    return;
+  }
+  next();
+}

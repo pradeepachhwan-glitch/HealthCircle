@@ -47,3 +47,18 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Security & Secrets
+.env
+.env.*
+.en
+!.env.example
+*.log
+*.mjs.map
+*.mjs.map
+service-account-key.json
+
+# Database
+/HealthCircle/uploads
+*.backup.json
+

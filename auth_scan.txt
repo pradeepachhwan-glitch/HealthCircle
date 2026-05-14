@@ -1,0 +1,538 @@
+artifacts/askhealth/src/components/LoadingOverlay.tsx:9:   *  "inline" renders the spinner only, sized to its parent — useful inside
+artifacts/askhealth/src/components/LoadingOverlay.tsx:25: * widget (`variant="inline"`) inside a panel.
+artifacts/askhealth/src/components/HealthCircleLogo.tsx:30:  const sideGap = isLg ? 16 : isMd ? 14 : isSm ? 10 : 8;
+artifacts/askhealth/src/components/HealthCircleLogo.tsx:65:        style={{ columnGap: sideGap }}
+artifacts/askhealth/src/components/HealthCircleLogo.tsx:135:              // for placements over dark backgrounds (e.g. signed-in sidebar).
+artifacts/askhealth/src/components/Layout.tsx:9:import { useClerk, useAuth } from "@workspace/replit-auth-web";
+artifacts/askhealth/src/components/Layout.tsx:31:  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+artifacts/askhealth/src/components/Layout.tsx:32:  const authReady = clerkLoaded && isSignedIn;
+artifacts/askhealth/src/components/Layout.tsx:39:  const { signOut } = useClerk();
+artifacts/askhealth/src/components/Layout.tsx:75:    <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border text-sidebar-foreground">
+artifacts/askhealth/src/components/Layout.tsx:83:          <div className="mb-6 p-4 rounded-xl bg-sidebar-accent/50 border border-sidebar-border">
+artifacts/askhealth/src/components/Layout.tsx:88:                <div className="text-xs text-sidebar-accent-foreground/70 capitalize">
+artifacts/askhealth/src/components/Layout.tsx:96:                  <span className="text-sidebar-accent-foreground font-medium">Level {credits.level}</span>
+artifacts/askhealth/src/components/Layout.tsx:97:                  <span className="text-sidebar-accent-foreground/70">{credits.healthCredits} HC</span>
+artifacts/askhealth/src/components/Layout.tsx:99:                <Progress value={credits.progressPercent} className="h-1.5 bg-sidebar-border" />
+artifacts/askhealth/src/components/Layout.tsx:100:                <div className="text-[10px] text-sidebar-accent-foreground/60 mt-1">{credits.creditsToNextLevel} HC to next level</div>
+artifacts/askhealth/src/components/Layout.tsx:111:                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+artifacts/askhealth/src/components/Layout.tsx:112:                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+artifacts/askhealth/src/components/Layout.tsx:122:      <div className="p-4 border-t border-sidebar-border space-y-1">
+artifacts/askhealth/src/components/Layout.tsx:124:          <a href="/#about" className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-xs flex-1">
+artifacts/askhealth/src/components/Layout.tsx:127:          <a href="/#support" className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-xs flex-1">
+artifacts/askhealth/src/components/Layout.tsx:133:          className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer w-full text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-sm"
+artifacts/askhealth/src/components/Layout.tsx:154:      <div className="md:hidden fixed top-0 left-0 right-0 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4 z-50 pt-safe layout-mobile-header">
+artifacts/askhealth/src/components/Layout.tsx:156:          <div className="flex items-center gap-2 text-sidebar-foreground cursor-pointer min-h-[44px]">
+artifacts/askhealth/src/components/Layout.tsx:166:              className="text-sidebar-foreground hover:bg-sidebar-accent min-h-[44px] min-w-[44px]"
+artifacts/askhealth/src/components/Layout.tsx:171:          <SheetContent side="left" className="w-72 p-0 bg-sidebar border-r-sidebar-border">
+artifacts/askhealth/src/components/Layout.tsx:179:          bottom) and resets to 0 at the md breakpoint, so the desktop sidebar
+artifacts/askhealth/src/components/PWAInstallButton.tsx:44:// Browsers will not fire `beforeinstallprompt` inside a cross-origin iframe
+artifacts/askhealth/src/components/PWAInstallButton.tsx:174:  // Decide which "state" to show inside the sheet. Order matters:
+artifacts/askhealth/src/components/PWAInstallButton.tsx:201:        // and trap this fixed overlay inside the 64px header strip.
+artifacts/askhealth/src/components/PWAInstallButton.tsx:302:          <div className="font-semibold">You're inside a preview window.</div>
+artifacts/askhealth/src/components/PWAInstallButton.tsx:345:      // Clipboard can be blocked inside webviews; the manual fallback below
+artifacts/askhealth/src/components/PWAInstallButton.tsx:353:        The most reliable way: tap the <strong>⋯ / ⋮ menu</strong> inside{" "}
+artifacts/askhealth/src/components/UpiPaymentBlock.tsx:30: * UPI payment helper used inside payment dialogs. Renders:
+artifacts/askhealth/src/components/UpiPaymentBlock.tsx:34: *      `window.location.href` (more reliable than a plain anchor inside
+artifacts/askhealth/src/components/UpiPaymentBlock.tsx:66:      // schemes inside React SPAs. If no UPI app handles the scheme, the
+artifacts/askhealth/src/components/VoiceMic.tsx:80:  // floating "voice" pill that lives outside this component).
+artifacts/askhealth/src/components/GoogleSignInButton.tsx:9: *    a GOOGLE_CLIENT_ID configured. If not, the component renders nothing
+artifacts/askhealth/src/components/GoogleSignInButton.tsx:16: *    `loginWithGoogle()` which verifies it server-side and creates a
+artifacts/askhealth/src/components/GoogleSignInButton.tsx:86:    cancel_on_tap_outside?: boolean;
+artifacts/askhealth/src/components/GoogleSignInButton.tsx:115:  // GOOGLE_CLIENT_ID env on the server takes effect on the very next page
+artifacts/askhealth/src/components/GoogleSignInButton.tsx:180:          cancel_on_tap_outside: true,
+artifacts/askhealth/src/components/GoogleSignInButton.tsx:221:    // hasn't been given a GOOGLE_CLIENT_ID. Logged once per page load.
+artifacts/askhealth/src/components/GoogleSignInButton.tsx:224:      console.warn("[HealthCircle] Google sign-in button hidden: server returned no googleClientId. Set GOOGLE_CLIENT_ID in the API server's environment to enable it.");
+artifacts/askhealth/src/components/WhyThisAnswer.tsx:5:  /** Community name when the AI was answering inside a community context
+artifacts/askhealth/src/components/TiltCard.tsx:39:  // (not inside conditional JSX) so hook order never changes.
+artifacts/askhealth/src/components/ContentEmbed.tsx:16: *   - article→ "Read inside app" button → sandboxed iframe in a dialog so
+artifacts/askhealth/src/components/ContentEmbed.tsx:174:              {payload.contentSummary || "Tap to read inside the app."}
+artifacts/askhealth/src/components/ContentEmbed.tsx:183:                Read inside app
+artifacts/askhealth/src/components/ui/context-menu.tsx:47:      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-context-menu-content-transform-origin]",
+artifacts/askhealth/src/components/ui/context-menu.tsx:63:        "z-50 max-h-[--radix-context-menu-content-available-height] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-context-menu-content-transform-origin]",
+artifacts/askhealth/src/components/ui/sheet.tsx:37:      side: {
+artifacts/askhealth/src/components/ui/sheet.tsx:47:      side: "right",
+artifacts/askhealth/src/components/ui/sheet.tsx:59:>(({ side = "right", className, children, ...props }, ref) => (
+artifacts/askhealth/src/components/ui/sheet.tsx:64:      className={cn(sheetVariants({ side }), className)}
+artifacts/askhealth/src/components/ui/tooltip.tsx:17:>(({ className, sideOffset = 4, ...props }, ref) => (
+artifacts/askhealth/src/components/ui/tooltip.tsx:21:      sideOffset={sideOffset}
+artifacts/askhealth/src/components/ui/tooltip.tsx:23:        "z-50 overflow-hidden rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-tooltip-content-transform-origin]",
+artifacts/askhealth/src/components/ui/sidebar.tsx:28:const SIDEBAR_COOKIE_NAME = "sidebar_state"
+artifacts/askhealth/src/components/ui/sidebar.tsx:72:  // This is the internal state of the sidebar.
+artifacts/askhealth/src/components/ui/sidebar.tsx:73:  // We use openProp and setOpenProp for control from outside the component.
+artifacts/askhealth/src/components/ui/sidebar.tsx:85:      // This sets the cookie to keep the sidebar state.
+artifacts/askhealth/src/components/ui/sidebar.tsx:91:  // Helper to toggle the sidebar.
+artifacts/askhealth/src/components/ui/sidebar.tsx:96:  // Adds a keyboard shortcut to toggle the sidebar.
+artifacts/askhealth/src/components/ui/sidebar.tsx:113:  // This makes it easier to style the sidebar with Tailwind classes.
+artifacts/askhealth/src/components/ui/sidebar.tsx:133:          data-slot="sidebar-wrapper"
+artifacts/askhealth/src/components/ui/sidebar.tsx:136:              "--sidebar-width": SIDEBAR_WIDTH,
+artifacts/askhealth/src/components/ui/sidebar.tsx:137:              "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+artifacts/askhealth/src/components/ui/sidebar.tsx:142:            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
+artifacts/askhealth/src/components/ui/sidebar.tsx:155:  side = "left",
+artifacts/askhealth/src/components/ui/sidebar.tsx:156:  variant = "sidebar",
+artifacts/askhealth/src/components/ui/sidebar.tsx:162:  side?: "left" | "right"
+artifacts/askhealth/src/components/ui/sidebar.tsx:163:  variant?: "sidebar" | "floating" | "inset"
+artifacts/askhealth/src/components/ui/sidebar.tsx:171:        data-slot="sidebar"
+artifacts/askhealth/src/components/ui/sidebar.tsx:173:          "bg-sidebar text-sidebar-foreground flex h-full w-[var(--sidebar-width)] flex-col",
+artifacts/askhealth/src/components/ui/sidebar.tsx:187:          data-sidebar="sidebar"
+artifacts/askhealth/src/components/ui/sidebar.tsx:188:          data-slot="sidebar"
+artifacts/askhealth/src/components/ui/sidebar.tsx:190:          className="bg-sidebar text-sidebar-foreground w-[var(--sidebar-width)] p-0 [&>button]:hidden"
+artifacts/askhealth/src/components/ui/sidebar.tsx:193:              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+artifacts/askhealth/src/components/ui/sidebar.tsx:196:          side={side}
+artifacts/askhealth/src/components/ui/sidebar.tsx:200:            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+artifacts/askhealth/src/components/ui/sidebar.tsx:210:      className="group peer text-sidebar-foreground hidden md:block"
+artifacts/askhealth/src/components/ui/sidebar.tsx:214:      data-side={side}
+artifacts/askhealth/src/components/ui/sidebar.tsx:215:      data-slot="sidebar"
+artifacts/askhealth/src/components/ui/sidebar.tsx:217:      {/* This is what handles the sidebar gap on desktop */}
+artifacts/askhealth/src/components/ui/sidebar.tsx:219:        data-slot="sidebar-gap"
+artifacts/askhealth/src/components/ui/sidebar.tsx:221:          "relative w-[var(--sidebar-width)] bg-transparent transition-[width] duration-200 ease-linear",
+artifacts/askhealth/src/components/ui/sidebar.tsx:223:          "group-data-[side=right]:rotate-180",
+artifacts/askhealth/src/components/ui/sidebar.tsx:225:            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+var(--spacing-4))]"
+artifacts/askhealth/src/components/ui/sidebar.tsx:226:            : "group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)]"
+artifacts/askhealth/src/components/ui/sidebar.tsx:230:        data-slot="sidebar-container"
+artifacts/askhealth/src/components/ui/sidebar.tsx:232:          "fixed inset-y-0 z-10 hidden h-svh w-[var(--sidebar-width)] transition-[left,right,width] duration-200 ease-linear md:flex",
+artifacts/askhealth/src/components/ui/sidebar.tsx:233:          side === "left"
+artifacts/askhealth/src/components/ui/sidebar.tsx:234:            ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
+artifacts/askhealth/src/components/ui/sidebar.tsx:235:            : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
+artifacts/askhealth/src/components/ui/sidebar.tsx:238:            ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+var(--spacing-4)+2px)]"
+artifacts/askhealth/src/components/ui/sidebar.tsx:239:            : "group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] group-data-[side=left]:border-r group-data-[side=right]:border-l",
+artifacts/askhealth/src/components/ui/sidebar.tsx:245:          data-sidebar="sidebar"
+artifacts/askhealth/src/components/ui/sidebar.tsx:246:          data-slot="sidebar-inner"
+artifacts/askhealth/src/components/ui/sidebar.tsx:247:          className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+artifacts/askhealth/src/components/ui/sidebar.tsx:265:      data-sidebar="trigger"
+artifacts/askhealth/src/components/ui/sidebar.tsx:266:      data-slot="sidebar-trigger"
+artifacts/askhealth/src/components/ui/sidebar.tsx:288:      data-sidebar="rail"
+artifacts/askhealth/src/components/ui/sidebar.tsx:289:      data-slot="sidebar-rail"
+artifacts/askhealth/src/components/ui/sidebar.tsx:295:        "hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] sm:flex",
+artifacts/askhealth/src/components/ui/sidebar.tsx:296:        "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
+artifacts/askhealth/src/components/ui/sidebar.tsx:297:        "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
+artifacts/askhealth/src/components/ui/sidebar.tsx:298:        "hover:group-data-[collapsible=offcanvas]:bg-sidebar group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full",
+artifacts/askhealth/src/components/ui/sidebar.tsx:299:        "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
+artifacts/askhealth/src/components/ui/sidebar.tsx:300:        "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",
+artifacts/askhealth/src/components/ui/sidebar.tsx:311:      data-slot="sidebar-inset"
+artifacts/askhealth/src/components/ui/sidebar.tsx:328:      data-slot="sidebar-input"
+artifacts/askhealth/src/components/ui/sidebar.tsx:329:      data-sidebar="input"
+artifacts/askhealth/src/components/ui/sidebar.tsx:339:      data-slot="sidebar-header"
+artifacts/askhealth/src/components/ui/sidebar.tsx:340:      data-sidebar="header"
+artifacts/askhealth/src/components/ui/sidebar.tsx:350:      data-slot="sidebar-footer"
+artifacts/askhealth/src/components/ui/sidebar.tsx:351:      data-sidebar="footer"
+artifacts/askhealth/src/components/ui/sidebar.tsx:364:      data-slot="sidebar-separator"
+artifacts/askhealth/src/components/ui/sidebar.tsx:365:      data-sidebar="separator"
+artifacts/askhealth/src/components/ui/sidebar.tsx:366:      className={cn("bg-sidebar-border mx-2 w-auto", className)}
+artifacts/askhealth/src/components/ui/sidebar.tsx:375:      data-slot="sidebar-content"
+artifacts/askhealth/src/components/ui/sidebar.tsx:376:      data-sidebar="content"
+artifacts/askhealth/src/components/ui/sidebar.tsx:389:      data-slot="sidebar-group"
+artifacts/askhealth/src/components/ui/sidebar.tsx:390:      data-sidebar="group"
+artifacts/askhealth/src/components/ui/sidebar.tsx:406:      data-slot="sidebar-group-label"
+artifacts/askhealth/src/components/ui/sidebar.tsx:407:      data-sidebar="group-label"
+artifacts/askhealth/src/components/ui/sidebar.tsx:409:        "text-sidebar-foreground/70 ring-sidebar-ring flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0",
+artifacts/askhealth/src/components/ui/sidebar.tsx:427:      data-slot="sidebar-group-action"
+artifacts/askhealth/src/components/ui/sidebar.tsx:428:      data-sidebar="group-action"
+artifacts/askhealth/src/components/ui/sidebar.tsx:430:        "text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground absolute top-3.5 right-3 flex aspect-square w-5 items-center justify-center rounded-md p-0 outline-hidden transition-transform focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+artifacts/askhealth/src/components/ui/sidebar.tsx:447:      data-slot="sidebar-group-content"
+artifacts/askhealth/src/components/ui/sidebar.tsx:448:      data-sidebar="group-content"
+artifacts/askhealth/src/components/ui/sidebar.tsx:458:      data-slot="sidebar-menu"
+artifacts/askhealth/src/components/ui/sidebar.tsx:459:      data-sidebar="menu"
+artifacts/askhealth/src/components/ui/sidebar.tsx:469:      data-slot="sidebar-menu-item"
+artifacts/askhealth/src/components/ui/sidebar.tsx:470:      data-sidebar="menu-item"
+artifacts/askhealth/src/components/ui/sidebar.tsx:477:const sidebarMenuButtonVariants = cva(
+artifacts/askhealth/src/components/ui/sidebar.tsx:478:  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:w-8! group-data-[collapsible=icon]:h-8! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+artifacts/askhealth/src/components/ui/sidebar.tsx:482:        default: "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+artifacts/askhealth/src/components/ui/sidebar.tsx:484:          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]",
+artifacts/askhealth/src/components/ui/sidebar.tsx:511:} & VariantProps<typeof sidebarMenuButtonVariants>) {
+artifacts/askhealth/src/components/ui/sidebar.tsx:517:      data-slot="sidebar-menu-button"
+artifacts/askhealth/src/components/ui/sidebar.tsx:518:      data-sidebar="menu-button"
+artifacts/askhealth/src/components/ui/sidebar.tsx:521:      className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+artifacts/askhealth/src/components/ui/sidebar.tsx:540:        side="right"
+artifacts/askhealth/src/components/ui/sidebar.tsx:562:      data-slot="sidebar-menu-action"
+artifacts/askhealth/src/components/ui/sidebar.tsx:563:      data-sidebar="menu-action"
+artifacts/askhealth/src/components/ui/sidebar.tsx:565:        "text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground peer-hover/menu-button:text-sidebar-accent-foreground absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 outline-hidden transition-transform focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+artifacts/askhealth/src/components/ui/sidebar.tsx:573:          "peer-data-[active=true]/menu-button:text-sidebar-accent-foreground group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 md:opacity-0",
+artifacts/askhealth/src/components/ui/sidebar.tsx:587:      data-slot="sidebar-menu-badge"
+artifacts/askhealth/src/components/ui/sidebar.tsx:588:      data-sidebar="menu-badge"
+artifacts/askhealth/src/components/ui/sidebar.tsx:590:        "text-sidebar-foreground pointer-events-none absolute right-1 flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-medium tabular-nums select-none",
+artifacts/askhealth/src/components/ui/sidebar.tsx:591:        "peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[active=true]/menu-button:text-sidebar-accent-foreground",
+artifacts/askhealth/src/components/ui/sidebar.tsx:617:      data-slot="sidebar-menu-skeleton"
+artifacts/askhealth/src/components/ui/sidebar.tsx:618:      data-sidebar="menu-skeleton"
+artifacts/askhealth/src/components/ui/sidebar.tsx:625:          data-sidebar="menu-skeleton-icon"
+artifacts/askhealth/src/components/ui/sidebar.tsx:630:        data-sidebar="menu-skeleton-text"
+artifacts/askhealth/src/components/ui/sidebar.tsx:644:      data-slot="sidebar-menu-sub"
+artifacts/askhealth/src/components/ui/sidebar.tsx:645:      data-sidebar="menu-sub"
+artifacts/askhealth/src/components/ui/sidebar.tsx:647:        "border-sidebar-border mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 py-0.5",
+artifacts/askhealth/src/components/ui/sidebar.tsx:662:      data-slot="sidebar-menu-sub-item"
+artifacts/askhealth/src/components/ui/sidebar.tsx:663:      data-sidebar="menu-sub-item"
+artifacts/askhealth/src/components/ui/sidebar.tsx:685:      data-slot="sidebar-menu-sub-button"
+artifacts/askhealth/src/components/ui/sidebar.tsx:686:      data-sidebar="menu-sub-button"
+artifacts/askhealth/src/components/ui/sidebar.tsx:690:        "text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground [&>svg]:text-sidebar-accent-foreground flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 outline outline-2 outline-transparent outline-offset-2 focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+artifacts/askhealth/src/components/ui/sidebar.tsx:691:        "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+artifacts/askhealth/src/components/ui/dropdown-menu.tsx:50:      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-dropdown-menu-content-transform-origin]",
+artifacts/askhealth/src/components/ui/dropdown-menu.tsx:62:>(({ className, sideOffset = 4, ...props }, ref) => (
+artifacts/askhealth/src/components/ui/dropdown-menu.tsx:66:      sideOffset={sideOffset}
+artifacts/askhealth/src/components/ui/dropdown-menu.tsx:69:        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-dropdown-menu-content-transform-origin]",
+artifacts/askhealth/src/components/ui/calendar.tsx:17:  showOutsideDays = true,
+artifacts/askhealth/src/components/ui/calendar.tsx:30:      showOutsideDays={showOutsideDays}
+artifacts/askhealth/src/components/ui/calendar.tsx:116:        outside: cn(
+artifacts/askhealth/src/components/ui/calendar.tsx:118:          defaultClassNames.outside
+artifacts/askhealth/src/components/ui/select.tsx:78:        "relative z-50 max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-select-content-transform-origin]",
+artifacts/askhealth/src/components/ui/select.tsx:80:          "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+artifacts/askhealth/src/components/ui/popover.tsx:15:>(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
+artifacts/askhealth/src/components/ui/popover.tsx:20:      sideOffset={sideOffset}
+artifacts/askhealth/src/components/ui/popover.tsx:22:        "z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-popover-content-transform-origin]",
+artifacts/askhealth/src/components/ui/menubar.tsx:95:      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-menubar-content-transform-origin]",
+artifacts/askhealth/src/components/ui/menubar.tsx:108:    { className, align = "start", alignOffset = -4, sideOffset = 8, ...props },
+artifacts/askhealth/src/components/ui/menubar.tsx:116:        sideOffset={sideOffset}
+artifacts/askhealth/src/components/ui/menubar.tsx:118:          "z-50 min-w-[12rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-menubar-content-transform-origin]",
+artifacts/askhealth/src/components/ui/hover-card.tsx:13:>(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
+artifacts/askhealth/src/components/ui/hover-card.tsx:17:    sideOffset={sideOffset}
+artifacts/askhealth/src/components/ui/hover-card.tsx:19:      "z-50 w-64 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-hover-card-content-transform-origin]",
+artifacts/askhealth/src/components/LandingYuktiDemo.tsx:65:  // whenever they click anywhere inside the demo card.
+artifacts/askhealth/src/pages/communities.tsx:10:import { useClerk, useAuth } from "@workspace/replit-auth-web";
+artifacts/askhealth/src/pages/communities.tsx:148:  const { signOut } = useClerk();
+artifacts/askhealth/src/pages/communities.tsx:159:  // Wait until Clerk has finished bootstrapping before firing the query.
+artifacts/askhealth/src/pages/communities.tsx:163:  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+artifacts/askhealth/src/pages/communities.tsx:167:    enabled: clerkLoaded && isSignedIn === true,
+artifacts/askhealth/src/pages/landing/sections/Hero.tsx:101:        {/* Warm coral/peach blob — left side */}
+artifacts/askhealth/src/pages/landing/sections/Hero.tsx:103:        {/* Cool indigo blob — right side */}
+artifacts/askhealth/src/pages/landing/sections/TeleConsultTeaser.tsx:51:          reads as a confident anchor on the page, not a quiet aside. */}
+artifacts/askhealth/src/pages/landing/sections/TeleConsultTeaser.tsx:103:              right after — all inside HealthCircle.
+artifacts/askhealth/src/pages/landing/SiteFooter.tsx:25:            {/* Compact, privacy-respecting contact row right beside the logo —
+artifacts/askhealth/src/pages/landing/SiteFooter.tsx:55:              alongside trusted communities and verified doctors.
+artifacts/askhealth/src/pages/landing/SiteHeader.tsx:45:          {/* Privacy-first contact buttons beside the logo — no email/phone exposed
+artifacts/askhealth/src/pages/marketing/ForDoctors.tsx:41:              What you'll do inside the portal.
+artifacts/askhealth/src/pages/admin.tsx:459:    const side = Math.min(img.width, img.height);
+artifacts/askhealth/src/pages/admin.tsx:460:    const sx = (img.width - side) / 2;
+artifacts/askhealth/src/pages/admin.tsx:461:    const sy = (img.height - side) / 2;
+artifacts/askhealth/src/pages/admin.tsx:463:    out.width = Math.min(maxDim, side);
+artifacts/askhealth/src/pages/admin.tsx:467:    ctx.drawImage(img, sx, sy, side, side, 0, 0, out.width, out.height);
+artifacts/askhealth/src/pages/admin.tsx:493:        // Map the most common server-side rejections to friendly messages so
+artifacts/askhealth/src/pages/admin.tsx:514:  // when their Clerk user is not yet promoted to admin role in the DB.
+artifacts/askhealth/src/pages/admin.tsx:749:              Paste the server-side admin token to unlock the dashboard. The token is stored only in your
+artifacts/askhealth/src/pages/admin.tsx:905:                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.clerkId, role: "admin" })}>
+artifacts/askhealth/src/pages/admin.tsx:908:                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.clerkId, role: "moderator" })}>
+artifacts/askhealth/src/pages/admin.tsx:911:                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.clerkId, role: "medical_professional" })}>
+artifacts/askhealth/src/pages/admin.tsx:914:                                  <DropdownMenuItem onClick={() => updateRole.mutate({ userId: user.clerkId, role: "member" })}>
+artifacts/askhealth/src/pages/admin.tsx:1537:                    const alreadyMember = (communityMembers ?? []).some((m: any) => m.userId === u.clerkId);
+artifacts/askhealth/src/pages/admin.tsx:1539:                      <div key={u.clerkId} className="flex items-center justify-between gap-2 p-2 hover:bg-muted/50 border-b border-border last:border-0">
+artifacts/askhealth/src/pages/admin.tsx:1551:                          onClick={() => communityMembersDialog && addMember.mutate({ communityId: communityMembersDialog.id, userId: u.clerkId })}
+artifacts/askhealth/src/pages/admin.tsx:1552:                          data-testid={`button-add-member-${u.clerkId}`}
+artifacts/askhealth/src/pages/appointments.tsx:111:  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+artifacts/askhealth/src/pages/appointments.tsx:112:  const authReady = clerkLoaded && isSignedIn;
+artifacts/askhealth/src/pages/broadcast.tsx:200:                  Embed a YouTube video, article or audio that members can play inside the app — no leaving HealthCircle.
+artifacts/askhealth/src/pages/chat.tsx:9:import { useClerk, useAuth } from "@workspace/replit-auth-web";
+artifacts/askhealth/src/pages/chat.tsx:285:  const { signOut } = useClerk();
+artifacts/askhealth/src/pages/chat.tsx:291:  // Default sidebar OPEN on desktop, CLOSED on mobile. On phones the sidebar
+artifacts/askhealth/src/pages/chat.tsx:294:  const [sidebarOpen, setSidebarOpen] = useState(() =>
+artifacts/askhealth/src/pages/chat.tsx:442:  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+artifacts/askhealth/src/pages/chat.tsx:443:  const authReady = clerkLoaded && isSignedIn;
+artifacts/askhealth/src/pages/chat.tsx:596:      {/* Mobile backdrop — tap to close sidebar (md+ keeps it as a flex sibling) */}
+artifacts/askhealth/src/pages/chat.tsx:597:      {sidebarOpen && (
+artifacts/askhealth/src/pages/chat.tsx:600:          aria-label="Close sidebar"
+artifacts/askhealth/src/pages/chat.tsx:608:        className={`${sidebarOpen ? "w-72 translate-x-0" : "w-0 -translate-x-full md:translate-x-0"} fixed md:static inset-y-0 left-0 z-40 md:z-auto flex-shrink-0 transition-all duration-300 overflow-hidden bg-white border-r border-slate-200 flex flex-col`}
+artifacts/askhealth/src/pages/chat.tsx:662:          <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setSidebarOpen(!sidebarOpen)}>
+artifacts/askhealth/src/pages/chat.tsx:663:            {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+artifacts/askhealth/src/pages/TeleconsultSession.tsx:187:        // Drop a WS line if a REST message with same text and from-side
+artifacts/askhealth/src/pages/providers.tsx:357:  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+artifacts/askhealth/src/pages/providers.tsx:358:  const authReady = clerkLoaded && isSignedIn;
+artifacts/askhealth/src/pages/profile.tsx:56:  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+artifacts/askhealth/src/pages/profile.tsx:57:  const authReady = clerkLoaded && isSignedIn;
+artifacts/askhealth/src/pages/profile.tsx:253:                {/* Right sidebar stats */}
+artifacts/askhealth/src/pages/DoctorApply.tsx:34:  const { isLoaded: clerkLoaded, isSignedIn } = useAuth();
+artifacts/askhealth/src/pages/DoctorApply.tsx:36:    query: { enabled: clerkLoaded === true && isSignedIn === true, queryKey: ["doctorApplyCurrentUser"] },
+artifacts/askhealth/src/pages/DoctorApply.tsx:38:  const userLoading = !clerkLoaded || (isSignedIn && userQueryLoading);
+artifacts/askhealth/src/App.tsx:134:      // token in constant time and (b) auto-promote the signed-in Clerk
+artifacts/askhealth/src/App.tsx:135:      // user's DB role to "admin" so the normal Clerk-based path works on
+artifacts/askhealth/src/App.tsx:148:      // Token accepted + role promoted server-side → refetch the user so the
+artifacts/askhealth/src/App.tsx:200:              Paste the server-side <code className="font-mono">ADMIN_TOKEN</code> to unlock and promote your account to admin.
+artifacts/askhealth/src/App.tsx:302:    const completed = localStorage.getItem(`onboarding_done_${user.clerkId}`);
+artifacts/askhealth/src/App.tsx:319:        userId={user.clerkId}
+artifacts/askhealth/src/index.css:48:  --color-sidebar: hsl(var(--sidebar));
+artifacts/askhealth/src/index.css:49:  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+artifacts/askhealth/src/index.css:50:  --color-sidebar-border: hsl(var(--sidebar-border));
+artifacts/askhealth/src/index.css:51:  --color-sidebar-primary: hsl(var(--sidebar-primary));
+artifacts/askhealth/src/index.css:52:  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+artifacts/askhealth/src/index.css:53:  --color-sidebar-primary-border: var(--sidebar-primary-border);
+artifacts/askhealth/src/index.css:54:  --color-sidebar-accent: hsl(var(--sidebar-accent));
+artifacts/askhealth/src/index.css:55:  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+artifacts/askhealth/src/index.css:56:  --color-sidebar-accent-border: var(--sidebar-accent-border);
+artifacts/askhealth/src/index.css:57:  --color-sidebar-ring: hsl(var(--sidebar-ring));
+artifacts/askhealth/src/index.css:93:  --sidebar: 222 47% 11%;
+artifacts/askhealth/src/index.css:94:  --sidebar-foreground: 210 40% 98%;
+artifacts/askhealth/src/index.css:95:  --sidebar-border: 217 24% 27%;
+artifacts/askhealth/src/index.css:96:  --sidebar-primary: 224 76% 48%;
+artifacts/askhealth/src/index.css:97:  --sidebar-primary-foreground: 0 0% 100%;
+artifacts/askhealth/src/index.css:98:  --sidebar-accent: 215 25% 27%;
+artifacts/askhealth/src/index.css:99:  --sidebar-accent-foreground: 210 40% 98%;
+artifacts/askhealth/src/index.css:100:  --sidebar-ring: 239 84% 67%;
+artifacts/askhealth/src/index.css:155:  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+artifacts/askhealth/src/index.css:156:  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+artifacts/askhealth/src/index.css:182:  --sidebar: 222 47% 11%;
+artifacts/askhealth/src/index.css:183:  --sidebar-foreground: 210 40% 98%;
+artifacts/askhealth/src/index.css:184:  --sidebar-border: 217.2 32.6% 17.5%;
+artifacts/askhealth/src/index.css:185:  --sidebar-primary: 224 76% 48%;
+artifacts/askhealth/src/index.css:186:  --sidebar-primary-foreground: 0 0% 100%;
+artifacts/askhealth/src/index.css:187:  --sidebar-accent: 215 25% 27%;
+artifacts/askhealth/src/index.css:188:  --sidebar-accent-foreground: 210 40% 98%;
+artifacts/askhealth/src/index.css:189:  --sidebar-ring: 239 84% 67%;
+artifacts/askhealth/src/index.css:259:     sidebar layout is unaffected. We can't use Tailwind's `md:pt-0`
+artifacts/askhealth/src/index.css:261:     responsive reset has to live inside the same CSS rule. */
+artifacts/askhealth/src/lib/voice.ts:82:  // Keep the latest callbacks accessible inside the long-lived recogniser
+artifacts/askhealth/src/hooks/useTeleconsultCall.ts:307:            // Other side will offer; we just await.
+artifacts/api-server/src/middlewares/authMiddleware.ts:33:  const sid = getSessionId(req);
+artifacts/api-server/src/middlewares/authMiddleware.ts:34:  if (!sid) {
+artifacts/api-server/src/middlewares/authMiddleware.ts:39:  const session = await getSessionRow(sid);
+artifacts/api-server/src/middlewares/authMiddleware.ts:41:    await clearSession(res, sid);
+artifacts/api-server/src/middlewares/authMiddleware.ts:48:    await clearSession(res, sid);
+artifacts/api-server/src/middlewares/authMiddleware.ts:54:  // Slide both server-side session expiry AND the browser cookie expiry
+artifacts/api-server/src/middlewares/authMiddleware.ts:57:  void touchSession(sid).catch(() => {});
+artifacts/api-server/src/middlewares/authMiddleware.ts:59:    setSessionCookie(res, sid);
+artifacts/api-server/src/routes/consents.ts:11:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/consents.ts:12:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/consents.ts:13:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/consents.ts:31:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/consents.ts:32:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/consents.ts:33:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/posts.ts:15:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:17:  const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
+artifacts/api-server/src/routes/posts.ts:39:      ...post, authorId: author.clerkId, authorName: author.displayName,
+artifacts/api-server/src/routes/posts.ts:51:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:52:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/posts.ts:54:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/posts.ts:74:    ...post, authorId: clerkId, authorName: user.displayName,
+artifacts/api-server/src/routes/posts.ts:81:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:82:  const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
+artifacts/api-server/src/routes/posts.ts:104:      ...post, authorId: author.clerkId, authorName: author.displayName,
+artifacts/api-server/src/routes/posts.ts:116:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:117:  const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
+artifacts/api-server/src/routes/posts.ts:144:    ...post, authorId: author.clerkId, authorName: author.displayName,
+artifacts/api-server/src/routes/posts.ts:194:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:195:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/posts.ts:197:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/posts.ts:219:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:220:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/posts.ts:221:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/posts.ts:233:    authorId: author.clerkId,
+artifacts/api-server/src/routes/posts.ts:265:  res.json({ ...updated, authorId: author.clerkId, authorName: author.displayName, authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted: false });
+artifacts/api-server/src/routes/posts.ts:281:  res.json({ ...updated, authorId: author.clerkId, authorName: author.displayName, authorAvatar: author.avatarUrl, authorLevel: author.level, hasUpvoted: false });
+artifacts/api-server/src/routes/posts.ts:286:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:287:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/posts.ts:289:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/posts.ts:312:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:313:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/posts.ts:315:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/posts.ts:373:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:374:  const me = clerkId ? await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
+artifacts/api-server/src/routes/posts.ts:383:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/posts.ts:384:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/posts.ts:392:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/comments.ts:21:    ...comment, authorId: author.clerkId, authorName: author.displayName,
+artifacts/api-server/src/routes/comments.ts:28:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/comments.ts:29:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/comments.ts:31:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/comments.ts:48:    ...comment, authorId: clerkId, authorName: user.displayName,
+artifacts/api-server/src/routes/admin.ts:17:  const [admin] = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
+artifacts/api-server/src/routes/admin.ts:199:    userId: user.clerkId,
+artifacts/api-server/src/routes/admin.ts:211:  const clerkId = pstr(req.params.userId);
+artifacts/api-server/src/routes/admin.ts:212:  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
+artifacts/api-server/src/routes/admin.ts:222: * Add one or more members to a community by clerkId or email (WhatsApp-style).
+artifacts/api-server/src/routes/admin.ts:244:  if (userIds.length) lookupConditions.push(inArray(usersTable.clerkId, userIds));
+artifacts/api-server/src/routes/admin.ts:251:  const foundClerkIds = new Set(found.map(u => u.clerkId));
+artifacts/api-server/src/routes/admin.ts:254:    ...userIds.filter(id => !foundClerkIds.has(id)),
+artifacts/api-server/src/routes/admin.ts:265:      added.push({ userId: user.clerkId, displayName: user.displayName, email: user.email });
+artifacts/api-server/src/routes/admin.ts:282:    .select({ clerkId: usersTable.clerkId, displayName: usersTable.displayName, email: usersTable.email, avatarUrl: usersTable.avatarUrl, role: usersTable.role })
+artifacts/api-server/src/routes/admin.ts:353:  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
+artifacts/api-server/src/routes/admin.ts:357:  }).where(eq(usersTable.clerkId, userId)).returning();
+artifacts/api-server/src/routes/admin.ts:362:  const clerkId = pstr(req.params.userId);
+artifacts/api-server/src/routes/admin.ts:366:    .where(eq(usersTable.clerkId, clerkId))
+artifacts/api-server/src/routes/admin.ts:373:router.patch("/admin/users/:clerkId/role", requireAdmin, async (req, res) => {
+artifacts/api-server/src/routes/admin.ts:374:  const clerkId = pstr(req.params.clerkId);
+artifacts/api-server/src/routes/admin.ts:382:    .where(eq(usersTable.clerkId, clerkId))
+artifacts/api-server/src/routes/ai.ts:26:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/ai.ts:27:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/ai.ts:28:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/appointments.ts:11:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/appointments.ts:12:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/appointments.ts:13:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/appointments.ts:44:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/appointments.ts:45:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/appointments.ts:46:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/appointments.ts:68:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/appointments.ts:69:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/appointments.ts:70:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/teleconsult.ts:79:Always be professional, empathetic, and err on the side of caution.
+artifacts/api-server/src/routes/search.ts:25:      ...post, authorId: author.clerkId, authorName: author.displayName,
+artifacts/api-server/src/routes/search.ts:36:      id: u.clerkId, clerkId: u.clerkId, displayName: u.displayName,
+artifacts/api-server/src/routes/payments.ts:35:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/payments.ts:36:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/payments.ts:37:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/payments.ts:95:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/payments.ts:96:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/payments.ts:97:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/payments.ts:180:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/payments.ts:181:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/payments.ts:182:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/communities.ts:13:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/communities.ts:14:  const user = clerkId ? await getOrCreateUser(clerkId) : null;
+artifacts/api-server/src/routes/communities.ts:73:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/communities.ts:74:  const user = clerkId ? await getOrCreateUser(clerkId) : null;
+artifacts/api-server/src/routes/communities.ts:122:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/communities.ts:123:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/communities.ts:124:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/communities.ts:139:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/communities.ts:140:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/communities.ts:141:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/communities.ts:192:    id: m.user.clerkId, clerkId: m.user.clerkId, displayName: m.user.displayName,
+artifacts/api-server/src/routes/publicCommunities.ts:64: *  1. `authorId` (a.k.a. clerkId) is NOT included. clerkId is a user-linkable
+artifacts/api-server/src/routes/users.ts:11:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/users.ts:12:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/users.ts:13:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/users.ts:20:    id: u.clerkId, clerkId: u.clerkId, displayName: u.displayName,
+artifacts/api-server/src/routes/users.ts:59:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/users.ts:60:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/users.ts:61:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/users.ts:66:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/users.ts:67:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/users.ts:84:  const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.clerkId, clerkId)).returning();
+artifacts/api-server/src/routes/users.ts:90:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/users.ts:91:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/users.ts:92:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/users.ts:109:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/users.ts:110:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/users.ts:111:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/users.ts:131:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/users.ts:132:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/users.ts:142:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/users.ts:143:  const [promoted] = await db.update(usersTable).set({ role: "admin" }).where(eq(usersTable.clerkId, clerkId)).returning();
+artifacts/api-server/src/routes/users.ts:158:  const clerkId = pstr(req.params.userId);
+artifacts/api-server/src/routes/users.ts:159:  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
+artifacts/api-server/src/routes/users.ts:165:  const clerkId = pstr(req.params.userId);
+artifacts/api-server/src/routes/users.ts:169:  const [updated] = await db.update(usersTable).set({ role }).where(eq(usersTable.clerkId, clerkId)).returning();
+artifacts/api-server/src/routes/users.ts:175:  const clerkId = pstr(req.params.userId);
+artifacts/api-server/src/routes/users.ts:177:  const [updated] = await db.update(usersTable).set({ isBanned }).where(eq(usersTable.clerkId, clerkId)).returning();
+artifacts/api-server/src/routes/medpro.ts:66:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/medpro.ts:67:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/medpro.ts:69:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/medpro.ts:102:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/medpro.ts:103:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/medpro.ts:105:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/medpro.ts:124:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/medpro.ts:125:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/medpro.ts:126:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/medpro.ts:206:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/medpro.ts:207:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/medpro.ts:208:  const doctor = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/chat.ts:18:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/chat.ts:19:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/chat.ts:20:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/chat.ts:33:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/chat.ts:34:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/chat.ts:35:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/chat.ts:42:  // system prompt, so we ONLY honour slugs that exist in the server-side
+artifacts/api-server/src/routes/chat.ts:44:  // server-side config — the client-supplied name is ignored to prevent
+artifacts/api-server/src/routes/chat.ts:67:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/chat.ts:68:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/chat.ts:69:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/chat.ts:91:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/chat.ts:92:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/chat.ts:93:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/chat.ts:225:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/chat.ts:226:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/chat.ts:227:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/chat.ts:252:// Yukti chat is a stateless side-panel chatbot — there's no session row to
+artifacts/api-server/src/routes/chat.ts:258:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/chat.ts:259:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/chat.ts:260:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/chat.ts:324:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/chat.ts:325:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/chat.ts:326:  const user = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/chat.ts:356:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/chat.ts:357:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/chat.ts:358:  const verifier = await getOrCreateUser(clerkId);
+artifacts/api-server/src/routes/auth.ts:44:    clerkId: u.clerkId,
+artifacts/api-server/src/routes/auth.ts:99:// validated per-call inside verifyIdToken({ audience }) below.
+artifacts/api-server/src/routes/auth.ts:134:    googleClientId: process.env.GOOGLE_CLIENT_ID ?? null,
+artifacts/api-server/src/routes/auth.ts:198:        clerkId: `email:${email}`,
+artifacts/api-server/src/routes/auth.ts:266:    const sid = await createSession({ userId: user.id });
+artifacts/api-server/src/routes/auth.ts:267:    setSessionCookie(res, sid);
+artifacts/api-server/src/routes/auth.ts:336:    const sid = await createSession({ userId: user.id });
+artifacts/api-server/src/routes/auth.ts:337:    setSessionCookie(res, sid);
+artifacts/api-server/src/routes/auth.ts:447:    const sid = await createSession({ userId: user.id });
+artifacts/api-server/src/routes/auth.ts:448:    setSessionCookie(res, sid);
+artifacts/api-server/src/routes/auth.ts:522:    const sid = await createSession({ userId: user.id });
+artifacts/api-server/src/routes/auth.ts:523:    setSessionCookie(res, sid);
+artifacts/api-server/src/routes/auth.ts:532:// Client-side flow:
+artifacts/api-server/src/routes/auth.ts:533://   1. Google Identity Services renders a button using GOOGLE_CLIENT_ID.
+artifacts/api-server/src/routes/auth.ts:546:  const clientId = process.env.GOOGLE_CLIENT_ID;
+artifacts/api-server/src/routes/auth.ts:637:      // clerkId is the legacy unique field still used by older queries; we
+artifacts/api-server/src/routes/auth.ts:641:          clerkId: googleId,
+artifacts/api-server/src/routes/auth.ts:660:        // either googleId, email, or clerkId. In that case the row now
+artifacts/api-server/src/routes/auth.ts:677:    const sid = await createSession({ userId: user.id });
+artifacts/api-server/src/routes/auth.ts:678:    setSessionCookie(res, sid);
+artifacts/api-server/src/routes/auth.ts:690:    const sid = getSessionId(req);
+artifacts/api-server/src/routes/auth.ts:691:    await clearSession(res, sid);
+artifacts/api-server/src/routes/auth.ts:701:  const sid = getSessionId(req);
+artifacts/api-server/src/routes/auth.ts:702:  await clearSession(res, sid).catch(() => {});
+artifacts/api-server/src/routes/healthSearch.ts:26:    const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/healthSearch.ts:27:    const user = clerkId ? await getOrCreateUser(clerkId) : null;
+artifacts/api-server/src/routes/gamification.ts:18:      userId: usersTable.clerkId,
+artifacts/api-server/src/routes/gamification.ts:31:    const [badgeCount] = await db.select({ count: sql<number>`count(*)` }).from(achievementsTable).where(eq(achievementsTable.userId, sql`(SELECT id FROM users WHERE clerk_id = ${u.userId})`));
+artifacts/api-server/src/routes/gamification.ts:47:  const clerkId = pstr(req.params.userId);
+artifacts/api-server/src/routes/gamification.ts:48:  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
+artifacts/api-server/src/routes/gamification.ts:57:    userId: clerkId,
+artifacts/api-server/src/routes/gamification.ts:62:  const { userId: clerkId } = getAuth(req);
+artifacts/api-server/src/routes/gamification.ts:63:  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+artifacts/api-server/src/routes/gamification.ts:65:  const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
+artifacts/api-server/src/routes/gamification.ts:79:    userId: clerkId,
+artifacts/api-server/src/routes/gamification.ts:86:    recentBadges: recentBadges.map(b => ({ ...b, userId: clerkId })),
+artifacts/api-server/src/app.ts:49:// (declared inside the route after requireAuth). Skip the global parser there
+artifacts/api-server/src/app.ts:71:  // Unknown / forged / expired sids land here as undefined, so attackers can
+artifacts/api-server/src/lib/teleconsultSignaling.ts:78:  const sid = cookies[SESSION_COOKIE] ?? cookies[LEGACY_SESSION_COOKIE];
+artifacts/api-server/src/lib/teleconsultSignaling.ts:79:  if (!sid) return null;
+artifacts/api-server/src/lib/teleconsultSignaling.ts:80:  const session = await getSessionRow(sid);
+artifacts/api-server/src/lib/yuktiReply.ts:16:    .where(eq(usersTable.clerkId, YUKTI_BOT_CLERK_ID))
+artifacts/api-server/src/lib/communityPrompts.ts:251:    systemPrompt: `You are Yukti, a compassionate fertility support AI assistant for the "Hope & Fertility" community on HealthCircle. You support couples on IVF journeys, those with fertility challenges (male and female infertility), and people exploring assisted reproductive technologies (IUI, IVF, ICSI, egg freezing). Discuss the emotional aspects of fertility treatment alongside the medical. Reference ICMR guidelines on ART. Validate the emotional difficulty of infertility. Always recommend a reproductive endocrinologist for treatment decisions. Be sensitive to Indian cultural pressures around fertility.`,
+artifacts/api-server/src/lib/communityPrompts.ts:335:    systemPrompt: `You are Yukti, a compassionate oncology support AI assistant for the "Cancer Support Circle" community on HealthCircle. This is a moderated, safe space for patients, survivors, and caregivers. You support with understanding diagnoses, treatment side effects (chemotherapy, radiation, surgery), emotional wellbeing, caregiving, and navigating Indian cancer care systems (government hospitals, AIIMS, Tata Memorial, private oncology centres). Follow strict sensitivity guidelines — validate emotions, never minimise experiences. Discuss Ayushman Bharat PM-JAY coverage for cancer treatment. Always refer to the treating oncologist for medical decisions.`,
+artifacts/api-server/src/lib/communityPrompts.ts:340:      "Signs that cancer treatment side effects need urgent attention?",
+artifacts/api-server/src/lib/communityPrompts.ts:385:      "Ayurvedic remedies for managing diabetes alongside allopathic treatment?",
+artifacts/api-server/src/lib/communityPrompts.ts:387:      "Is Ashwagandha safe for everyone — any side effects?",
+artifacts/api-server/src/lib/startupSeed.ts:11:    .where(eq(usersTable.clerkId, YUKTI_BOT_CLERK_ID))
+artifacts/api-server/src/lib/startupSeed.ts:18:      clerkId: YUKTI_BOT_CLERK_ID,
+artifacts/api-server/src/lib/startupSeed.ts:28:  return row?.id ?? (await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.clerkId, YUKTI_BOT_CLERK_ID)).limit(1))[0].id;
+artifacts/api-server/src/lib/auth.ts:47:// Cloud Run rewrites. Keep reading the legacy sid cookie for older direct
+artifacts/api-server/src/lib/auth.ts:50:export const LEGACY_SESSION_COOKIE = "sid";
+artifacts/api-server/src/lib/auth.ts:73:  const sid = crypto.randomBytes(32).toString("hex");
+artifacts/api-server/src/lib/auth.ts:75:    sid,
+artifacts/api-server/src/lib/auth.ts:79:  return sid;
+artifacts/api-server/src/lib/auth.ts:82:export async function getSessionRow(sid: string): Promise<SessionData | null> {
+artifacts/api-server/src/lib/auth.ts:83:  const [row] = await db.select().from(sessionsTable).where(eq(sessionsTable.sid, sid));
+artifacts/api-server/src/lib/auth.ts:86:    await deleteSession(sid);
+artifacts/api-server/src/lib/auth.ts:92:export async function touchSession(sid: string): Promise<void> {
+artifacts/api-server/src/lib/auth.ts:97:    .where(eq(sessionsTable.sid, sid));
+artifacts/api-server/src/lib/auth.ts:100:export async function deleteSession(sid: string): Promise<void> {
+artifacts/api-server/src/lib/auth.ts:101:  await db.delete(sessionsTable).where(eq(sessionsTable.sid, sid));
+artifacts/api-server/src/lib/auth.ts:111:export function setSessionCookie(res: Response, sid: string): void {
+artifacts/api-server/src/lib/auth.ts:112:  res.cookie(SESSION_COOKIE, sid, { ...COOKIE_OPTS, maxAge: SESSION_TTL });
+artifacts/api-server/src/lib/auth.ts:115:export async function clearSession(res: Response, sid?: string): Promise<void> {
+artifacts/api-server/src/lib/auth.ts:116:  if (sid) await deleteSession(sid);
+artifacts/api-server/src/lib/auth.ts:127:// ---- Compatibility shim for code that imported getAuth from @clerk/express ----
+artifacts/api-server/src/lib/auth.ts:129:  return { userId: req.user?.clerkId ?? null };
+artifacts/api-server/src/lib/auth.ts:147:  const clerkId = `email:${normalized}`;
+artifacts/api-server/src/lib/auth.ts:150:    clerkId,
+artifacts/api-server/src/lib/auth.ts:166:  clerkId: string,
+artifacts/api-server/src/lib/auth.ts:169:  const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
+artifacts/api-server/src/lib/auth.ts:176:      const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.clerkId, clerkId)).returning();
+artifacts/api-server/src/lib/auth.ts:183:    clerkId,
+artifacts/api-server/src/lib/auth.ts:185:    email: userData?.email ?? `${clerkId}@healthcircle.ai`,
+artifacts/api-server/src/lib/auth.ts:205:// This runs alongside the per-IP authRateLimiter so both axes are defended:
+artifacts/api-server/src/lib/auth.ts:411:        await db.update(usersTable).set({ role: "admin" }).where(eq(usersTable.clerkId, req.user.clerkId));
+artifacts/api-server/src/lib/searchEngine.ts:186:        "Report side effects to your doctor on HealthCircle chat",
+artifacts/api-server/src/lib/searchEngine.ts:439:      summary: "🚨 This sounds like a medical emergency. Call 108 (ambulance) immediately. If you can't call yourself, ask someone nearby. Do not wait. Inside HealthCircle, tap 'Get a Doctor's Opinion' to alert a verified medical professional in parallel.",
+artifacts/api-server/src/lib/searchEngine.ts:445:        "Tap 'Get a Doctor's Opinion' inside the chat to alert a HealthCircle verified doctor",
+artifacts/api-server/src/lib/searchEngine.ts:511:        // doesn't surface Mumbai dummy rows. Location stays inside the
+artifacts/api-server/src/lib/searchEngine.ts:786:      // "ISB Alumni" must never appear inside a health-search result.
+artifacts/api-server/src/lib/languageDetect.ts:67:      // Inside Devanagari, distinguish Marathi from Hindi via lexicon
+artifacts/api-server/src/lib/healthAssistant.ts:20:4. When the user describes high-risk symptoms (chest pain, breathing difficulty, suicidal ideation, severe bleeding, stroke signs) — instruct them to call emergency services 108, AND tell them to tap "Get a Doctor's Opinion" inside the chat to alert a HealthCircle medical professional.
+artifacts/api-server/src/lib/healthAssistant.ts:26:You MUST respond ONLY in this exact JSON format (no markdown fences, no prose outside JSON):
+artifacts/api-server/src/lib/healthAssistant.ts:161:  /** Display name for the community persona. Required alongside slug for
+artifacts/api-server/src/middleware/rateLimiter.ts:8: * Key derivation prefers the authenticated Clerk userId so users on shared NAT
+artifacts/api-server/src/middleware/rateLimiter.ts:20:    /* getAuth throws if Clerk middleware hasn't run on this path — fall through to IP */
+lib/db/src/schema/users.ts:12:  clerkId: text("clerk_id").notNull().unique(),
+lib/db/src/schema/auth.ts:6:    sid: varchar("sid").primaryKey(),

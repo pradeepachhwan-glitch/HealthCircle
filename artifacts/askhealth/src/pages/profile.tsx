@@ -103,7 +103,7 @@ export default function Profile() {
 
   const handleConnectGoogle = async () => {
     try {
-      const res = await fetch(`${API_BASE}/tc/doctors/google-auth-url`, { credentials: "include" });
+      const res = await fetch(`${API_BASE}/auth/google/auth-url`, { credentials: "include" });
       const { url } = await res.json();
       if (url) window.location.href = url;
     } catch (err) {

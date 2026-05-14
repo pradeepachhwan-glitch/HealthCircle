@@ -50,14 +50,43 @@ router.post("/appointments", requireAuth, async (req, res) => {
     res.status(400).json({ error: "Appointment time is required" }); return;
   }
 
+  const requestedTime = new Date(appointmentTime);
+  if (requestedTime < new Date()) {
+    res.status(400).json({ error: "Appointment time must be in the future" });
+    return;
+  }
+
+  // Professionalization: Prevent double-booking
+  if (doctorId) {
+    const existing = await db
+      .select()
+      .from(appointmentsTable)
+      .where(
+        and(
+          eq(appointmentsTable.doctorId, doctorId),
+          eq(appointmentsTable.appointmentTime, requestedTime),
+          eq(appointmentsTable.status, "booked") // or 'pending'? assuming 'booked' is the default active state
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      res.status(409).json({ 
+        error: "Doctor is already booked at this time. Please choose another slot." 
+      });
+      return;
+    }
+  }
+
   const [appointment] = await db
     .insert(appointmentsTable)
     .values({
       patientId: user.id,
       doctorId: doctorId ?? null,
       hospitalId: hospitalId ?? null,
-      appointmentTime: new Date(appointmentTime),
+      appointmentTime: requestedTime,
       notes: notes ?? null,
+      status: "booked", // Ensure explicit status
     })
     .returning();
 

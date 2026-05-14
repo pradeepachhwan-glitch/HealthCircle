@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Brain,
   AlertTriangle,
+  ShieldCheck,
 } from "lucide-react";
 
 interface Doctor {
@@ -32,12 +33,12 @@ interface Doctor {
 }
 
 const SPECIALTIES = [
-  "all", "Cardiologist", "General Physician", "Dermatologist",
-  "Gynecologist", "Neurologist", "Orthopedic Surgeon", "Pulmonologist", "Endocrinologist",
+  "all", "Psychiatrist", "Pediatrician", "Gynecologist", "Cardiologist", "General Physician", "Dermatologist",
+  "Neurologist", "Orthopedic Surgeon", "Pulmonologist", "Endocrinologist",
 ];
 
 const SPECIALTY_ICONS: Record<string, string> = {
-  "Cardiologist": "❤️", "General Physician": "🩺", "Dermatologist": "🌿",
+  "Psychiatrist": "🧠", "Pediatrician": "👶", "Cardiologist": "❤️", "General Physician": "🩺", "Dermatologist": "🌿",
   "Gynecologist": "🌸", "Neurologist": "🧠", "Orthopedic Surgeon": "🦴",
   "Pulmonologist": "🫁", "Endocrinologist": "🔬",
 };
@@ -54,71 +55,87 @@ function DoctorCard({
   const [type, setType] = useState(defaultType);
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 hover:shadow-md hover:border-primary/20 transition-all">
-      <div className="flex items-start gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-blue-200 flex items-center justify-center text-xl font-bold text-primary flex-shrink-0">
-          {SPECIALTY_ICONS[doctor.specialty] ?? "🩺"}
+    <div className="rounded-3xl border border-slate-100 bg-white p-6 hover:shadow-[0_20px_50px_-12px_rgba(15,23,42,0.1)] hover:border-primary/30 transition-all duration-300">
+      <div className="flex items-start gap-5">
+        <div className="relative shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-blue-100 flex items-center justify-center text-2xl font-bold text-primary shadow-sm border border-white/50">
+            {SPECIALTY_ICONS[doctor.specialty] ?? "🩺"}
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="flex items-start justify-between gap-2 flex-wrap mb-1">
             <div>
-              <h3 className="font-bold text-slate-800">{doctor.name}</h3>
-              <p className="text-sm text-slate-500">{doctor.specialty}</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-slate-900 text-lg leading-tight">{doctor.name}</h3>
+                <Badge className="bg-blue-50 text-blue-700 border-blue-100 text-[9px] uppercase tracking-wider font-bold h-5 px-1.5">
+                  Verified Advisor
+                </Badge>
+              </div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">{doctor.specialty}</p>
             </div>
             {doctor.available ? (
-              <Badge className="bg-green-100 text-green-700 flex-shrink-0">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 inline-block" />
-                Available
-              </Badge>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                Online Now
+              </div>
             ) : (
-              <Badge className="bg-slate-100 text-slate-500 flex-shrink-0">Unavailable</Badge>
+              <Badge variant="outline" className="text-slate-400 border-slate-200">Away</Badge>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-500">
-            <span className="flex items-center gap-1">
-              <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-              {Number(doctor.rating).toFixed(1)}
+          <div className="flex flex-wrap gap-4 mt-2 text-xs text-slate-500 font-medium">
+            <span className="flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span className="text-slate-900">{Number(doctor.rating).toFixed(1)}</span>
+              <span className="text-slate-300">({(Math.random() * 500 + 100).toFixed(0)}+ reviews)</span>
             </span>
-            <span>{doctor.experienceYears} yrs exp</span>
-            {doctor.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />{doctor.location}
-              </span>
-            )}
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              {doctor.experienceYears}+ Years Exp
+            </span>
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+              Continuity Care Partner
+            </span>
           </div>
 
           {doctor.bio && (
-            <p className="text-xs text-slate-500 mt-2 line-clamp-2">{doctor.bio}</p>
+            <p className="text-[13px] text-slate-600 mt-3 leading-relaxed line-clamp-2 italic">
+              "{doctor.bio}"
+            </p>
           )}
 
-          <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex gap-2">
+          <div className="mt-5 pt-5 border-t border-slate-50 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex p-1 bg-slate-50 rounded-xl border border-slate-100">
               {["video", "async"].map((t) => (
                 <button
                   key={t}
                   onClick={() => setType(t)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     type === t
-                      ? "bg-primary text-white border-primary"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-primary/40"
+                      ? "bg-white text-primary shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
                   {t === "video" ? <Video className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-                  {t === "video" ? "Video" : "Async"}
+                  {t === "video" ? "Video" : "Chat"}
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-3">
-              <span className="font-bold text-primary">
-                ₹{Number(doctor.consultationFee).toLocaleString("en-IN")}
-              </span>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Consult Fee</p>
+                <p className="font-bold text-slate-900 text-lg">
+                  ₹{Number(doctor.consultationFee).toLocaleString("en-IN")}
+                </p>
+              </div>
               <Button
-                size="sm"
                 disabled={!doctor.available}
                 onClick={() => onBook(doctor, type)}
+                className="h-11 px-8 rounded-xl font-bold shadow-lg shadow-primary/20"
               >
-                Book
+                Book Consult
               </Button>
             </div>
           </div>

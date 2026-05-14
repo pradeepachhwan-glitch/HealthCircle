@@ -6,9 +6,9 @@ import fitLifeImg from "@/assets/community-fit-life.png";
 import heartCircleImg from "@/assets/community-heart-circle.png";
 
 export const COMMUNITIES_PREVIEW = [
-  { img: mindSpaceImg, name: "Mind Space", desc: "Talk, share, heal", tag: "Mental Wellness", slug: "mental-wellness", accent: "from-teal-50 to-cyan-50" },
-  { img: sugarCareImg, name: "Sugar Care", desc: "Manage diabetes better", tag: "Diabetes", slug: "diabetes-care", accent: "from-rose-50 to-orange-50" },
-  { img: momJourneyImg, name: "Mom Journey", desc: "Pregnancy to parenting", tag: "Motherhood", slug: "pregnancy-motherhood", accent: "from-pink-50 to-purple-50" },
+  { img: mindSpaceImg, name: "Psychiatry & Wellness", desc: "Expert psychiatric advisors & emotional support", tag: "Mental Wellness", slug: "mental-wellness", accent: "from-indigo-50 to-violet-50" },
+  { img: momJourneyImg, name: "IVF & Fertility", desc: "Specialized fertility guidance & community", tag: "Women's Health", slug: "fertility-ivf", accent: "from-rose-50 to-pink-50" },
+  { img: sugarCareImg, name: "Pediatric Care", desc: "Trusted child health specialists for your family", tag: "Pediatrics", slug: "child-health", accent: "from-emerald-50 to-green-50" },
   { img: workResetImg, name: "Work Reset", desc: "Beat stress & burnout", tag: "Work Wellness", slug: "work-stress-burnout", accent: "from-blue-50 to-sky-50" },
   { img: fitLifeImg, name: "Fit Life", desc: "Fitness your way", tag: "Fitness", slug: "weight-loss-fitness", accent: "from-green-50 to-emerald-50" },
   { img: heartCircleImg, name: "Heart Circle", desc: "Care for your heart", tag: "Cardiology", slug: "heart-health", accent: "from-red-50 to-rose-50" },

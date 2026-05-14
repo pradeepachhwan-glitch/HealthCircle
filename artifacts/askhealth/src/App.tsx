@@ -42,6 +42,7 @@ import TeleconsultSummary from "@/pages/TeleconsultSummary";
 import DoctorApply from "@/pages/DoctorApply";
 import AccountTypePage from "@/pages/account-type";
 import HospitalDashboard from "@/pages/hospital-dashboard";
+import RazorpayTest from "@/pages/RazorpayTest";
 import Landing from "@/pages/landing/Landing";
 import SolutionsPage from "@/pages/marketing/Solutions";
 import ForDoctorsPage from "@/pages/marketing/ForDoctors";
@@ -399,6 +400,10 @@ function AppRoutes() {
 
           <Route path="/teleconsult">
             <ProtectedRoute><TeleconsultDashboard /></ProtectedRoute>
+          </Route>
+
+          <Route path="/razorpay-test">
+            <ProtectedRoute><RazorpayTest /></ProtectedRoute>
           </Route>
 
           <Route path="/teleconsult/triage">

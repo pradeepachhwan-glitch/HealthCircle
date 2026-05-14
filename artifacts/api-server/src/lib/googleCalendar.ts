@@ -25,6 +25,7 @@ export async function getAuthUrl(userId: number) {
     scope: [
       "https://www.googleapis.com/auth/calendar.events",
       "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/userinfo.email",
     ],
     state: JSON.stringify({ userId }),
     prompt: "consent",
@@ -40,12 +41,19 @@ export async function handleAuthCallback(userId: number, code: string) {
     throw new Error("Invalid tokens received from Google");
   }
 
+  // Fetch Google user email
+  client.setCredentials(tokens);
+  const oauth2 = google.oauth2({ version: "v2", auth: client });
+  const userInfo = await oauth2.userinfo.get();
+  const googleEmail = userInfo.data.email ?? null;
+
   await db
     .insert(googleTokensTable)
     .values({
       userId,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
+      googleEmail,
       expiryDate: new Date(tokens.expiry_date),
     })
     .onConflictDoUpdate({
@@ -53,6 +61,7 @@ export async function handleAuthCallback(userId: number, code: string) {
       set: {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
+        googleEmail,
         expiryDate: new Date(tokens.expiry_date),
         updatedAt: new Date(),
       },
@@ -101,6 +110,7 @@ export async function createMeetEvent(userId: number, details: {
   description: string;
   startTime: Date;
   durationMinutes: number;
+  attendees?: string[];
 }) {
   const client = await getAuthorizedClient(userId);
   if (!client) {
@@ -129,7 +139,7 @@ export async function createMeetEvent(userId: number, details: {
         conferenceSolutionKey: { type: "hangoutsMeet" },
       },
     },
-    attendees: [],
+    attendees: details.attendees?.map(email => ({ email })) ?? [],
     reminders: {
       useDefault: true,
     },

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAuth , pstr } from "../lib/auth";
-import { db, postsTable, usersTable, commentsTable, postUpvotesTable, postReactionsTable, postBookmarksTable, communityMembersTable, doctorConsultationsTable } from "@workspace/db";
+import { db, postsTable, usersTable, commentsTable, postUpvotesTable, postReactionsTable, postBookmarksTable, communityMembersTable, doctorConsultationsTable, communitiesTable } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireModeratorOrAdmin, getOrCreateUser } from "../lib/auth";
 import { awardCredits, CREDIT_EVENTS } from "../lib/gamification";
@@ -16,12 +16,29 @@ router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
 
   const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
   const currentUserId = currentUser[0]?.id;
+  const isModOrAdmin = currentUser[0]?.role === "admin" || currentUser[0]?.role === "moderator";
+
+  const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId)).limit(1);
+  if (!community) { res.status(404).json({ error: "Community not found" }); return; }
+
+  let membership: any = null;
+  if (currentUserId) {
+    [membership] = await db.select().from(communityMembersTable)
+      .where(and(eq(communityMembersTable.communityId, communityId), eq(communityMembersTable.userId, currentUserId))).limit(1);
+  }
+
+  const hasFullAccess = !community.isPremium || membership?.hasPremiumAccess || isModOrAdmin;
+
+  let whereClause = eq(postsTable.communityId, communityId);
+  if (!isModOrAdmin) {
+    whereClause = and(whereClause, eq(postsTable.isModerated, false)) as any;
+  }
 
   const posts = await db
     .select({ post: postsTable, author: usersTable })
     .from(postsTable)
     .innerJoin(usersTable, eq(postsTable.authorId, usersTable.id))
-    .where(eq(postsTable.communityId, communityId))
+    .where(whereClause)
     .orderBy(desc(postsTable.isPinned), desc(postsTable.createdAt));
 
   const postIds = posts.map(p => p.post.id);
@@ -35,8 +52,15 @@ router.get("/communities/:communityId/posts", requireAuth, async (req, res) => {
         .where(and(eq(postUpvotesTable.postId, post.id), eq(postUpvotesTable.userId, currentUserId))).limit(1);
       hasUpvoted = upvote.length > 0;
     }
+
+    // Professionalization: Paywall enforcement
+    const displayContent = hasFullAccess ? post.content : post.content.slice(0, 150) + "... [Join Premium to read more]";
+
     return {
-      ...post, authorId: author.clerkId, 
+      ...post,
+      content: displayContent,
+      isPremiumLocked: !hasFullAccess,
+      authorId: author.clerkId, 
       authorName: post.isAnonymous && author.clerkId !== clerkId ? "Anonymous Member" : author.displayName,
       authorAvatar: post.isAnonymous && author.clerkId !== clerkId ? null : author.avatarUrl,
       authorLevel: author.level, hasUpvoted,
@@ -84,12 +108,29 @@ router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, re
   const { userId: clerkId } = getAuth(req);
   const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
   const currentUserId = currentUser[0]?.id;
+  const isModOrAdmin = currentUser[0]?.role === "admin" || currentUser[0]?.role === "moderator";
+
+  const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId)).limit(1);
+  if (!community) { res.status(404).json({ error: "Community not found" }); return; }
+
+  let membership: any = null;
+  if (currentUserId) {
+    [membership] = await db.select().from(communityMembersTable)
+      .where(and(eq(communityMembersTable.communityId, communityId), eq(communityMembersTable.userId, currentUserId))).limit(1);
+  }
+
+  const hasFullAccess = !community.isPremium || membership?.hasPremiumAccess || isModOrAdmin;
+
+  let whereClause = and(eq(postsTable.communityId, communityId), eq(postsTable.isPinned, true));
+  if (!isModOrAdmin) {
+    whereClause = and(whereClause, eq(postsTable.isModerated, false)) as any;
+  }
 
   const posts = await db
     .select({ post: postsTable, author: usersTable })
     .from(postsTable)
     .innerJoin(usersTable, eq(postsTable.authorId, usersTable.id))
-    .where(and(eq(postsTable.communityId, communityId), eq(postsTable.isPinned, true)))
+    .where(whereClause)
     .orderBy(desc(postsTable.createdAt));
 
   const postIds = posts.map(p => p.post.id);
@@ -103,8 +144,14 @@ router.get("/communities/:communityId/posts/pinned", requireAuth, async (req, re
         .where(and(eq(postUpvotesTable.postId, post.id), eq(postUpvotesTable.userId, currentUserId))).limit(1);
       hasUpvoted = upvote.length > 0;
     }
+
+    const displayContent = hasFullAccess ? post.content : post.content.slice(0, 150) + "... [Join Premium to read more]";
+
     return {
-      ...post, authorId: author.clerkId, 
+      ...post,
+      content: displayContent,
+      isPremiumLocked: !hasFullAccess,
+      authorId: author.clerkId, 
       authorName: post.isAnonymous && author.clerkId !== clerkId ? "Anonymous Member" : author.displayName,
       authorAvatar: post.isAnonymous && author.clerkId !== clerkId ? null : author.avatarUrl,
       authorLevel: author.level, hasUpvoted,
@@ -121,6 +168,7 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   const currentUser = clerkId ? await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1) : [];
   const currentUserId = currentUser[0]?.id;
+  const isModOrAdmin = currentUser[0]?.role === "admin" || currentUser[0]?.role === "moderator";
 
   const rows = await db
     .select({ post: postsTable, author: usersTable })
@@ -131,6 +179,21 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
 
   if (!rows.length) { res.status(404).json({ error: "Not found" }); return; }
   const { post, author } = rows[0];
+
+  // Professionalization: Filter out moderated content for non-staff
+  if (post.isModerated && !isModOrAdmin) {
+    res.status(403).json({ error: "This post has been moderated and is not visible." });
+    return;
+  }
+
+  const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, post.communityId)).limit(1);
+  
+  let hasFullAccess = true;
+  if (community?.isPremium && !isModOrAdmin) {
+    const [membership] = await db.select().from(communityMembersTable)
+      .where(and(eq(communityMembersTable.communityId, post.communityId), eq(communityMembersTable.userId, currentUserId))).limit(1);
+    hasFullAccess = !!membership?.hasPremiumAccess;
+  }
 
   // Increment view count (non-blocking)
   db.update(postsTable).set({ viewCount: sql`${postsTable.viewCount} + 1` }).where(eq(postsTable.id, postId)).catch(() => {});
@@ -145,8 +208,13 @@ router.get("/posts/:postId", requireAuth, async (req, res) => {
   const reactionSummary = await summarizeReactionsForPosts([post.id], currentUserId);
   const bookmarkedSet = await bookmarkSetForUser([post.id], currentUserId);
 
+  const displayContent = hasFullAccess ? post.content : post.content.slice(0, 150) + "... [Join Premium to read more]";
+
   res.json({
-    ...post, authorId: author.clerkId, 
+    ...post,
+    content: displayContent,
+    isPremiumLocked: !hasFullAccess,
+    authorId: author.clerkId, 
     authorName: post.isAnonymous && author.clerkId !== clerkId ? "Anonymous Member" : author.displayName,
     authorAvatar: post.isAnonymous && author.clerkId !== clerkId ? null : author.avatarUrl,
     authorLevel: author.level, hasUpvoted,

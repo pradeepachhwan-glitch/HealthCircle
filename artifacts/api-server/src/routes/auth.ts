@@ -588,18 +588,20 @@ router.post("/auth/google", async (req: Request, res: Response) => {
   const avatarUrl = payload.picture ?? null;
 
   try {
-    // ---- Step 2: find existing user (googleId FIRST, then email) ----
-    // Two sequential lookups (instead of a single `or(...)`) so we always
-    // prefer the row whose googleId matches. A flat OR can ambiguously
-    // return either the googleId-matching row or the email-matching row
-    // when those happen to be different users (e.g. a user changed their
-    // Google email to match someone else's HealthCircle account).
+    // ---- Step 2: find existing user (googleId / clerkId FIRST, then email) ----
+    // We check clerkId alongside googleId because legacy/migrated users may
+    // have their Google ID stored in clerkId but not yet in the googleId
+    // column. Linking by either ensures we don't try to insert a duplicate.
     let user = (
-      await db.select().from(usersTable).where(eq(usersTable.googleId, googleId)).limit(1)
+      await db
+        .select()
+        .from(usersTable)
+        .where(or(eq(usersTable.googleId, googleId), eq(usersTable.clerkId, googleId)))
+        .limit(1)
     )[0];
 
     if (!user) {
-      // No googleId match → try linking an existing email/password user.
+      // No ID match → try linking an existing email/password user.
       user = (
         await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1)
       )[0];
@@ -617,6 +619,7 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       // silently revert profile edits on every sign-in.
       const updates: Record<string, unknown> = {};
       if (!user.googleId) updates.googleId = googleId;
+      if (!user.clerkId || (user.clerkId.startsWith("email:") && !user.googleId)) updates.clerkId = googleId;
       if (!user.emailVerifiedAt) updates.emailVerifiedAt = new Date();
       if (!user.avatarUrl && avatarUrl) updates.avatarUrl = avatarUrl;
       // displayName: only seed if the existing one is the auto-derived
@@ -666,7 +669,13 @@ router.post("/auth/google", async (req: Request, res: Response) => {
           await db
             .select()
             .from(usersTable)
-            .where(or(eq(usersTable.googleId, googleId), eq(usersTable.email, email)))
+            .where(
+              or(
+                eq(usersTable.googleId, googleId),
+                eq(usersTable.clerkId, googleId),
+                eq(usersTable.email, email),
+              ),
+            )
             .limit(1)
         )[0];
         if (!user) throw err; // shouldn't happen — the conflict implies a row exists

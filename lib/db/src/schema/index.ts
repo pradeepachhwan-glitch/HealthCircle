@@ -28,3 +28,6 @@ export * from "./audit_log";
 export * from "./doctor_applications";
 export * from "./push_subscriptions";
 export * from "./google_tokens";
+export * from "./hospital_settings";
+export * from "./hospital_care_team";
+export * from "./hospital_consultations";

@@ -62,6 +62,28 @@ router.get("/users/me", requireAuth, async (req, res) => {
   res.json(toProfile(user));
 });
 
+// Professionalization: PHR (Personal Health Record) endpoints
+router.get("/users/me/phr", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+  res.json(user.personalHealthRecord || {});
+});
+
+router.patch("/users/me/phr", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  // Expects structured clinical data: { allergies, conditions, medications, history, etc. }
+  const phrData = req.body;
+  
+  const [updated] = await db.update(usersTable)
+    .set({ personalHealthRecord: phrData, updatedAt: new Date() })
+    .where(eq(usersTable.clerkId, clerkId))
+    .returning();
+    
+  res.json(updated.personalHealthRecord || {});
+});
+
 router.patch("/users/me", requireAuth, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }

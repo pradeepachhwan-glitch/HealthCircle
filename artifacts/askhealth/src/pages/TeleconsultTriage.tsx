@@ -27,6 +27,8 @@ const SYMPTOM_OPTIONS = [
 
 const SPECIALTY_ICONS: Record<string, string> = {
   "General Physician": "🩺",
+  "Psychiatrist": "🧠",
+  "Pediatrician": "👶",
   "Cardiologist": "❤️",
   "Neurologist": "🧠",
   "Orthopedic Surgeon": "🦴",
@@ -55,6 +57,9 @@ const RISK_CONFIG = {
 
 export default function TeleconsultTriage() {
   const [, navigate] = useLocation();
+  const search = new URLSearchParams(window.location.search);
+  const preSelectedSpecialty = search.get("specialty");
+
   const [step, setStep] = useState(0);
   const [chiefComplaint, setChiefComplaint] = useState("");
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
@@ -123,10 +128,28 @@ export default function TeleconsultTriage() {
             <Brain className="w-5 h-5 text-violet-600" />
           </div>
           <div>
-            <h1 className="font-bold text-slate-800 text-xl">Yukti AI Triage</h1>
-            <p className="text-xs text-slate-500">Pre-consultation symptom assessment</p>
+            <h1 className="font-bold text-slate-800 text-xl">
+              {preSelectedSpecialty ? `${preSelectedSpecialty} Triage` : "Yukti AI Triage"}
+            </h1>
+            <p className="text-xs text-slate-500">
+              {preSelectedSpecialty 
+                ? `Specialized assessment for ${preSelectedSpecialty} continuity`
+                : "Pre-consultation symptom assessment"}
+            </p>
           </div>
         </div>
+
+        {preSelectedSpecialty && step < 4 && (
+          <div className="mb-6 p-4 rounded-2xl bg-primary/5 border border-primary/10 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-lg">
+              {SPECIALTY_ICONS[preSelectedSpecialty] || "🩺"}
+            </div>
+            <p className="text-xs text-slate-600 font-medium">
+              You are being assessed for <span className="text-primary font-bold">{preSelectedSpecialty}</span>. 
+              Yukti will tailor the assessment for this specialty.
+            </p>
+          </div>
+        )}
 
         {/* Progress (hide on result step) */}
         {step < 4 && (

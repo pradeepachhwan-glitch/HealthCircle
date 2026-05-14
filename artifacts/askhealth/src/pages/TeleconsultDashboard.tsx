@@ -17,6 +17,8 @@ import {
   Activity,
   Shield,
   Zap,
+  Trophy,
+  Users,
 } from "lucide-react";
 
 interface Consultation {
@@ -83,6 +85,30 @@ export default function TeleconsultDashboard() {
               <Stethoscope className="w-4 h-4 mr-2" />
               Browse Doctors
             </Button>
+          </div>
+        </div>
+
+        {/* Continuity Journey */}
+        <div className="rounded-2xl border border-primary/10 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Shield className="w-4 h-4 text-primary" />
+            <h2 className="font-bold text-slate-800">Your Continuity Journey</h2>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {[
+              { label: "Active Circles", val: "2", sub: "Psychiatry, Pediatrics", icon: Users },
+              { label: "Follow-ups Due", val: "1", sub: "Dr. Sameer (May 20)", icon: Calendar },
+              { label: "Care Credits", val: "450", sub: "Earned for continuity", icon: Trophy },
+            ].map(i => (
+              <div key={i.label} className="bg-white/60 backdrop-blur-sm p-4 rounded-xl border border-white/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <i.icon className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{i.label}</span>
+                </div>
+                <p className="text-xl font-extrabold text-slate-900">{i.val}</p>
+                <p className="text-[11px] text-slate-500 font-medium mt-1">{i.sub}</p>
+              </div>
+            ))}
           </div>
         </div>
 

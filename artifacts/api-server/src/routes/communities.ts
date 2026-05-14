@@ -69,18 +69,25 @@ router.post("/communities", requireAdmin, async (req, res) => {
 });
 
 router.get("/communities/:communityId", requireAuth, async (req, res) => {
-  const communityId = parseInt(pstr(req.params.communityId), 10);
+  const identifier = pstr(req.params.communityId);
+  const id = parseInt(identifier, 10);
+  const isNumeric = /^\d+$/.test(identifier);
+
   const { userId: clerkId } = getAuth(req);
   const user = clerkId ? await getOrCreateUser(clerkId) : null;
-  const [community] = await db.select().from(communitiesTable).where(eq(communitiesTable.id, communityId)).limit(1);
+
+  const [community] = await db.select().from(communitiesTable)
+    .where(isNumeric ? eq(communitiesTable.id, id) : eq(communitiesTable.slug, identifier))
+    .limit(1);
+
   if (!community) { res.status(404).json({ error: "Not found" }); return; }
-  const [memberRes] = await db.select({ count: count() }).from(communityMembersTable).where(eq(communityMembersTable.communityId, communityId));
-  const [postRes] = await db.select({ count: count() }).from(postsTable).where(eq(postsTable.communityId, communityId));
+  const [memberRes] = await db.select({ count: count() }).from(communityMembersTable).where(eq(communityMembersTable.communityId, community.id));
+  const [postRes] = await db.select({ count: count() }).from(postsTable).where(eq(postsTable.communityId, community.id));
   let isMember = false;
   let hasPremiumAccess = false;
   if (user) {
     const [membership] = await db.select().from(communityMembersTable)
-      .where(and(eq(communityMembersTable.communityId, communityId), eq(communityMembersTable.userId, user.id)));
+      .where(and(eq(communityMembersTable.communityId, community.id), eq(communityMembersTable.userId, user.id)));
     isMember = !!membership;
     hasPremiumAccess = !!membership?.hasPremiumAccess;
   }

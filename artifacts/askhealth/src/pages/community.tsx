@@ -17,7 +17,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowUp, MessageSquare, Eye, Plus, ArrowLeft, Users, Stethoscope,
-  TrendingUp, Clock, HelpCircle, Bot, Crown, Sparkles, Lock,
+  TrendingUp, Clock, HelpCircle, Bot, Crown, Sparkles, Lock, ShieldCheck, HeartPulse, Baby, Brain as BrainIcon,
+  Star, ArrowRight
 } from "lucide-react";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,15 +30,75 @@ import { cn } from "@/lib/utils";
 
 type Tab = "trending" | "latest" | "unanswered" | "doctor";
 
+const SPECIALTY_CONFIGS: Record<string, {
+  name: string;
+  theme: string;
+  accentColor: string;
+  advisorTitle: string;
+  advisorSpecialty: string;
+  intro: string;
+  continuityMessaging: string;
+  icon: any;
+}> = {
+  "mental-wellness": {
+    name: "Psychiatry & Wellness",
+    theme: "from-indigo-600 to-violet-700",
+    accentColor: "text-indigo-600",
+    advisorTitle: "Medical Advisors",
+    advisorSpecialty: "Psychiatrist",
+    intro: "A dedicated space for psychiatric care, emotional support, and mental wellness continuity. Connect with verified specialists for professional guidance.",
+    continuityMessaging: "Open for long-term psychiatric support",
+    icon: BrainIcon,
+  },
+  "child-health": {
+    name: "Pediatric Care",
+    theme: "from-emerald-500 to-green-600",
+    accentColor: "text-emerald-600",
+    advisorTitle: "Pediatric Advisors",
+    advisorSpecialty: "Pediatrician",
+    intro: "Specialized pediatric guidance for every milestone. A trusted space for parents to connect with child health specialists.",
+    continuityMessaging: "Trusted pediatric partners",
+    icon: Baby,
+  },
+  "fertility-ivf": {
+    name: "IVF & Fertility Excellence",
+    theme: "from-rose-500 to-pink-600",
+    accentColor: "text-rose-600",
+    advisorTitle: "Fertility Advisors",
+    advisorSpecialty: "Gynecologist",
+    intro: "Empathetic, expert-led support for your fertility and IVF journey. Professional guidance for every step of your family planning.",
+    continuityMessaging: "Continuity care for fertility journeys",
+    icon: HeartPulse,
+  },
+  "pcos-womens-health": {
+    name: "Women's Health & PCOS",
+    theme: "from-fuchsia-500 to-purple-600",
+    accentColor: "text-fuchsia-600",
+    advisorTitle: "Clinical Advisors",
+    advisorSpecialty: "Gynecologist",
+    intro: "Comprehensive support for PCOS, hormonal health, and clinical women's wellness journeys.",
+    continuityMessaging: "Long-term wellness partners",
+    icon: ShieldCheck,
+  }
+};
+
 export default function Community() {
   const [, params] = useRoute("/communities/:id");
   const [, navigate] = useLocation();
-  const communityId = parseInt(params?.id || "0", 10);
+  const identifier = params?.id || "";
+  const isNumeric = /^\d+$/.test(identifier);
+  const routeParam = isNumeric ? parseInt(identifier, 10) : identifier;
   const queryClient = useQueryClient();
 
-  const { data: community, isLoading: communityLoading } = useGetCommunity(communityId, {
-    query: { queryKey: getGetCommunityQueryKey(communityId), enabled: !!communityId },
+  const { data: community, isLoading: communityLoading } = useGetCommunity(routeParam as any, {
+    query: { 
+      queryKey: isNumeric ? getGetCommunityQueryKey(routeParam as number) : ["communities", identifier],
+      enabled: !!identifier 
+    },
   });
+
+  const communityId = community?.id || 0;
+
   const { data: posts, isLoading: postsLoading } = useListPosts(communityId, undefined, {
     query: { queryKey: getListPostsQueryKey(communityId), enabled: !!communityId },
   });
@@ -46,6 +107,18 @@ export default function Community() {
   });
   const { data: leaderboard } = useGetLeaderboard(communityId, { period: "weekly" }, {
     query: { queryKey: getGetLeaderboardQueryKey(communityId, { period: "weekly" }), enabled: !!communityId },
+  });
+
+  const specConfig = community?.slug ? SPECIALTY_CONFIGS[community.slug] : null;
+
+  const { data: advisors } = useQuery({
+    queryKey: ["advisors", specConfig?.advisorSpecialty],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/tc/doctors?specialty=${encodeURIComponent(specConfig?.advisorSpecialty || "")}`);
+      const data = await res.json();
+      return (data.doctors || []).slice(0, 3);
+    },
+    enabled: !!specConfig,
   });
 
   const createPost = useCreatePost();
@@ -234,7 +307,13 @@ export default function Community() {
     <Layout>
       <div className="max-w-5xl mx-auto pb-24 md:pb-6">
         {/* Hero Banner */}
-        <div className="relative" style={{ backgroundColor: community.coverColor || "hsl(var(--primary))" }}>
+        <div 
+          className={cn(
+            "relative transition-all duration-500",
+            specConfig ? `bg-gradient-to-br ${specConfig.theme}` : ""
+          )}
+          style={{ backgroundColor: !specConfig ? (community.coverColor || "hsl(var(--primary))") : undefined }}
+        >
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/50" />
           <div className="relative px-4 md:px-8 pt-12 pb-8">
             <button
@@ -246,7 +325,9 @@ export default function Community() {
             <div className="flex items-end justify-between gap-4">
               <div className="flex items-end gap-4">
                 <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-4xl md:text-5xl border border-white/30 shadow-lg overflow-hidden">
-                  {(community as any).iconUrl ? (
+                  {specConfig ? (
+                    <specConfig.icon className="w-10 h-10 md:w-12 md:h-12 text-white" />
+                  ) : (community as any).iconUrl ? (
                     <img
                       src={(community as any).iconUrl}
                       alt=""
@@ -258,9 +339,11 @@ export default function Community() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">{community.name}</h1>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+                      {specConfig ? specConfig.name : community.name}
+                    </h1>
                     {isPremium && (
-                      <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white border-0 shadow-md">
+                      <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm shadow-md">
                         <Crown className="w-3 h-3 mr-1" /> Premium
                       </Badge>
                     )}
@@ -270,37 +353,40 @@ export default function Community() {
                       <Users className="w-3.5 h-3.5" /> {stats?.memberCount ?? community.memberCount} members
                     </span>
                     <span className="text-white/40">•</span>
-                    <span className="text-white/80 text-sm">{stats?.postCount ?? community.postCount} posts</span>
+                    <span className="text-white/80 text-sm">Professional Ecosystem</span>
                   </div>
                 </div>
               </div>
-              {requiresPaymentToJoin ? (
-                <Button
-                  size="sm"
-                  onClick={handlePremiumUnlock}
-                  disabled={paymentLoading}
-                  className="shrink-0 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white border-0 shadow-lg font-semibold"
-                >
-                  <Crown className="w-3.5 h-3.5 mr-1.5" />
-                  {paymentLoading ? "Loading…" : `Unlock ₹${premiumPriceInr}`}
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant={isMember ? "secondary" : "default"}
-                  onClick={handleJoin}
-                  disabled={joinCommunity.isPending}
-                  className="shrink-0 bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-                >
-                  {isMember ? "✓ Joined" : "+ Join"}
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {requiresPaymentToJoin ? (
+                  <Button
+                    size="sm"
+                    onClick={handlePremiumUnlock}
+                    disabled={paymentLoading}
+                    className="shrink-0 bg-white text-primary hover:bg-white/90 border-0 shadow-lg font-bold px-6"
+                  >
+                    {paymentLoading ? "Loading…" : `Unlock ₹${premiumPriceInr}`}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant={isMember ? "secondary" : "default"}
+                    onClick={handleJoin}
+                    disabled={joinCommunity.isPending}
+                    className="shrink-0 bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm font-bold"
+                  >
+                    {isMember ? "✓ Joined" : "+ Join Community"}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="px-4 md:px-8 mt-4 space-y-4">
-          <p className="text-sm text-muted-foreground leading-relaxed">{community.description}</p>
+        <div className="px-4 md:px-8 mt-6 space-y-4">
+          <p className="text-sm text-slate-600 leading-relaxed font-medium">
+            {specConfig ? specConfig.intro : community.description}
+          </p>
 
           {isPremium && (
             <div className={cn(
@@ -409,7 +495,47 @@ export default function Community() {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-5">
+            <div className="space-y-6">
+              {specConfig && advisors && advisors.length > 0 && (
+                <Card className="border-slate-100 shadow-sm overflow-hidden">
+                  <CardHeader className="pb-3 bg-slate-50/50">
+                    <CardTitle className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <ShieldCheck className={cn("w-3.5 h-3.5", specConfig.accentColor)} />
+                      {specConfig.advisorTitle}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-slate-100">
+                      {advisors.map((advisor: any) => (
+                        <div key={advisor.id} className="p-4 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <UserAvatar name={advisor.name} url={advisor.imageUrl} className="w-9 h-9 border border-slate-100" />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-bold text-slate-900 truncate">{advisor.name}</div>
+                              <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{advisor.specialty}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+                            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                            <span>{Number(advisor.rating).toFixed(1)} Rating</span>
+                            <span className="text-slate-200">|</span>
+                            <span>{advisor.experienceYears} yrs exp.</span>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            className={cn("w-full h-8 text-[11px] font-bold gap-2", specConfig.theme.includes("indigo") ? "bg-indigo-600 hover:bg-indigo-700" : specConfig.theme.includes("rose") ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700")}
+                            onClick={() => navigate(`/teleconsult/doctors?specialty=${encodeURIComponent(advisor.specialty)}`)}
+                          >
+                            Continuity Consult
+                            <ArrowRight className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {leaderboard && leaderboard.length > 0 && (
                 <Card>
                   <CardHeader className="pb-2">
@@ -731,11 +857,18 @@ function PostCard({ post, communityId, communitySlug, communityName }: { post: a
               <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
             </div>
 
-            <Link href={`/communities/${communityId}/post/${post.id}`}>
+              <Link href={`/communities/${communityId}/post/${post.id}`}>
               <div className="cursor-pointer">
-                <h3 className="font-bold text-base text-foreground leading-snug mb-1.5 group-hover:text-primary transition-colors">
-                  {post.title}
-                </h3>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <h3 className="font-bold text-base text-foreground leading-snug group-hover:text-primary transition-colors">
+                    {post.title}
+                  </h3>
+                  {post.isPremiumLocked && (
+                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-amber-200 bg-amber-50 text-amber-600 font-bold">
+                      <Lock className="w-2.5 h-2.5 mr-1" /> PREMIUM LOCKED
+                    </Badge>
+                  )}
+                </div>
                 {!hasContent && (
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
                     {post.content}

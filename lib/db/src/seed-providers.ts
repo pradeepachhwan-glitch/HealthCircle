@@ -10,6 +10,9 @@ const doctors = [
   { name: "Dr. Kiran Rao", specialty: "Neurologist", experienceYears: 16, consultationFee: "1500", rating: "4.8", location: "Chennai, Tamil Nadu", bio: "Epilepsy, stroke, movement disorders.", languages: ["en", "ta"], available: true },
   { name: "Dr. Deepak Gupta", specialty: "Pulmonologist", experienceYears: 11, consultationFee: "850", rating: "4.5", location: "Pune, Maharashtra", bio: "Asthma, COPD, sleep disorders, respiratory medicine.", languages: ["en", "hi"], available: false },
   { name: "Dr. Lakshmi Iyer", specialty: "Endocrinologist", experienceYears: 9, consultationFee: "950", rating: "4.7", location: "Bengaluru, Karnataka", bio: "Diabetes management, thyroid disorders, hormonal health.", languages: ["en", "ta"], available: true },
+  { name: "Dr. Sameer Malhotra", specialty: "Psychiatrist", experienceYears: 15, consultationFee: "1500", rating: "4.9", location: "New Delhi", bio: "Expert in clinical psychiatry and emotional wellness continuity.", languages: ["en", "hi"], available: true },
+  { name: "Dr. Aditi Verma", specialty: "Pediatrician", experienceYears: 11, consultationFee: "800", rating: "4.8", location: "Gurugram", bio: "Compassionate pediatric care for all child development stages.", languages: ["en", "hi"], available: true },
+  { name: "Dr. Kavita Reddy", specialty: "Gynecologist", experienceYears: 13, consultationFee: "1200", rating: "4.9", location: "Hyderabad", bio: "Fertility specialist with focus on IVF and PCOS management.", languages: ["en", "te"], available: true },
 ];
 
 const hospitals = [

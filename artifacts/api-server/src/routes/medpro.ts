@@ -2,11 +2,11 @@ import { Router } from "express";
 import { getAuth } from "../lib/auth";
 import { db, usersTable, communitiesTable, postsTable, aiSummariesTable, communityMembersTable, commentsTable, doctorConsultationsTable } from "@workspace/db";
 import { eq, desc, and, count, inArray, or, sql } from "drizzle-orm";
-import { requireMedPro, getOrCreateUser } from "../lib/auth";
+import { requirePartnerAccess, getOrCreateUser } from "../lib/auth";
 
 const router = Router();
 
-router.get("/medpro/communities", requireMedPro, async (req, res) => {
+router.get("/medpro/communities", requirePartnerAccess, async (req, res) => {
   const communities = await db.select().from(communitiesTable)
     .where(eq(communitiesTable.isArchived, false))
     .orderBy(desc(communitiesTable.createdAt));
@@ -25,7 +25,7 @@ router.get("/medpro/communities", requireMedPro, async (req, res) => {
   res.json(result);
 });
 
-router.get("/medpro/ai-summaries/queue", requireMedPro, async (req, res) => {
+router.get("/medpro/ai-summaries/queue", requirePartnerAccess, async (req, res) => {
   const status = (req.query.status as string) ?? "pending";
   const communityId = req.query.communityId ? Number(req.query.communityId) : undefined;
 
@@ -61,7 +61,7 @@ router.get("/medpro/ai-summaries/queue", requireMedPro, async (req, res) => {
   })));
 });
 
-router.patch("/medpro/ai-summaries/:id/validate", requireMedPro, async (req, res) => {
+router.patch("/medpro/ai-summaries/:id/validate", requirePartnerAccess, async (req, res) => {
   const summaryId = Number(req.params.id);
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -97,7 +97,7 @@ router.patch("/medpro/ai-summaries/:id/validate", requireMedPro, async (req, res
   res.json({ success: true, summary: updated });
 });
 
-router.post("/medpro/communities/:id/expert-response", requireMedPro, async (req, res) => {
+router.post("/medpro/communities/:id/expert-response", requirePartnerAccess, async (req, res) => {
   const communityId = Number(req.params.id);
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -120,7 +120,7 @@ router.post("/medpro/communities/:id/expert-response", requireMedPro, async (req
   res.status(201).json(comment);
 });
 
-router.get("/medpro/stats", requireMedPro, async (req, res) => {
+router.get("/medpro/stats", requirePartnerAccess, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getOrCreateUser(clerkId);
@@ -140,7 +140,7 @@ router.get("/medpro/stats", requireMedPro, async (req, res) => {
   });
 });
 
-router.get("/medpro/urgent-cases", requireMedPro, async (req, res) => {
+router.get("/medpro/urgent-cases", requirePartnerAccess, async (req, res) => {
   const urgentSummaries = await db
     .select({ summary: aiSummariesTable, post: postsTable, community: communitiesTable })
     .from(aiSummariesTable)
@@ -170,7 +170,7 @@ router.get("/medpro/urgent-cases", requireMedPro, async (req, res) => {
   })));
 });
 
-router.get("/medpro/consultations", requireMedPro, async (req, res) => {
+router.get("/medpro/consultations", requirePartnerAccess, async (req, res) => {
   const status = (req.query.status as string) || "pending";
 
   const consultations = await db
@@ -202,7 +202,7 @@ router.get("/medpro/consultations", requireMedPro, async (req, res) => {
   })));
 });
 
-router.patch("/medpro/consultations/:id/resolve", requireMedPro, async (req, res) => {
+router.patch("/medpro/consultations/:id/resolve", requirePartnerAccess, async (req, res) => {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const doctor = await getOrCreateUser(clerkId);

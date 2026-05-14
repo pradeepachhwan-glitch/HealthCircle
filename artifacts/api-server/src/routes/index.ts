@@ -23,6 +23,7 @@ import googleRouter from "./google";
 import doctorApplicationsRouter from "./doctorApplications";
 import publicCommunitiesRouter from "./publicCommunities";
 import notificationsRouter from "./notifications";
+import hospitalWorkspaceRouter from "./hospitalWorkspace";
 
 const router: IRouter = Router();
 
@@ -46,9 +47,11 @@ router.use(paymentsRouter);
 router.use(uploadsRouter);
 router.use(publicAiRouter);
 router.use(teleconsultRouter);
-router.use(googleRouter);
+// Mount googleRouter under /api/auth
+router.use("/auth", googleRouter);
 router.use(doctorApplicationsRouter);
 router.use(publicCommunitiesRouter);
 router.use(notificationsRouter);
+router.use(hospitalWorkspaceRouter);
 
 export default router;

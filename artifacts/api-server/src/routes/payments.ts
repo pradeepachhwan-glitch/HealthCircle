@@ -9,6 +9,13 @@ import {
 import { eq, and } from "drizzle-orm";
 import { requireAuth, getOrCreateUser } from "../lib/auth";
 import { activateSubscription, SUBSCRIPTION_PRICE_INR, SUBSCRIPTION_DAYS } from "../lib/quota";
+import Razorpay from "razorpay";
+import crypto from "node:crypto";
+
+const razorpay = process.env.RAZORPAY_KEY_ID ? new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+}) : null;
 
 const router = Router();
 
@@ -26,6 +33,159 @@ function buildUpiLink(amountInr: number, note: string, txnRef: string): string {
   });
   return `upi://pay?${params.toString()}`;
 }
+
+// Razorpay endpoints
+router.post("/payments/razorpay/create-order", requireAuth, async (req, res) => {
+  if (!razorpay) {
+    res.status(501).json({ error: "Razorpay is not configured on this server." });
+    return;
+  }
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+
+  const { communityId, purpose } = req.body as { communityId?: number; purpose?: string };
+  
+  let amountInr = 0;
+  let finalPurpose = purpose || "";
+
+  if (communityId) {
+    const [community] = await db
+      .select()
+      .from(communitiesTable)
+      .where(eq(communitiesTable.id, communityId));
+    if (!community) { res.status(404).json({ error: "Community not found" }); return; }
+    if (!community.isPremium || community.premiumPriceInr <= 0) {
+      res.status(400).json({ error: "This community is not a premium community" });
+      return;
+    }
+    amountInr = community.premiumPriceInr;
+    finalPurpose = finalPurpose || `community_premium_${communityId}`;
+  } else if (purpose === "subscription_3mo") {
+    amountInr = SUBSCRIPTION_PRICE_INR;
+  } else {
+    res.status(400).json({ error: "Valid communityId or purpose is required" });
+    return;
+  }
+
+  if (amountInr < 1) {
+    res.status(400).json({ error: "Minimum amount is 1 INR" });
+    return;
+  }
+
+  try {
+    const order = await razorpay.orders.create({
+      amount: amountInr * 100, // paise
+      currency: "INR",
+      receipt: `HC_${user.id}_${Date.now()}`,
+    });
+
+    const [payment] = await db
+      .insert(paymentsTable)
+      .values({
+        userId: user.id,
+        communityId: communityId || null,
+        provider: "razorpay",
+        purpose: finalPurpose,
+        amountInr,
+        currency: "INR",
+        status: "created",
+        providerOrderId: order.id,
+        notes: { razorpayOrderId: order.id },
+      })
+      .returning();
+
+    res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      paymentId: payment.id,
+    });
+  } catch (error) {
+    console.error("Razorpay order creation failed:", error);
+    res.status(500).json({ error: "Failed to create payment order" });
+  }
+});
+
+router.post("/payments/razorpay/verify", requireAuth, async (req, res) => {
+  const { userId: clerkId } = getAuth(req);
+  if (!clerkId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const user = await getOrCreateUser(clerkId);
+
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    res.status(400).json({ error: "Missing required Razorpay fields" });
+    return;
+  }
+
+  const sign = razorpay_order_id + "|" + razorpay_payment_id;
+  const expectedSign = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+    .update(sign.toString())
+    .digest("hex");
+
+  if (expectedSign !== razorpay_signature) {
+    res.status(400).json({ error: "Invalid payment signature" });
+    return;
+  }
+
+  const [payment] = await db
+    .select()
+    .from(paymentsTable)
+    .where(eq(paymentsTable.providerOrderId, razorpay_order_id));
+
+  if (!payment || payment.userId !== user.id) {
+    res.status(404).json({ error: "Payment record not found" });
+    return;
+  }
+
+  if (payment.status === "paid") {
+    res.json({ success: true, alreadyPaid: true });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(paymentsTable)
+      .set({
+        status: "paid",
+        providerPaymentId: razorpay_payment_id,
+        providerSignature: razorpay_signature,
+        updatedAt: new Date(),
+      })
+      .where(eq(paymentsTable.id, payment.id));
+
+    if (payment.communityId) {
+      const [existing] = await tx
+        .select()
+        .from(communityMembersTable)
+        .where(and(eq(communityMembersTable.userId, user.id), eq(communityMembersTable.communityId, payment.communityId)));
+      
+      if (existing) {
+        await tx
+          .update(communityMembersTable)
+          .set({ hasPremiumAccess: true, premiumPaymentId: razorpay_payment_id })
+          .where(eq(communityMembersTable.id, existing.id));
+      } else {
+        await tx
+          .insert(communityMembersTable)
+          .values({
+            userId: user.id,
+            communityId: payment.communityId,
+            hasPremiumAccess: true,
+            premiumPaymentId: razorpay_payment_id,
+          });
+      }
+    }
+
+    if (payment.purpose === "subscription_3mo") {
+      await activateSubscription(user.id);
+    }
+  });
+
+  res.json({ success: true });
+});
 
 router.get("/payments/upi/config", requireAuth, (_req, res) => {
   res.json({ enabled: true, provider: "upi", upiId: UPI_VPA, payeeName: UPI_PAYEE_NAME });

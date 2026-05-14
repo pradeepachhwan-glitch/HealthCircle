@@ -3,6 +3,11 @@ import { useParams, useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { useTeleconsultCall, type CallMode } from "@/hooks/useTeleconsultCall";
 import {
   Video,
   VideoOff,
@@ -26,6 +31,8 @@ import {
   Headphones,
   Copy,
   Check,
+  Stethoscope,
+  ShieldCheck,
 } from "lucide-react";
 
 interface ConsultationData {
@@ -42,6 +49,7 @@ interface ConsultationData {
     followUpInstructions: string | null;
     consultationFee: string | null;
   };
+  viewerRole: "patient" | "doctor";
   triageSession: {
     id: number;
     chiefComplaint: string;
@@ -70,8 +78,8 @@ interface ConsultationData {
     icdCodes: string | null;
     followUpDate: string | null;
     redFlags: string | null;
+    createdAt: string;
   } | null;
-  googleMeetUrl?: string;
 }
 
 type TabType = "triage" | "chat" | "prescription";
@@ -88,6 +96,46 @@ const RISK_CONFIG = {
   HIGH: { color: "text-red-700", bg: "bg-red-50", badge: "bg-red-100 text-red-700" },
 };
 
+function VideoTile({ stream, label, muted, isSelf, hidden }: { stream: MediaStream | null; label: string; muted?: boolean; isSelf?: boolean; hidden?: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (stream) {
+      el.srcObject = stream;
+    } else {
+      el.srcObject = null;
+    }
+  }, [stream]);
+
+  const hasVideo = !!stream && stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live");
+  const hasAudio = !!stream && stream.getAudioTracks().some((t) => t.enabled);
+
+  return (
+    <div className={`relative rounded-2xl overflow-hidden bg-slate-900 ${hidden ? "hidden" : ""}`}>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={muted}
+        className={`w-full h-full object-cover ${isSelf ? "scale-x-[-1]" : ""}`}
+      />
+      {!hasVideo && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-800 to-slate-900">
+          <div className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center">
+            {hasAudio ? <Mic className="w-6 h-6 text-emerald-400" /> : <VideoOff className="w-6 h-6 text-white/60" />}
+          </div>
+          <p className="text-xs text-white/70">{hasAudio ? "Audio only" : "Camera off"}</p>
+        </div>
+      )}
+      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/50 text-white text-[11px] font-medium backdrop-blur-sm flex items-center gap-1.5">
+        {label}
+        {!hasAudio && <MicOff className="w-3 h-3 text-red-400" />}
+      </div>
+    </div>
+  );
+}
+
 export default function TeleconsultSession() {
   const { id } = useParams<{ id: string }>();
   const consultationId = useMemo(() => {
@@ -101,8 +149,13 @@ export default function TeleconsultSession() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [savingPrescription, setSavingPrescription] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    icdCodes: "",
+    instructions: "",
+    medications: [] as { name: string; dose: string; freq: string }[],
+  });
 
   const fetchData = async () => {
     try {
@@ -110,6 +163,13 @@ export default function TeleconsultSession() {
       if (!res.ok) { navigate("/teleconsult"); return; }
       const d = await res.json();
       setData(d);
+      if (d.prescription) {
+        setPrescriptionForm({
+          icdCodes: d.prescription.icdCodes || "",
+          instructions: d.prescription.instructions || "",
+          medications: d.prescription.medicationsJson ? JSON.parse(d.prescription.medicationsJson) : [],
+        });
+      }
     } catch {
       navigate("/teleconsult");
     } finally {
@@ -117,16 +177,85 @@ export default function TeleconsultSession() {
     }
   };
 
+  const handleSavePrescription = async () => {
+    setSavingPrescription(true);
+    try {
+      await fetch("/api/tc/prescription/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          consultationId,
+          ...prescriptionForm,
+        }),
+      });
+      toast.success("Prescription saved");
+      await fetchData();
+    } catch {
+      toast.error("Failed to save prescription");
+    } finally {
+      setSavingPrescription(false);
+    }
+  };
+
+  const addMedication = () => {
+    setPrescriptionForm(prev => ({
+      ...prev,
+      medications: [...prev.medications, { name: "", dose: "", freq: "" }],
+    }));
+  };
+
+  const updateMedication = (index: number, field: string, value: string) => {
+    const newMeds = [...prescriptionForm.medications];
+    (newMeds[index] as any)[field] = value;
+    setPrescriptionForm(prev => ({ ...prev, medications: newMeds }));
+  };
+
+  const removeMedication = (index: number) => {
+    setPrescriptionForm(prev => ({
+      ...prev,
+      medications: prev.medications.filter((_, i) => i !== index),
+    }));
+  };
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => { fetchData(); }, [id]);
 
+  // Decide call mode + whether to enable the WebRTC hook.
+  const callMode: CallMode = useMemo(() => {
+    if (!data) return "chat";
+    if (data.consultation.type === "video") return "video";
+    if (data.consultation.type === "audio") return "audio";
+    return "chat";
+  }, [data]);
+  const callEnabled = !!data && data.consultation.status === "in_progress";
+
+  const call = useTeleconsultCall(consultationId, callMode, callEnabled);
+
+  // Combine REST messages with realtime WS chat lines for the chat tab.
   const combinedMessages = useMemo(() => {
-    return (data?.messages ?? []).map((m) => ({
+    if (!data) return [];
+    const rest = (data.messages ?? []).map((m) => ({
       key: `r-${m.id}`,
-      from: m.senderRole === "patient" ? "self" : "remote",
+      from: m.senderRole === data.viewerRole ? "self" : "remote",
       text: m.message,
       ts: new Date(m.createdAt).getTime(),
-    })).sort((a, b) => a.ts - b.ts);
-  }, [data]);
+    }));
+    const live = call.chatLines
+      .filter((l) => {
+        return !rest.some(
+          (r) => r.from === l.from && r.text === l.text && Math.abs(r.ts - l.ts) < 15_000,
+        );
+      })
+      .map((l, i) => ({
+        key: `l-${l.ts}-${i}`,
+        from: l.from,
+        text: l.text,
+        ts: l.ts,
+      }));
+    return [...rest, ...live].sort((a, b) => a.ts - b.ts);
+  }, [data?.messages, data?.viewerRole, call.chatLines]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -144,6 +273,7 @@ export default function TeleconsultSession() {
 
   const handleClose = async () => {
     if (!confirm("Mark this consultation as completed?")) return;
+    call.endCall();
     await fetch(`/api/tc/consultation/${id}/close`, {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -157,6 +287,9 @@ export default function TeleconsultSession() {
     if (!text) return;
     setSending(true);
     try {
+      // 1) Live broadcast over WS so the other peer sees it instantly.
+      if (callEnabled) call.sendChat(text);
+      // 2) Persist to DB so it survives reload.
       await fetch("/api/tc/message", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -198,6 +331,27 @@ export default function TeleconsultSession() {
     : [];
 
   const isMediaCall = consultation.type === "video" || consultation.type === "audio";
+  const callStatusLabel = (() => {
+    switch (call.status) {
+      case "requesting-media": return "Requesting camera & microphone…";
+      case "media-error": return call.errorMessage ?? "Media access denied";
+      case "connecting": return "Connecting to signaling…";
+      case "waiting-peer": return "Waiting for the other party to join…";
+      case "in-call": return "Live";
+      case "ended": return "Call ended";
+      case "error": return call.errorMessage ?? "Connection error";
+      default: return "";
+    }
+  })();
+  const callStatusColor = (() => {
+    switch (call.status) {
+      case "in-call": return "text-green-400";
+      case "media-error":
+      case "error": return "text-red-400";
+      case "waiting-peer": return "text-amber-400";
+      default: return "text-white/70";
+    }
+  })();
 
   return (
     <Layout>
@@ -299,6 +453,29 @@ export default function TeleconsultSession() {
                     </ul>
                   </div>
                 )}
+                {triageParsed.redFlags?.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-red-100/60 p-2">
+                    <p className="text-xs font-semibold text-red-700 flex items-center gap-1 mb-1">
+                      <AlertTriangle className="w-3 h-3" /> Red Flags
+                    </p>
+                    {triageParsed.redFlags.map((f: string, i: number) => (
+                      <p key={i} className="text-xs text-red-600">• {f}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Share-link card during a live call so a 2nd browser tab can join as the doctor (demo). */}
+            {isMediaCall && consultation.status === "in_progress" && (
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-1.5">Connect another device</p>
+                <p className="text-xs text-emerald-700/80 leading-relaxed mb-3">
+                  Open this same URL in a second browser tab or device (signed in as you) — the two will connect over a real peer-to-peer call so you can verify video & audio end-to-end.
+                </p>
+                <Button size="sm" variant="outline" onClick={handleCopyLink} className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-100">
+                  {linkCopied ? <><Check className="w-3.5 h-3.5 mr-1.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5 mr-1.5" /> Copy session link</>}
+                </Button>
               </div>
             )}
           </div>
@@ -327,74 +504,119 @@ export default function TeleconsultSession() {
               ))}
             </div>
 
-            {/* Live call area — focusing on Google Meet */}
+            {/* Live call area — only when type is video/audio AND triage tab is open */}
             {isMediaCall && activeTab === "triage" && (
-              <div className="rounded-2xl bg-slate-900 mb-4 overflow-hidden border border-slate-800 shadow-2xl shadow-black/40">
+              <div className="rounded-2xl bg-slate-900 mb-4 overflow-hidden">
                 {consultation.status === "booked" && (
-                  <div className="aspect-video flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-slate-800 to-slate-900 px-6 text-center">
-                    <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mb-2">
-                      <Video className="w-8 h-8 text-white/30" />
-                    </div>
+                  <div className="aspect-video flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-800 to-slate-900 px-6 text-center">
+                    {consultation.type === "video" ? <Video className="w-10 h-10 text-white/40" /> : <Headphones className="w-10 h-10 text-white/40" />}
                     <div>
-                      <p className="text-white/80 font-semibold text-lg">Consultation Not Started</p>
-                      <p className="text-white/40 text-sm mt-2 max-w-xs mx-auto">
-                        Once the doctor starts the session, you will be able to join via Google Meet.
-                      </p>
+                      <p className="text-white/80 font-medium text-sm">Session not started</p>
+                      <p className="text-white/40 text-xs mt-1">Click "Start Session" above to request camera & microphone</p>
                     </div>
                   </div>
                 )}
 
                 {consultation.status === "completed" && (
                   <div className="aspect-video flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-slate-800 to-slate-900 px-6 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-2 border border-emerald-500/20">
-                      <ClipboardList className="w-8 h-8 text-emerald-400" />
-                    </div>
-                    <p className="text-white/80 font-bold text-xl">Consultation Completed</p>
-                    <p className="text-white/40 text-sm max-w-xs">
-                      This session has ended. Review the diagnosis and summary in the sidebar.
-                    </p>
+                    <Video className="w-10 h-10 text-white/40" />
+                    <p className="text-white/80 font-medium text-sm">Session ended</p>
                   </div>
                 )}
 
                 {consultation.status === "in_progress" && (
-                  <div className="aspect-video flex flex-col items-center justify-center gap-6 bg-gradient-to-br from-slate-800 to-slate-950 px-8 text-center relative overflow-hidden">
-                    {data.googleMeetUrl ? (
-                      <>
-                        <div className="w-24 h-24 rounded-3xl bg-primary/20 flex items-center justify-center relative z-10">
-                          <Video className="w-12 h-12 text-primary" />
-                          <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-slate-900 flex items-center justify-center">
-                             <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                          </div>
+                  <>
+                    {/* Video grid: large remote tile + small self-view */}
+                    <div className="relative aspect-video bg-black">
+                      {call.remotePeers.length === 0 ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                          {call.status === "media-error" ? (
+                            <>
+                              <AlertTriangle className="w-10 h-10 text-red-400" />
+                              <p className="text-red-300 font-medium text-sm">Cannot access camera or microphone</p>
+                              <p className="text-white/50 text-xs max-w-md">{call.errorMessage}</p>
+                              <p className="text-white/40 text-[11px]">
+                                Grant permission in your browser's address bar, then reload this page.
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              {call.status === "in-call" || call.status === "waiting-peer" ? (
+                                <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                  <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                                </div>
+                              ) : (
+                                <Loader2 className="w-10 h-10 text-white/40 animate-spin" />
+                              )}
+                              <p className={`font-medium text-sm ${callStatusColor}`}>{callStatusLabel}</p>
+                              {call.status === "waiting-peer" && (
+                                <p className="text-white/40 text-xs max-w-sm">
+                                  Once the other party joins, their video and audio will appear here.
+                                </p>
+                              )}
+                            </>
+                          )}
                         </div>
-                        <div className="relative z-10">
-                          <h3 className="text-white font-bold text-2xl mb-2">Google Meet Ready</h3>
-                          <p className="text-white/50 text-sm max-w-sm mx-auto mb-8">
-                            Your secure consultation is being hosted on Google Meet. Click below to launch the video call.
-                          </p>
-                          <Button
-                            size="lg"
-                            onClick={() => window.open(data.googleMeetUrl, "_blank")}
-                            className="bg-primary hover:bg-primary/90 text-white px-10 py-7 text-xl font-bold shadow-2xl shadow-primary/30 rounded-2xl hover:scale-[1.02] transition-all"
-                          >
-                            <Video className="w-7 h-7 mr-3" /> Join Now
-                          </Button>
+                      ) : (
+                        <VideoTile
+                          stream={call.remotePeers[0]?.stream ?? null}
+                          label={doctor?.name ?? "Other party"}
+                          muted={false}
+                        />
+                      )}
+
+                      {/* Picture-in-picture self view */}
+                      {consultation.type === "video" && call.localStream && (
+                        <div className="absolute bottom-3 right-3 w-32 h-24 sm:w-40 sm:h-28 rounded-xl overflow-hidden border-2 border-white/30 shadow-xl">
+                          <VideoTile stream={call.localStream} label="You" muted isSelf />
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-20 h-20 rounded-3xl bg-amber-500/10 flex items-center justify-center relative z-10 border border-amber-500/20">
-                          <AlertTriangle className="w-10 h-10 text-amber-400" />
+                      )}
+
+                      {/* Live badge */}
+                      {call.status === "in-call" && (
+                        <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2 py-1 bg-red-600 rounded-md">
+                          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                          <span className="text-white text-[11px] font-bold uppercase tracking-wide">Live</span>
                         </div>
-                        <div className="relative z-10">
-                          <h3 className="text-white font-bold text-xl mb-2">Connecting...</h3>
-                          <p className="text-white/50 text-sm max-w-sm mx-auto mb-4">
-                            Waiting for the doctor to generate the meeting link. This usually takes a few seconds.
-                          </p>
-                          <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
-                        </div>
-                      </>
-                    )}
-                  </div>
+                      )}
+                    </div>
+
+                    {/* Call controls */}
+                    <div className="flex items-center justify-center gap-3 py-3 bg-slate-950">
+                      <button
+                        onClick={call.toggleMic}
+                        disabled={!call.localStream}
+                        className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+                          call.micEnabled ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-red-600 hover:bg-red-500 text-white"
+                        } disabled:opacity-40 disabled:cursor-not-allowed`}
+                        aria-label={call.micEnabled ? "Mute microphone" : "Unmute microphone"}
+                        title={call.micEnabled ? "Mute microphone" : "Unmute microphone"}
+                      >
+                        {call.micEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                      </button>
+                      {consultation.type === "video" && (
+                        <button
+                          onClick={call.toggleCam}
+                          disabled={!call.localStream}
+                          className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+                            call.camEnabled ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-red-600 hover:bg-red-500 text-white"
+                          } disabled:opacity-40 disabled:cursor-not-allowed`}
+                          aria-label={call.camEnabled ? "Turn camera off" : "Turn camera on"}
+                          title={call.camEnabled ? "Turn camera off" : "Turn camera on"}
+                        >
+                          {call.camEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleClose}
+                        className="w-11 h-11 rounded-full flex items-center justify-center bg-red-600 hover:bg-red-500 text-white transition-colors"
+                        aria-label="End call"
+                        title="End call"
+                      >
+                        <PhoneOff className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -406,6 +628,20 @@ export default function TeleconsultSession() {
                 <p className="text-sm text-slate-600 mb-4">
                   {consultation.chiefComplaint ?? triageSession?.chiefComplaint ?? "Not specified"}
                 </p>
+                {!triageSession && (
+                  <div className="rounded-xl bg-violet-50 border border-violet-100 p-4 flex gap-3">
+                    <Brain className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold text-violet-700 mb-1">No AI Triage on file</p>
+                      <p className="text-xs text-violet-600">
+                        Running Yukti triage before your consultation helps your doctor prepare better.
+                      </p>
+                      <Button size="sm" variant="link" className="text-violet-700 p-0 h-auto mt-1 text-xs" onClick={() => navigate("/teleconsult/triage")}>
+                        Run triage now <ChevronRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -459,6 +695,177 @@ export default function TeleconsultSession() {
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {activeTab === "prescription" && (
+              <div className="space-y-6">
+                {data.viewerRole === "doctor" && (
+                  <Card className="border-emerald-100 shadow-sm">
+                    <CardHeader className="pb-3 bg-emerald-50/30">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2 text-emerald-800 uppercase tracking-wider">
+                        <Stethoscope className="w-4 h-4" />
+                        Clinical Prescription Pad
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5 space-y-5">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Diagnosis / ICD-10 Code</label>
+                        <Input 
+                          value={prescriptionForm.icdCodes} 
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrescriptionForm({...prescriptionForm, icdCodes: e.target.value})}
+                          placeholder="e.g. J00 - Acute nasopharyngitis"
+                          className="bg-slate-50/50 border-slate-200"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Medications</label>
+                          <Button size="sm" variant="outline" onClick={addMedication} className="h-7 text-[10px] border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold">
+                            + ADD MEDICATION
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {prescriptionForm.medications.length === 0 && (
+                            <div className="text-center py-6 border-2 border-dashed rounded-xl text-xs text-slate-400 bg-slate-50/50">
+                              No medications added
+                            </div>
+                          )}
+                          {prescriptionForm.medications.map((med, idx) => (
+                            <div key={idx} className="flex gap-2 items-end border border-slate-100 p-3 rounded-xl bg-white shadow-sm">
+                              <div className="flex-1 space-y-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase">Medicine</label>
+                                <Input 
+                                  value={med.name} 
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMedication(idx, "name", e.target.value)}
+                                  placeholder="e.g. Paracetamol 500mg"
+                                  className="h-8 text-xs bg-slate-50/30"
+                                />
+                              </div>
+                              <div className="w-20 space-y-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase">Dose</label>
+                                <Input 
+                                  value={med.dose} 
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMedication(idx, "dose", e.target.value)}
+                                  placeholder="1-0-1"
+                                  className="h-8 text-xs bg-slate-50/30"
+                                />
+                              </div>
+                              <div className="w-20 space-y-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase">Days</label>
+                                <Input 
+                                  value={med.freq} 
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateMedication(idx, "freq", e.target.value)}
+                                  placeholder="5 days"
+                                  className="h-8 text-xs bg-slate-50/30"
+                                />
+                              </div>
+                              <Button size="sm" variant="ghost" onClick={() => removeMedication(idx)} className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50">
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Clinical Advice</label>
+                        <Textarea 
+                          value={prescriptionForm.instructions} 
+                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrescriptionForm({...prescriptionForm, instructions: e.target.value})}
+                          placeholder="Advice on lifestyle, follow-up, or red flags..."
+                          className="min-h-[100px] text-xs bg-slate-50/50 border-slate-200"
+                        />
+                      </div>
+                      <Button 
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 shadow-lg shadow-emerald-600/20" 
+                        onClick={handleSavePrescription} 
+                        disabled={savingPrescription}
+                      >
+                        {savingPrescription ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> SAVING...</>
+                        ) : (
+                          <><FileText className="w-4 h-4 mr-2" /> FINALIZE PRESCRIPTION</>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {prescription && (
+                  <Card className="border-emerald-100 bg-emerald-50/30 overflow-hidden shadow-sm">
+                    <div className="bg-emerald-600 px-4 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-white">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Signed Prescription</span>
+                      </div>
+                      <span className="text-[9px] text-white/70 font-mono">VERIFIED BY DR. {doctor?.name?.toUpperCase()}</span>
+                    </div>
+                    <CardContent className="p-5 space-y-5">
+                      {prescription.icdCodes && (
+                        <div>
+                          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">Primary Diagnosis</p>
+                          <p className="text-sm font-bold text-slate-900">{prescription.icdCodes}</p>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Prescribed Medications</p>
+                        <div className="bg-white rounded-xl border border-emerald-100 divide-y divide-emerald-50 overflow-hidden shadow-sm">
+                          {medications.map((m, idx) => (
+                            <div key={idx} className="p-3.5 flex items-center justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                                  <Pill className="w-4 h-4 text-emerald-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-slate-900">{m.name}</p>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">{m.freq}</p>
+                                </div>
+                              </div>
+                              <Badge variant="secondary" className="bg-slate-100 text-slate-700 border-slate-200 font-bold text-[10px]">
+                                {m.dose}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {prescription.instructions && (
+                        <div>
+                          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">Doctor's Advice</p>
+                          <div className="bg-white border border-emerald-100 rounded-xl p-3.5 shadow-sm">
+                            <p className="text-xs text-slate-600 leading-relaxed italic">
+                              "{prescription.instructions}"
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="pt-2 flex justify-between items-center">
+                        <div className="text-[10px] text-slate-400 italic">
+                          Generated on {new Date(prescription.createdAt).toLocaleDateString("en-IN")}
+                        </div>
+                        <Button size="sm" variant="outline" className="h-8 text-[11px] gap-2 border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50 font-bold">
+                          <FileText className="w-3.5 h-3.5" /> DOWNLOAD PDF
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!prescription && data.viewerRole === "patient" && (
+                  <div className="text-center py-16 border-2 border-dashed rounded-3xl bg-slate-50/50">
+                    <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                      <ClipboardList className="w-7 h-7 text-slate-200" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800">Prescription Pending</h3>
+                    <p className="text-xs text-slate-500 mt-1.5 max-w-[240px] mx-auto leading-relaxed">
+                      Your doctor is currently reviewing your case. The finalized prescription will appear here shortly.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
