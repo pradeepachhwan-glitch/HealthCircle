@@ -58,7 +58,7 @@ router.get("/tc/ice-servers", requireAuth, async (req, res) => {
     // Primary Global Node
     if (process.env.TURN_SERVER_URL) {
       iceServers.push({
-        urls: process.env.TURN_SERVER_URL,
+        urls: [process.env.TURN_SERVER_URL, ...(process.env.TURN_RELAYS ? process.env.TURN_RELAYS.split(",") : [])],
         username: turnUser,
         credential: turnPass,
       });
