@@ -39,3 +39,4 @@ server.listen(port, (err?: Error) => {
   void ensureHealthCommunities();
   void ensureYuktiBot().catch(err => logger.warn({ err }, "ensureYuktiBot failed (non-fatal)"));
 });
+// Build timestamp: Thu May 14 01:20:18 PM UTC 2026
