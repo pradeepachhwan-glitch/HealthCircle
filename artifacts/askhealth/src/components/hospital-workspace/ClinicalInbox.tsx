@@ -29,7 +29,8 @@ interface Consultation {
   id: number;
   status: "requested" | "scheduled" | "in_progress" | "completed" | "cancelled";
   scheduledAt?: string;
-  patientName?: string; // We'll need to join this in the API
+  patientName?: string; 
+  patientAvatar?: string;
   chiefComplaint?: string;
   googleMeetUrl?: string;
   soapDraft?: {
@@ -72,6 +73,13 @@ export function ClinicalInbox() {
     }
   });
 
+  const handlePrint = async (id: number) => {
+    toast({ title: "Preparing Document", description: "Fetching professional clinical note template..." });
+    // In a real app, this might open a new window with a print-specific route
+    // For this PWA, we'll implement a hidden print template.
+    window.open(`/hospital/consultations/${id}/print`, '_blank');
+  };
+
   if (isLoading) return <div className="p-8 text-center text-slate-500">Loading inbox...</div>;
 
   return (
@@ -108,13 +116,17 @@ export function ClinicalInbox() {
                 )}
               >
                 <Avatar className="w-11 h-11 border-2 border-white shadow-sm shrink-0">
-                  <AvatarFallback className="bg-slate-100 text-slate-600 font-bold text-sm">
-                    {consult.patientName?.[0] || "P"}
-                  </AvatarFallback>
+                  {consult.patientAvatar ? (
+                    <img src={consult.patientAvatar} alt={consult.patientName} className="object-cover" />
+                  ) : (
+                    <AvatarFallback className="bg-slate-100 text-slate-600 font-bold text-sm">
+                      {consult.patientName?.[0] || "P"}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-slate-900 text-[13px] truncate">Patient #{consult.id}</span>
+                    <span className="font-bold text-slate-900 text-[13px] truncate">{consult.patientName || `Patient #${consult.id}`}</span>
                     <span className="text-[9px] font-bold text-slate-400 uppercase">
                       {consult.scheduledAt ? new Date(consult.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "New"}
                     </span>
@@ -142,18 +154,24 @@ export function ClinicalInbox() {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Avatar className="w-11 h-11 border border-slate-100 shadow-sm">
-                    <AvatarFallback className="bg-primary/5 text-primary font-bold">P</AvatarFallback>
+                    {selectedConsult.patientAvatar ? (
+                      <img src={selectedConsult.patientAvatar} alt={selectedConsult.patientName} className="object-cover" />
+                    ) : (
+                      <AvatarFallback className="bg-primary/5 text-primary font-bold">
+                        {selectedConsult.patientName?.[0] || "P"}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-bold text-slate-900 leading-none">Patient #{selectedConsult.id}</h2>
+                    <h2 className="font-bold text-slate-900 leading-none">{selectedConsult.patientName || `Patient #${selectedConsult.id}`}</h2>
                     <Badge variant="outline" className="text-[9px] h-4 font-bold uppercase tracking-wider text-slate-400 border-slate-200">HC-OPS-{selectedConsult.id}</Badge>
                   </div>
                   <div className="flex items-center gap-3 mt-1.5">
                     <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
-                      <Clock className="w-3 h-3" /> Booked 2h ago
+                      <Clock className="w-3 h-3" /> Booked {new Date(selectedConsult.createdAt!).toLocaleTimeString()}
                     </span>
                     <span className="w-1 h-1 bg-slate-200 rounded-full" />
                     <span className="flex items-center gap-1 text-[10px] font-bold text-primary uppercase">
@@ -297,7 +315,7 @@ export function ClinicalInbox() {
                         <Button 
                           variant="outline" 
                           className="flex-1 h-12 font-bold border-slate-200 gap-2"
-                          onClick={() => toast({ title: "Print Initiated", description: "Generating professional clinical note PDF..." })}
+                          onClick={() => handlePrint(selectedConsult.id)}
                         >
                           <Printer className="w-4 h-4" /> Download/Print Note
                         </Button>

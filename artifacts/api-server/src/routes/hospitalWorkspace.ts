@@ -1,21 +1,50 @@
 import { Router, type Request, type Response } from "express";
 import { db, hospitalConsultationsTable, hospitalSettingsTable, hospitalCareTeamTable, usersTable, hospitalsTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { requirePartnerAccess, pstr } from "../lib/auth";
 import { logger } from "../lib/logger";
 import { aiChatJson } from "../lib/aiClient";
 import { z } from "zod/v4";
-import { createMeetEvent } from "../lib/googleCalendar";
+import { createMeetEvent, getAuthUrl } from "../lib/googleCalendar";
 
 const router = Router();
 
 // All routes in this file require either a Medical Professional role OR a Hospital accountType.
 router.use(requirePartnerAccess);
 
-// ---- 1. GOOGLE OAUTH HANDSHAKE (Placeholder for now) ----
+/**
+ * Helper to resolve hospitalId for the current user session.
+ * Supports both direct 'hospital' accounts and 'medical_professional' staff.
+ */
+async function getHospitalId(req: Request): Promise<number | null> {
+  const userId = req.user!.id;
+  
+  if (req.user?.accountType === "hospital") {
+     const [h] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.email, req.user.email)).limit(1);
+     return h?.id || null;
+  } 
+  
+  if (req.user?.role === "medical_professional" || req.user?.role === "admin") {
+     const [ct] = await db.select().from(hospitalCareTeamTable).where(eq(hospitalCareTeamTable.userId, userId)).limit(1);
+     return ct?.hospitalId || null;
+  }
+
+  return null;
+}
+
+// ---- 1. GOOGLE OAUTH HANDSHAKE ----
 router.post("/hospital/google/authorize", async (req: Request, res: Response) => {
-  // Logic to initiate or complete Google OAuth for the hospital workspace
-  res.json({ success: true, message: "Google authorization flow initiated" });
+  try {
+    const authUrl = await getAuthUrl(req.user!.id);
+    if (!authUrl) {
+      res.status(400).json({ error: "Google OAuth configuration missing on server" });
+      return;
+    }
+    res.json({ success: true, url: authUrl });
+  } catch (err) {
+    logger.error({ err }, "Google authorize failed");
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ---- 2. CREATE/SCHEDULE CONSULTATION ----
@@ -34,24 +63,20 @@ router.post("/hospital/consultations", async (req: Request, res: Response) => {
       return;
     }
 
-    let hospitalId: number | undefined;
-    const userId = req.user!.id;
-    
-    if (req.user?.accountType === "hospital") {
-       const [h] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.email, req.user.email)).limit(1);
-       hospitalId = h?.id;
-    } else if (req.user?.role === "medical_professional" || req.user?.role === "admin") {
-       const [ct] = await db.select().from(hospitalCareTeamTable).where(eq(hospitalCareTeamTable.userId, userId)).limit(1);
-       hospitalId = ct?.hospitalId;
-    }
-
+    const hospitalId = await getHospitalId(req);
     if (!hospitalId) {
       res.status(403).json({ error: "User is not associated with a hospital workspace" });
       return;
     }
 
+    const userId = req.user!.id;
     const doctorId = parsed.data.doctorId || userId;
     const [patient] = await db.select().from(usersTable).where(eq(usersTable.id, parsed.data.patientId)).limit(1);
+
+    if (!patient) {
+      res.status(404).json({ error: "Patient not found" });
+      return;
+    }
 
     // Attempt to generate Google Meet link if scheduled
     let googleMeetUrl: string | null = null;
@@ -60,8 +85,8 @@ router.post("/hospital/consultations", async (req: Request, res: Response) => {
     if (parsed.data.scheduledAt) {
       try {
         const meet = await createMeetEvent(userId, {
-          summary: `HealthCircle Consult: Patient #${parsed.data.patientId}`,
-          description: `Teleconsultation scheduled via Hospital Workspace.\nChief Complaint: ${parsed.data.chiefComplaint || 'General'}\nPatient: ${patient?.displayName || 'Unknown'}`,
+          summary: `HealthCircle Consult: ${patient.displayName || 'Patient'}`,
+          description: `Teleconsultation scheduled via Hospital Workspace.\nChief Complaint: ${parsed.data.chiefComplaint || 'General'}\nPatient: ${patient.displayName || 'Unknown'}`,
           startTime: new Date(parsed.data.scheduledAt),
           durationMinutes: 30,
         });
@@ -94,11 +119,15 @@ router.post("/hospital/consultations", async (req: Request, res: Response) => {
 
 // ---- 3. AI SOAP SCRIBE ----
 router.post("/hospital/consultations/:id/scribe", async (req: Request, res: Response) => {
-  const id = pstr(req.params.id);
-  const consultId = parseInt(id);
+  const id = parseInt(pstr(req.params.id));
   
   try {
-    const [consult] = await db.select().from(hospitalConsultationsTable).where(eq(hospitalConsultationsTable.id, consultId)).limit(1);
+    const hospitalId = await getHospitalId(req);
+    const [consult] = await db.select()
+      .from(hospitalConsultationsTable)
+      .where(and(eq(hospitalConsultationsTable.id, id), eq(hospitalConsultationsTable.hospitalId, hospitalId!)))
+      .limit(1);
+
     if (!consult) {
       res.status(404).json({ error: "Consultation not found" });
       return;
@@ -112,7 +141,7 @@ router.post("/hospital/consultations/:id/scribe", async (req: Request, res: Resp
     }
 
     const soap = await aiChatJson<SOAP>({
-      systemPrompt: "You are a professional medical scribe. Generate a structured SOAP note based on the provided clinical notes and patient complaint. Subjective: Patient symptoms and history. Objective: Vital signs and observations. Assessment: Differential diagnosis and clinical reasoning. Plan: Medications, labs, and follow-up.",
+      systemPrompt: "You are a professional medical scribe. Generate a structured SOAP note based on the provided clinical notes and patient complaint. Ensure professional tone. Output ONLY the JSON with subjective, objective, assessment, and plan keys.",
       userPrompt: `Chief Complaint: ${consult.intakeSummary || "Not specified"}
 Clinical Notes: ${consult.notes || "No session notes provided."}
 Vitals: ${consult.vitalsJson ? JSON.stringify(consult.vitalsJson) : "Not recorded"}`,
@@ -127,7 +156,7 @@ Vitals: ${consult.vitalsJson ? JSON.stringify(consult.vitalsJson) : "Not recorde
 
     const [updated] = await db.update(hospitalConsultationsTable)
       .set({ soapDraft: finalSoap, updatedAt: new Date() })
-      .where(eq(hospitalConsultationsTable.id, consultId))
+      .where(eq(hospitalConsultationsTable.id, id))
       .returning();
 
     res.json(updated);
@@ -139,19 +168,23 @@ Vitals: ${consult.vitalsJson ? JSON.stringify(consult.vitalsJson) : "Not recorde
 
 // ---- 4. DOCTOR APPROVAL & SIGNATURE ----
 router.patch("/hospital/consultations/:id/approve", async (req: Request, res: Response) => {
-  const id = pstr(req.params.id);
-  const consultId = parseInt(id);
+  const id = parseInt(pstr(req.params.id));
 
   try {
-    const [consult] = await db.select().from(hospitalConsultationsTable).where(eq(hospitalConsultationsTable.id, consultId)).limit(1);
+    const hospitalId = await getHospitalId(req);
+    const [consult] = await db.select()
+      .from(hospitalConsultationsTable)
+      .where(and(eq(hospitalConsultationsTable.id, id), eq(hospitalConsultationsTable.hospitalId, hospitalId!)))
+      .limit(1);
+
     if (!consult) {
       res.status(404).json({ error: "Consultation not found" });
       return;
     }
 
     // Fetch doctor's signature info
-    const [ct] = await db.select().from(hospitalCareTeamTable).where(eq(hospitalCareTeamTable.userId, consult.doctorId!)).limit(1);
-    const signatureBlock = ct ? `${ct.credentials} - Reg No: ${ct.registrationNumber}` : "Doctor Signature";
+    const [ct] = await db.select().from(hospitalCareTeamTable).where(eq(hospitalCareTeamTable.userId, req.user!.id)).limit(1);
+    const signatureBlock = ct ? `${ct.credentials || "Doctor"} - Reg No: ${ct.registrationNumber || "N/A"}` : "Doctor Signature";
 
     const [updated] = await db.update(hospitalConsultationsTable)
       .set({ 
@@ -161,7 +194,7 @@ router.patch("/hospital/consultations/:id/approve", async (req: Request, res: Re
         signatureBlockUsed: signatureBlock,
         updatedAt: new Date() 
       })
-      .where(eq(hospitalConsultationsTable.id, consultId))
+      .where(eq(hospitalConsultationsTable.id, id))
       .returning();
 
     res.json(updated);
@@ -171,46 +204,78 @@ router.patch("/hospital/consultations/:id/approve", async (req: Request, res: Re
   }
 });
 
-// ---- 5. GENERATE PDF NOTE ----
-router.get("/hospital/consultations/:id/pdf", async (req: Request, res: Response) => {
-  // This will eventually stream a PDF. For now, it returns the data that would be in the PDF.
-  const id = pstr(req.params.id);
-  const consultId = parseInt(id);
+// ---- 5. GET CONSULTATION DATA FOR PDF/PRINT ----
+router.get("/hospital/consultations/:id/pdf-data", async (req: Request, res: Response) => {
+  const id = parseInt(pstr(req.params.id));
 
   try {
-    const [consult] = await db.select().from(hospitalConsultationsTable).where(eq(hospitalConsultationsTable.id, consultId)).limit(1);
-    if (!consult || !consult.isApproved) {
-      res.status(400).json({ error: "Consultation not found or not yet approved" });
+    const hospitalId = await getHospitalId(req);
+    const [consult] = await db.select({
+      consultation: hospitalConsultationsTable,
+      patient: {
+        displayName: usersTable.displayName,
+        email: usersTable.email,
+      },
+      hospital: hospitalsTable,
+      settings: hospitalSettingsTable,
+    })
+    .from(hospitalConsultationsTable)
+    .innerJoin(usersTable, eq(hospitalConsultationsTable.patientId, usersTable.id))
+    .innerJoin(hospitalsTable, eq(hospitalConsultationsTable.hospitalId, hospitalsTable.id))
+    .leftJoin(hospitalSettingsTable, eq(hospitalConsultationsTable.hospitalId, hospitalSettingsTable.hospitalId))
+    .where(and(eq(hospitalConsultationsTable.id, id), eq(hospitalConsultationsTable.hospitalId, hospitalId!)))
+    .limit(1);
+
+    if (!consult) {
+      res.status(404).json({ error: "Consultation not found" });
       return;
     }
 
-    // Mock PDF metadata response
-    res.json({
-      title: "Clinical Consultation Note",
-      hospitalId: consult.hospitalId,
-      date: consult.approvedAt,
-      soap: consult.soapDraft,
-      signature: consult.signatureBlockUsed,
-      message: "PDF Generation Logic Incoming"
-    });
+    res.json(consult);
   } catch (err) {
-    logger.error({ err }, "PDF generation metadata fetch failed");
-    res.status(500).json({ error: "Failed to fetch PDF data" });
+    logger.error({ err }, "Failed to fetch PDF data");
+    res.status(500).json({ error: "Failed to fetch consultation data" });
   }
 });
 
 // ---- EXTRA: LIST CONSULTATIONS (The Inbox Feed) ----
 router.get("/hospital/consultations", async (req: Request, res: Response) => {
   try {
-    // Basic multi-tenant filtering (simplified)
-    const consultations = await db.select().from(hospitalConsultationsTable).orderBy(desc(hospitalConsultationsTable.createdAt));
+    const hospitalId = await getHospitalId(req);
+    if (!hospitalId) {
+      res.status(403).json({ error: "User is not associated with a hospital workspace" });
+      return;
+    }
+
+    const consultations = await db.select({
+      id: hospitalConsultationsTable.id,
+      status: hospitalConsultationsTable.status,
+      scheduledAt: hospitalConsultationsTable.scheduledAt,
+      chiefComplaint: hospitalConsultationsTable.intakeSummary,
+      googleMeetUrl: hospitalConsultationsTable.googleMeetUrl,
+      isApproved: hospitalConsultationsTable.isApproved,
+      createdAt: hospitalConsultationsTable.createdAt,
+      patientName: usersTable.displayName,
+      patientAvatar: usersTable.avatarUrl,
+    })
+    .from(hospitalConsultationsTable)
+    .innerJoin(usersTable, eq(hospitalConsultationsTable.patientId, usersTable.id))
+    .where(eq(hospitalConsultationsTable.hospitalId, hospitalId))
+    .orderBy(desc(hospitalConsultationsTable.createdAt));
+
     res.json(consultations);
   } catch (err) {
+    logger.error({ err }, "Failed to list consultations");
     res.status(500).json({ error: "Failed to fetch consultations" });
   }
 });
 
 // ---- 6. CARE TEAM MANAGEMENT ----
+const addTeamMemberSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["doctor", "nurse", "admin", "front_desk"]),
+});
+
 const updateProfileSchema = z.object({
   specialty: z.string().optional(),
   credentials: z.string().optional(),
@@ -252,20 +317,9 @@ router.patch("/hospital/profile/me", async (req: Request, res: Response) => {
   }
 });
 
-// Admin endpoint: List all care team members
 router.get("/hospital/care-team", async (req: Request, res: Response) => {
   try {
-    let hospitalId: number | undefined;
-    const userId = req.user!.id;
-    
-    if (req.user?.accountType === "hospital") {
-       const [h] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.email, req.user.email)).limit(1);
-       hospitalId = h?.id;
-    } else if (req.user?.role === "medical_professional" || req.user?.role === "admin") {
-       const [ct] = await db.select().from(hospitalCareTeamTable).where(eq(hospitalCareTeamTable.userId, userId)).limit(1);
-       hospitalId = ct?.hospitalId;
-    }
-
+    const hospitalId = await getHospitalId(req);
     if (!hospitalId) {
       res.status(403).json({ error: "User is not associated with a hospital workspace" });
       return;
@@ -296,12 +350,6 @@ router.get("/hospital/care-team", async (req: Request, res: Response) => {
   }
 });
 
-// Admin endpoint: Add/Invite member
-const addTeamMemberSchema = z.object({
-  email: z.string().email(),
-  role: z.enum(["doctor", "nurse", "admin", "front_desk"]),
-});
-
 router.post("/hospital/care-team", async (req: Request, res: Response) => {
   try {
     const parsed = addTeamMemberSchema.safeParse(req.body);
@@ -310,33 +358,27 @@ router.post("/hospital/care-team", async (req: Request, res: Response) => {
       return;
     }
 
-    // Find hospitalId
-    let hospitalId: number | undefined;
-    if (req.user?.accountType === "hospital") {
-       const [h] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.email, req.user.email)).limit(1);
-       hospitalId = h?.id;
-    } else {
-       const [ct] = await db.select().from(hospitalCareTeamTable).where(eq(hospitalCareTeamTable.userId, req.user!.id)).limit(1);
-       if (ct?.role !== "admin") {
-         res.status(403).json({ error: "Only admins can add team members" });
-         return;
-       }
-       hospitalId = ct.hospitalId;
-    }
-
+    const hospitalId = await getHospitalId(req);
     if (!hospitalId) {
       res.status(403).json({ error: "Hospital not found" });
       return;
     }
 
-    // Find user by email
+    // Security check: Only admins or the hospital account itself can add
+    if (req.user?.accountType !== "hospital") {
+       const [ct] = await db.select().from(hospitalCareTeamTable).where(and(eq(hospitalCareTeamTable.userId, req.user!.id), eq(hospitalCareTeamTable.hospitalId, hospitalId))).limit(1);
+       if (ct?.role !== "admin") {
+         res.status(403).json({ error: "Only admins can add team members" });
+         return;
+       }
+    }
+
     const [user] = await db.select().from(usersTable).where(eq(usersTable.email, parsed.data.email)).limit(1);
     if (!user) {
       res.status(404).json({ error: "User not found with this email. They must join HealthCircle first." });
       return;
     }
 
-    // Check if already in team
     const [existing] = await db.select().from(hospitalCareTeamTable)
       .where(and(eq(hospitalCareTeamTable.hospitalId, hospitalId), eq(hospitalCareTeamTable.userId, user.id)))
       .limit(1);
@@ -362,18 +404,19 @@ router.post("/hospital/care-team", async (req: Request, res: Response) => {
 router.delete("/hospital/care-team/:id", async (req: Request, res: Response) => {
   const id = parseInt(pstr(req.params.id));
   try {
-    // Only hospital account or care team admin can delete
-    let hospitalId: number | undefined;
-    if (req.user?.accountType === "hospital") {
-       const [h] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.email, req.user.email)).limit(1);
-       hospitalId = h?.id;
-    } else {
-       const [ct] = await db.select().from(hospitalCareTeamTable).where(eq(hospitalCareTeamTable.userId, req.user!.id)).limit(1);
+    const hospitalId = await getHospitalId(req);
+    if (!hospitalId) {
+      res.status(403).json({ error: "Unauthorized" });
+      return;
+    }
+
+    // Security check: Only admins or the hospital account itself can remove
+    if (req.user?.accountType !== "hospital") {
+       const [ct] = await db.select().from(hospitalCareTeamTable).where(and(eq(hospitalCareTeamTable.userId, req.user!.id), eq(hospitalCareTeamTable.hospitalId, hospitalId))).limit(1);
        if (ct?.role !== "admin") {
          res.status(403).json({ error: "Only admins can remove team members" });
          return;
        }
-       hospitalId = ct.hospitalId;
     }
 
     const [member] = await db.select().from(hospitalCareTeamTable).where(eq(hospitalCareTeamTable.id, id)).limit(1);
@@ -386,6 +429,96 @@ router.delete("/hospital/care-team/:id", async (req: Request, res: Response) => 
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to remove member" });
+  }
+});
+
+// ---- 7. BRANDING & SETTINGS ----
+const updateSettingsSchema = z.object({
+  logoUrl: z.string().optional(),
+  letterheadConfig: z.record(z.any()).optional(),
+  signatureBlockTemplate: z.string().optional(),
+});
+
+router.get("/hospital/settings", async (req: Request, res: Response) => {
+  try {
+    const hospitalId = await getHospitalId(req);
+    const [settings] = await db.select().from(hospitalSettingsTable).where(eq(hospitalSettingsTable.hospitalId, hospitalId!)).limit(1);
+    const [hospital] = await db.select().from(hospitalsTable).where(eq(hospitalsTable.id, hospitalId!)).limit(1);
+    
+    res.json({
+      hospital,
+      settings: settings || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch settings" });
+  }
+});
+
+router.patch("/hospital/settings", async (req: Request, res: Response) => {
+  try {
+    const parsed = updateSettingsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid settings data", details: parsed.error });
+      return;
+    }
+
+    const hospitalId = await getHospitalId(req);
+    const [existing] = await db.select().from(hospitalSettingsTable).where(eq(hospitalSettingsTable.hospitalId, hospitalId!)).limit(1);
+
+    if (existing) {
+      const [updated] = await db.update(hospitalSettingsTable)
+        .set({ ...parsed.data, updatedAt: new Date() })
+        .where(eq(hospitalSettingsTable.hospitalId, hospitalId!))
+        .returning();
+      res.json(updated);
+    } else {
+      const [created] = await db.insert(hospitalSettingsTable).values({
+        hospitalId: hospitalId!,
+        ...parsed.data,
+      }).returning();
+      res.json(created);
+    }
+  } catch (err) {
+    logger.error({ err }, "Failed to update settings");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ---- 8. OPERATIONAL STATS ----
+router.get("/hospital/stats", async (req: Request, res: Response) => {
+  try {
+    const hospitalId = await getHospitalId(req);
+    if (!hospitalId) {
+      res.status(403).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const [consultationsCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(hospitalConsultationsTable)
+      .where(eq(hospitalConsultationsTable.hospitalId, hospitalId));
+
+    const [teamCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(hospitalCareTeamTable)
+      .where(eq(hospitalCareTeamTable.hospitalId, hospitalId));
+
+    const [completedCount] = await db.select({ count: sql<number>`count(*)` })
+      .from(hospitalConsultationsTable)
+      .where(and(eq(hospitalConsultationsTable.hospitalId, hospitalId), eq(hospitalConsultationsTable.status, "completed")));
+
+    res.json({
+      totalAppointments: Number(consultationsCount?.count || 0),
+      activeDoctors: Number(teamCount?.count || 0),
+      completionRate: consultationsCount?.count ? Math.round((Number(completedCount?.count || 0) / Number(consultationsCount.count)) * 100) : 0,
+      revenue: "₹" + (Number(completedCount?.count || 0) * 500).toLocaleString(), 
+      trends: {
+        appointments: "up",
+        growth: "up",
+        completion: "up"
+      }
+    });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch hospital stats");
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

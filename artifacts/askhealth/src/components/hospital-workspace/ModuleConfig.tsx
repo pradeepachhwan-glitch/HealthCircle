@@ -69,6 +69,13 @@ export const HOSPITAL_MODULES: HospitalModule[] = [
     description: "Onboard and manage doctors and medical staff."
   },
   {
+    id: "schedule",
+    title: "Doctor Schedule",
+    icon: <Calendar className="w-4 h-4" />,
+    status: "LIVE",
+    description: "Manage clinical hours and appointment slots."
+  },
+  {
     id: "queue",
     title: "Patient Queue",
     icon: <ListOrdered className="w-4 h-4" />,
@@ -86,7 +93,7 @@ export const HOSPITAL_MODULES: HospitalModule[] = [
     id: "clinical",
     title: "SOAP Notes",
     icon: <FileText className="w-4 h-4" />,
-    status: "PARTIAL",
+    status: "LIVE",
     description: "Clinical documentation and prescription management."
   },
   {

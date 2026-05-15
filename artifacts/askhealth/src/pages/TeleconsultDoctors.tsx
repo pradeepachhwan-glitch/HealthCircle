@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
+import { format } from "date-fns";
 import { Layout } from "@/components/Layout";
+import { SlotPicker } from "@/components/SlotPicker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Star,
-  MapPin,
   Clock,
   Video,
   MessageSquare,
@@ -135,7 +136,7 @@ function DoctorCard({
                 onClick={() => onBook(doctor, type)}
                 className="h-11 px-8 rounded-xl font-bold shadow-lg shadow-primary/20"
               >
-                Book Consult
+                Schedule Appointment
               </Button>
             </div>
           </div>
@@ -148,75 +149,73 @@ function DoctorCard({
 function ConsentModal({
   doctor,
   type,
-  triageId,
-  chiefComplaint,
   onClose,
   onConfirm,
   loading,
 }: {
   doctor: Doctor;
   type: string;
-  triageId: string | null;
-  chiefComplaint: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (slot: Date) => void;
   loading: boolean;
 }) {
   const [consented, setConsented] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-xl">
-            {SPECIALTY_ICONS[doctor.specialty] ?? "🩺"}
-          </div>
-          <div>
-            <h2 className="font-bold text-slate-800">Confirm Booking</h2>
-            <p className="text-xs text-slate-500">{doctor.name} · {doctor.specialty}</p>
-          </div>
-        </div>
-
-        <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-slate-500">Consultation type</span>
-            <span className="font-medium">{type === "video" ? "📹 Video" : "💬 Async Chat"}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Fee</span>
-            <span className="font-bold text-primary">₹{Number(doctor.consultationFee).toLocaleString("en-IN")}</span>
-          </div>
-          {type === "async" && (
-            <div className="flex justify-between">
-              <span className="text-slate-500">Response SLA</span>
-              <span className="font-medium flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400" /> 4 hours
-              </span>
+      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl shadow-inner">
+              {SPECIALTY_ICONS[doctor.specialty] ?? "🩺"}
             </div>
-          )}
+            <div>
+              <h2 className="font-black text-slate-900 text-lg">Book Appointment</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{doctor.name} · {doctor.specialty}</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
+            <Clock className="w-5 h-5 text-slate-300" />
+          </Button>
         </div>
 
-        <label className="flex gap-3 items-start cursor-pointer rounded-xl border border-slate-200 p-4 hover:border-primary/40 transition-colors">
-          <input
-            type="checkbox"
-            checked={consented}
-            onChange={(e) => setConsented(e.target.checked)}
-            className="mt-0.5 accent-primary h-4 w-4 flex-shrink-0"
-          />
-          <span className="text-xs text-slate-600 leading-relaxed">
-            I consent to telemedical consultation and data processing. I understand this is not
-            an emergency service and I should call 108 or visit an A&E for life-threatening conditions.
-          </span>
-        </label>
+        {/* Slot Selection */}
+        <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+           <SlotPicker 
+             doctorId={doctor.id} 
+             onSlotSelect={setSelectedSlot} 
+             selectedSlot={selectedSlot} 
+           />
+        </div>
 
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={onClose} disabled={loading}>
-            Cancel
-          </Button>
-          <Button className="flex-1" disabled={!consented || loading} onClick={onConfirm}>
-            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-            Confirm Booking
-          </Button>
+        <div className="space-y-4">
+          <label className="flex gap-4 items-start cursor-pointer rounded-2xl border border-slate-200 p-4 hover:border-primary/40 transition-all group">
+            <input
+              type="checkbox"
+              checked={consented}
+              onChange={(e) => setConsented(e.target.checked)}
+              className="mt-1 accent-primary h-5 w-5 flex-shrink-0"
+            />
+            <span className="text-xs text-slate-500 font-medium leading-relaxed group-hover:text-slate-700">
+              I consent to telemedical consultation and data processing. I understand this is not
+              an emergency service and I should call 108 or visit an A&E for life-threatening conditions.
+            </span>
+          </label>
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1 h-12 rounded-2xl font-bold border-slate-200" onClick={onClose} disabled={loading}>
+              Cancel
+            </Button>
+            <Button 
+              className="flex-[2] h-12 rounded-2xl font-bold shadow-xl shadow-primary/20" 
+              disabled={!consented || !selectedSlot || loading} 
+              onClick={() => onConfirm(selectedSlot!)}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              {selectedSlot ? `Book for ${format(selectedSlot, "h:mm a")}` : "Select a slot"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -236,7 +235,7 @@ export default function TeleconsultDoctors() {
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState<{ doctor: Doctor; type: string } | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [chiefComplaint, setChiefComplaint] = useState("");
+  const [chiefComplaint] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -249,7 +248,7 @@ export default function TeleconsultDoctors() {
       .finally(() => setLoading(false));
   }, [specialty]);
 
-  const handleConfirmBooking = async () => {
+  const handleConfirmBooking = async (slot: Date) => {
     if (!booking) return;
     setBookingLoading(true);
     try {
@@ -263,6 +262,7 @@ export default function TeleconsultDoctors() {
           type: booking.type,
           chiefComplaint: chiefComplaint || undefined,
           consentGiven: true,
+          scheduledAt: slot.toISOString(),
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Booking failed");
@@ -372,8 +372,6 @@ export default function TeleconsultDoctors() {
         <ConsentModal
           doctor={booking.doctor}
           type={booking.type}
-          triageId={triageId}
-          chiefComplaint={chiefComplaint}
           onClose={() => setBooking(null)}
           onConfirm={handleConfirmBooking}
           loading={bookingLoading}

@@ -7,12 +7,13 @@ import { useAuth } from "@workspace/replit-auth-web";
 import { HospitalStats } from "@/components/HospitalStats";
 import { HospitalDoctors } from "@/components/HospitalDoctors";
 import { HospitalAppointments } from "@/components/HospitalAppointments";
-import { HospitalProfile } from "@/components/HospitalProfile";
 import { HospitalGoogleConnection } from "@/components/HospitalGoogleConnection";
 import { HospitalSidebar } from "@/components/hospital-workspace/HospitalSidebar";
 import { ClinicalInbox } from "@/components/hospital-workspace/ClinicalInbox";
 import { HospitalCareTeamProfile } from "@/components/hospital-workspace/HospitalCareTeamProfile";
 import { HospitalCareTeamList } from "@/components/hospital-workspace/HospitalCareTeamList";
+import { HospitalSettings } from "@/components/hospital-workspace/HospitalSettings";
+import { HospitalAvailability } from "@/components/hospital-workspace/HospitalAvailability";
 import { ModulePlaceholder } from "@/components/hospital-workspace/ModulePlaceholder";
 import { HOSPITAL_MODULES } from "@/components/hospital-workspace/ModuleConfig";
 import { Input } from "@/components/ui/input";
@@ -24,16 +25,17 @@ export default function HospitalDashboard() {
   const renderModuleContent = () => {
     switch (activeModule) {
       case "clinical-inbox":
+      case "clinical":
         return <ClinicalInbox />;
       case "dashboard":
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in duration-500">
             <HospitalStats />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <HospitalAppointments />
               <div className="space-y-6">
                 <HospitalGoogleConnection />
-                <HospitalProfile />
+                <HospitalDoctors />
               </div>
             </div>
           </div>
@@ -42,21 +44,24 @@ export default function HospitalDashboard() {
         return <HospitalAppointments />;
       case "care-team":
         return <HospitalCareTeamList />;
+      case "schedule":
+        return <HospitalAvailability />;
       case "google":
         return <HospitalGoogleConnection />;
       case "branding":
-        return <HospitalProfile />;
+        return <HospitalSettings />;
       case "queue":
-        return <HospitalAppointments />; // Shared logic for now
+        return <HospitalAppointments />; 
       case "follow-up":
-        return <HospitalAppointments />; // Shared logic for now
+        return <HospitalAppointments />; 
       default:
         const module = HOSPITAL_MODULES.find(m => m.id === activeModule);
+        if (!module) return <div className="p-12 text-center text-slate-400">Module not found.</div>;
         return (
           <ModulePlaceholder 
-            title={module?.title || "Module"} 
-            description={module?.description || ""} 
-            isPartial={module?.status === "PARTIAL"}
+            title={module.title} 
+            description={module.description} 
+            isPartial={module.status === "PARTIAL"}
           />
         );
     }

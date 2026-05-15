@@ -727,21 +727,5 @@ export const postReactions = pgTable("post_reactions", {
 			foreignColumns: [users.id],
 			name: "post_reactions_user_id_users_id_fk"
 		}).onDelete("cascade"),
-]);
-
-export const doctorAvailability = pgTable("doctor_availability", {
-	id: serial().primaryKey().notNull(),
-	doctorId: integer("doctor_id").notNull(),
-	dayOfWeek: integer("day_of_week").notNull(), // 0=Sunday, 6=Saturday
-	startTime: text("start_time").notNull(), // HH:mm
-	endTime: text("end_time").notNull(), // HH:mm
-	slotDuration: integer("slot_duration").default(30).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.doctorId],
-			foreignColumns: [doctors.id],
-			name: "doctor_availability_doctor_id_doctors_id_fk"
-		}).onDelete("cascade"),
+	primaryKey({ columns: [table.postId, table.userId], name: "post_reactions_post_id_user_id_pk"}),
 ]);

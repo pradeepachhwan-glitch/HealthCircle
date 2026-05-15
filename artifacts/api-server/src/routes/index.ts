@@ -24,6 +24,7 @@ import doctorApplicationsRouter from "./doctorApplications";
 import publicCommunitiesRouter from "./publicCommunities";
 import notificationsRouter from "./notifications";
 import hospitalWorkspaceRouter from "./hospitalWorkspace";
+import schedulerRouter from "./scheduler";
 
 const router: IRouter = Router();
 
@@ -53,5 +54,6 @@ router.use(doctorApplicationsRouter);
 router.use(publicCommunitiesRouter);
 router.use(notificationsRouter);
 router.use(hospitalWorkspaceRouter);
+router.use(schedulerRouter);
 
 export default router;

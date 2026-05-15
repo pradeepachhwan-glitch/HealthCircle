@@ -26,6 +26,7 @@ export * from "./tc_prescriptions";
 export * from "./tc_messages";
 export * from "./audit_log";
 export * from "./doctor_applications";
+export * from "./doctor_availability";
 export * from "./push_subscriptions";
 export * from "./google_tokens";
 export * from "./hospital_settings";

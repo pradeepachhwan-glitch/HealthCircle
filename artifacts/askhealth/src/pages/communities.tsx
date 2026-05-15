@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useClerk, useAuth } from "@workspace/replit-auth-web";
 import { MessageSquare, Users, Search, CheckCircle, Plus, Crown } from "lucide-react";
+import { UpcomingAppointments } from "@/components/UpcomingAppointments";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
@@ -216,6 +217,7 @@ export default function Communities() {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto px-4 md:px-6 py-8">
+        <UpcomingAppointments />
         {isError && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-4">
             <p className="text-sm text-amber-800">Unable to load communities. Please refresh the page or sign in again.</p>

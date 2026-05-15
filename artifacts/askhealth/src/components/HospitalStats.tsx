@@ -5,22 +5,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function HospitalStats() {
   const { data: stats, isLoading } = useQuery({
-    queryKey: ["hospital-stats"],
+    queryKey: ["/api/hospital/stats"],
     queryFn: async () => {
-      // Mocking for now as there's no dedicated stats endpoint yet
-      // In a real scenario, this would fetch from /api/hospital/stats
-      return {
-        totalAppointments: 124,
-        activeDoctors: 12,
-        patientGrowth: 15.4,
-        completionRate: 98.2,
-        revenue: "₹45,200",
-        trends: {
-          appointments: "up",
-          growth: "up",
-          completion: "up"
-        }
-      };
+      const res = await fetch("/api/hospital/stats");
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
     },
   });
 
